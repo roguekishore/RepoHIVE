@@ -1,0 +1,17 @@
+{
+  "name": "repohive",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RepoHIVE — Repository Hierarchical Indexing & Visualization Engine. Transforms a flat dependency graph into a navigable multi-level hierarchy. (Command names are placeholders.)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "echo \"(placeholder) build all packages\"",
+    "test": "echo \"(placeholder) test all packages\""
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "shadcn": "^4.12.0"
+  }
+}
