@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Sync Docs on Agent Stop",
+  "description": "After an agent finishes a turn, review what was done and update the project documentation if meaningful work occurred.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review what happened in the turn that just ended. If meaningful work occurred (files created/edited/deleted, decisions made, specs written, features built, or scope changes), then: (1) run Get-Date to obtain the REAL system date; (2) update .kiro/PROJECT_STATE.md — adjust Current position / Done / In progress / Next up and add a dated entry to the Decisions log if a decision was made; (3) append a dated entry to .kiro/BRAIN.md (append at the bottom, never edit past entries) capturing What/Why/Decision-Outcome; (4) if any new app, folder, package, or experiment was created, ensure it has a one-line note in PROJECT_STATE and a short README in its own folder. If NOTHING meaningful happened this turn (pure question-answering, reading, or trivial chat), do nothing and say so briefly. Never fabricate progress; record only what actually happened."
+  }
+}
