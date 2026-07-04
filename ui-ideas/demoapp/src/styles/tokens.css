@@ -1,0 +1,120 @@
+/*
+ * Global Design Tokens — the SINGLE source of truth for all visual values.
+ * Components reference these variables only; no hardcoded colors/sizes anywhere.
+ * Layout + palette mirror the reference landing-page structure; content is RepoHIVE's.
+ * Change the brand here and the whole site re-themes.
+ */
+
+:root {
+  /* ---- Core palette ---- */
+  --color-bg: #0a0a0a;               /* page background (near-black) */
+  --color-bg-alt: #0d0d0d;           /* alternating section band */
+  --color-surface: #111111;          /* cards / panels */
+  --color-surface-2: #141414;        /* nested surface */
+  --color-surface-3: #1a1a1a;        /* code blocks / mockups */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* ---- Ink / text ---- */
+  --color-text: #efefef;             /* primary heading ink */
+  --color-text-body: #a3a3a3;        /* body copy */
+  --color-text-muted: #7a7a7a;       /* captions / secondary */
+  --color-text-faint: #555555;       /* faintest labels */
+
+  /* ---- Accent (amber / brand) ---- */
+  --color-accent: #a16215;           /* deep amber (eyebrows, links) */
+  --color-accent-bright: #f59520;    /* bright amber (CTAs, emphasis) */
+  --color-accent-ink: #1a1208;       /* text on accent fills */
+  --color-accent-soft: rgba(245, 149, 32, 0.06);
+  --color-accent-line: rgba(245, 149, 32, 0.35);
+
+  /* ---- Secondary signal colors (from reference visualizations) ---- */
+  --color-sage: #8a9a8a;             /* muted green-grey */
+  --color-green: #34d399;            /* healthy / positive */
+  --color-red: #ef4444;             /* hotspot / risk */
+  --color-violet: #a78bfa;           /* tertiary node accent */
+
+  /* ---- Typography families ---- */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* ---- Font sizes ---- */
+  --fs-eyebrow: 0.75rem;
+  --fs-body-sm: 0.875rem;
+  --fs-body: 1rem;
+  --fs-body-lg: 1.125rem;
+  --fs-h3: 1.25rem;
+  --fs-h2: clamp(2rem, 4vw, 3rem);
+  --fs-h1: clamp(2.75rem, 7vw, 4.5rem);
+  --fs-stat: clamp(2.25rem, 4vw, 3.25rem);
+
+  /* ---- Font weights ---- */
+  --fw-display: 200;                 /* light serif display */
+  --fw-display-em: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---- Line heights & tracking ---- */
+  --lh-tight: 1.05;
+  --lh-heading: 1.15;
+  --lh-body: 1.6;
+  --tracking-eyebrow: 0.18em;
+  --tracking-tight: -0.02em;
+
+  /* ---- Spacing scale ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+  --space-10: 8rem;
+
+  /* ---- Layout ---- */
+  --container-max: 1200px;
+  --container-pad: 1.5rem;
+  --nav-height: 4rem;
+
+  /* ---- Radii ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* ---- Borders & effects ---- */
+  --border-thin: 1px solid var(--color-border);
+  --border-card: 1px solid var(--color-border);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  --glow-accent: radial-gradient(
+    circle at 50% 0%,
+    rgba(245, 149, 32, 0.1),
+    transparent 60%
+  );
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 0.25s;
+
+  /* ---- Aurora atmosphere stops (hero + section glows) ---- */
+  --aurora-amber: 38, 92%, 54%;       /* hsl parts: warm orange */
+  --aurora-gold: 32, 80%, 45%;
+  --aurora-violet: 265, 70%, 60%;     /* magenta-violet pools */
+  --aurora-magenta: 318, 65%, 50%;
+  --aurora-ember: 18, 85%, 42%;       /* deep red-orange */
+  --aurora-blur: 70px;
+  --aurora-opacity: 0.8;
+  --grain-opacity: 0.06;
+
+  /* ---- Depth / glow ---- */
+  --glow-card: 0 0 0 1px var(--color-border), 0 18px 50px -20px rgba(0, 0, 0, 0.8);
+  --glow-accent-soft: 0 0 60px -10px rgba(245, 149, 32, 0.25);
+  --ring-accent: 0 0 0 1px rgba(245, 149, 32, 0.4), 0 0 30px -6px rgba(245, 149, 32, 0.35);
+  --surface-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  --border-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+}
