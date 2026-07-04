@@ -160,3 +160,27 @@
 - **Decision/Outcome:** BRAIN entries now carry full `YYYY-MM-DD HH:mm` timestamps; STATE decision-log
   and diary rows may use date alone. Prior entries left unchanged (append-only).
 - **Next:** Pending git branch reconciliation (parser work uncommitted across main/phase-1-parser).
+
+### 2026-07-04 12:23 — Documented the RepoHIVE commit convention
+- **What:** Expanded `steering/git-workflow.md` with the real commit convention learned from history:
+  product-code types (`feat/fix/test/refactor/chore`) vs the `kiro(...)` meta type (specs, hooks,
+  agents, docs, project-memory). Added scopes list, one-commit-per-task target, and a docs/logs/state
+  commit policy (commit memory files on `main` in their own commits, not on feature branches).
+- **Why:** Owner leans toward a `kiro()` convention and wants a doc the (future) commit hook can
+  reference for best practices. Learned the convention by reading recent git log.
+- **Decision/Outcome:** Convention documented. STILL PENDING (owner to confirm): a commit-assist hook.
+  Recommended a **userTriggered commit-assist** (detect meaningful changes → propose conventional
+  commits → commit on confirmation) over per-task auto-commit, because "run all tasks" is unattended
+  and conflicts with "commit on my confirmation"; also `postTaskExecution` firing-per-task during a
+  batch run is uncertain.
+- **Next:** Owner to confirm the commit-hook approach; then build it referencing git-workflow.md.
+
+### 2026-07-04 12:27 — Created Commit Assist hook (userTriggered)
+- **What:** Added `.kiro/hooks/commit-assist.kiro.hook` — a manually-triggered hook that reads
+  git-workflow.md, inspects uncommitted changes, groups them logically, proposes conventional commit
+  messages (feat/fix/test vs kiro), flags risks, and commits ONLY on user confirmation (never push).
+- **Why:** Owner wants per-task commits but triggers work via unattended "run all tasks"; a
+  user-triggered assistant reconciles "commit granularly" with "commit on my confirmation" and avoids
+  reliance on postTaskExecution firing per-task during a batch.
+- **Decision/Outcome:** Chose userTriggered commit-assist over postTaskExecution auto-commit.
+- **Next:** Owner to decide whether to keep or remove the now-redundant `log-task-completion` hook.

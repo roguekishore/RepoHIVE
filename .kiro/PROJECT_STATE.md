@@ -48,6 +48,10 @@
 
 ## Decisions log (most recent first)
 
+- **2026-07-04** — Added `commit-assist` hook (userTriggered): proposes convention-based commits on
+  confirmation. Chosen over postTaskExecution auto-commit. `log-task-completion` keep/remove: pending.
+- **2026-07-04** — Documented commit convention in `git-workflow.md`: product types
+  (`feat/fix/test/refactor/chore`) vs `kiro(...)` meta type; commit memory/state files on `main`.
 - **2026-07-04** — Logging switched to 24-hour timestamps (`YYYY-MM-DD HH:mm`) across hooks + rules.
 - **2026-07-04** — Expanded `sync-docs-on-stop` hook (v2): PROJECT_STATE + BRAIN auto-updated;
   research-log + project-diary are draft-for-approval only (plagiarism-safe, human-owned artifacts).
