@@ -48,6 +48,9 @@
 
 ## Decisions log (most recent first)
 
+- **2026-07-04** — Logging switched to 24-hour timestamps (`YYYY-MM-DD HH:mm`) across hooks + rules.
+- **2026-07-04** — Expanded `sync-docs-on-stop` hook (v2): PROJECT_STATE + BRAIN auto-updated;
+  research-log + project-diary are draft-for-approval only (plagiarism-safe, human-owned artifacts).
 - **2026-06-22** — Project name finalized: **RepoHIVE** (Repository Hierarchical Indexing &
   Visualization Engine). Replaces the FlowGraph placeholder across all docs. Command names remain TBD.
 - **2026-06-22** — Stack finalized: TS/Node, Tree-Sitter, graphology, Louvain/Leiden, React/React

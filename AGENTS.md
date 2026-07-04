@@ -31,8 +31,9 @@
   in `product.md`). Don't claim "71x" or "better than Sourcegraph overall."
 - **Git:** do NOT run git commands unprompted; it's not yet initialized (see `git-workflow.md`).
 - **Diary/research log:** record only REAL work; never fabricate progress.
-- **Dates:** before writing any date into BRAIN/STATE/diary, get the REAL system date (run `Get-Date`)
-  — never reuse the conversation's start date. Sessions span multiple real days.
+- **Timestamps:** before writing any date/time into BRAIN/STATE/diary, run
+  `Get-Date -Format 'yyyy-MM-dd HH:mm'` for the REAL system date+time (24-hour). Stamp BRAIN entries
+  with the full `YYYY-MM-DD HH:mm`. Never reuse the conversation's start date. Sessions span multiple days.
 - After meaningful work, **update `.kiro/PROJECT_STATE.md`** and **append an entry to `.kiro/BRAIN.md`**.
 - **Document new artifacts when created** — any new app/folder/experiment gets a one-line note in
   PROJECT_STATE (and a README in its folder), so nothing built goes untracked.

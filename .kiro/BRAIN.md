@@ -9,8 +9,9 @@
 >   remove them, even if a decision is later reversed (instead, add a new entry recording the reversal).
 > - Each entry: date, what happened, why, and any decision/outcome. Keep entries terse.
 > - Record only REAL events (work done, decisions made, feedback received) — never speculation.
-> - **Dates must be the real system date** (run `Get-Date` first) — NOT the conversation's start date.
->   A single conversation can span many real days; always verify before stamping.
+> - **Timestamps must be the real system date+time in 24-hour format** — run
+>   `Get-Date -Format 'yyyy-MM-dd HH:mm'` first and stamp each entry with the full `YYYY-MM-DD HH:mm`.
+>   NOT the conversation's start date. A single conversation can span many real days/times; always verify.
 > - This complements, not replaces: `PROJECT_STATE.md` = current snapshot; `PROJECT_PLAN.md` =
 >   decisions + rationale; `BRAIN.md` = the running history of how we got here.
 >
@@ -140,3 +141,22 @@
   task-completion. Caveat: agentStop runs a follow-up doc pass each session; hooks ask an agent (judge
   "was this meaningful?"), so quality depends on prompt-following — more reliable than memory, not infallible.
 - **Next:** Reconcile PROJECT_STATE with parser build files already present (`packages/parser/src/`).
+
+### 2026-07-04 — Expanded sync-docs hook to cover diary + research log
+- **What:** Updated `.kiro/hooks/sync-docs-on-stop.kiro.hook` (v1 → v2) with explicit instructions for
+  all four docs.
+- **Why:** The hooks only touched PROJECT_STATE + BRAIN; diary and research-log were untracked.
+- **Decision/Outcome:** PROJECT_STATE + BRAIN remain AUTO-updated. research-log and project-diary are
+  now DRAFT-FOR-APPROVAL only (never silently written): research-log drafted in the owner's own voice +
+  paraphrased (0%-plagiarism protection); diary drafted at most once per real work day with a
+  duplicate-row check and no backfilling empty days. Rationale: these two are academic, human-owned,
+  plagiarism-sensitive artifacts.
+- **Next:** Pending — reconcile git branches (parser work still uncommitted on main vs phase-1-parser).
+
+### 2026-07-04 11:45 — Switched logging to 24-hour timestamps
+- **What:** Updated `sync-docs-on-stop` and `log-task-completion` hooks, plus the BRAIN and AGENTS
+  rules, to stamp entries with real date+time in 24-hour format via `Get-Date -Format 'yyyy-MM-dd HH:mm'`.
+- **Why:** Owner wants time-of-day logging (24-hour) on entries going forward, not just the date.
+- **Decision/Outcome:** BRAIN entries now carry full `YYYY-MM-DD HH:mm` timestamps; STATE decision-log
+  and diary rows may use date alone. Prior entries left unchanged (append-only).
+- **Next:** Pending git branch reconciliation (parser work uncommitted across main/phase-1-parser).
