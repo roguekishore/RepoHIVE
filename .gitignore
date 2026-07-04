@@ -53,3 +53,6 @@ __pycache__/
 # Example repos
 fixtures/vantage
 fixtures/sample-java-project
+
+# Kiro
+.kiro/settings
