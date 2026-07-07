@@ -7,10 +7,13 @@
 
 ## Current position
 
-- **Phase:** Project setup / backbone (pre-code).
-- **Next review:** First Review — **03.07.2026** — deliverable: **parser** (`parse` → `graph.json`).
-- **Next action:** Create the `dependency-graph-parser` spec (requirements → design → tasks), then
-  scaffold `packages/shared` (the JSON contract types) and `packages/parser`.
+- **Phase:** Review 2 — core grouping algorithm (not yet started; `packages/core` is empty).
+- **Recently done:** Review 1 parser complete (`packages/shared` + `packages/parser` → `graph.json`,
+  102 tests) per BRAIN 2026-07-01. This session (2026-07-06): stood up the **Basic Memory
+  task-documentation + memory system** in `.kiro/` (see Done).
+- **Next review:** Second Review — **15.07.2026** — deliverable: **algorithm** (`group` → `index/`).
+- **Next action:** Write `hierarchical-repository-grouping/tasks.md` (currently empty), then implement
+  `packages/core` (adaptive preserve-vs-reconstruct grouping → `index/`).
 
 ---
 
@@ -24,10 +27,20 @@
       competitive-landscape, roadmap, review-timeline, git-workflow.
 - [x] State ledger, AGENTS.md, doc seeds, root config, folder spine created.
 - [x] Existing core spec: Graphify → RepoHIVE rename.
+- [x] **Review 1 parser complete** (`packages/shared` + `packages/parser`; Tree-Sitter Java →
+      `graph.json`; determinism harness; 102 tests) — per BRAIN 2026-07-01.
+- [x] **Basic Memory task-documentation + memory system** set up in `.kiro/` (2026-07-06):
+      `steering/task-workflow.md`; skills `task-researcher` + `handoff-generator` (`.kiro/skills/`);
+      CLI agents `.kiro/agents/{task-researcher,handoff-generator}.json`; SessionStart hook
+      `load-memory-on-start.json`. Backed by the external `personal` vault (`D:\Vaults\personal-brain`).
 
 ## In progress
 
-- (nothing yet — backbone just laid)
+- Review 2 (core algorithm): `hierarchical-repository-grouping` spec has requirements + design;
+  `tasks.md` is empty and `packages/core` is unbuilt.
+- **Awaiting owner:** (1) paste `basic-memory` into `.kiro/settings/mcp.json` (agent write-blocked) +
+  reload window; (2) optional: simplify the contract's agile item_types/phases to a lighter academic
+  set (the de-tracker/de-Zoho pass itself is done); (3) optional: hide `templates/` from the Obsidian graph.
 
 ## Next up (Review 1 — Parser)
 
@@ -48,6 +61,23 @@
 
 ## Decisions log (most recent first)
 
+- **2026-07-07** — Completed the Task-10 de-tracker adaptation: full de-Zoho/DE-Ixxxx pass on the vault
+  templates (rewrote task-record/adr/test-matrix/work-item-format; renamed `zoho-handoff.md` →
+  `handoff.md`; fixed the `00-index` link; contract `format_version` 1→2). Kept the delivery structure,
+  de-branded it; vault + `.kiro/` verified free of zoho/DE-Ixxxx/sprint. Open: optionally simplify the
+  agile item_types/phases to a lighter academic set.
+- **2026-07-06** — Scope clarification: **RepoHIVE has no "sprint" concept, ever.** Removed all sprint
+  references from the Basic Memory vault templates (`task-record.md`: dropped `sprint:` frontmatter,
+  "sprint item" → "work item", `[[Epic or Sprint]]` → `[[Parent work item]]`; `work-item-format.md`:
+  "Zoho Sprints tree" → "delivery tree"). The `.kiro/` machinery I created never used sprints.
+  Remaining Zoho/DE-Ixxxx tracker language in the templates is left pending the Task-10 keep-vs-adapt call.
+- **2026-07-06** — Replicated the AI task-documentation + memory system (from a company repo) into
+  RepoHIVE's `.kiro/`, adapted to this project: steering `task-workflow.md`, skills
+  `task-researcher`/`handoff-generator`, CLI agents (JSON, 7-key shape), and a SessionStart
+  `load-memory-on-start` hook over the external Basic Memory `personal` vault. Additive to (not a
+  replacement for) PROJECT_STATE/BRAIN/diary/research-log. Vault contract `work-item-format.md` left
+  Zoho-flavored pending an owner keep-vs-adapt decision; `.kiro/settings/mcp.json` edit deferred to
+  the owner (agent write-blocked).
 - **2026-07-04** — Added `commit-assist` hook (userTriggered): proposes convention-based commits on
   confirmation. Chosen over postTaskExecution auto-commit. `log-task-completion` keep/remove: pending.
 - **2026-07-04** — Documented commit convention in `git-workflow.md`: product types

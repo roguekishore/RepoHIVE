@@ -184,3 +184,42 @@
   reliance on postTaskExecution firing per-task during a batch.
 - **Decision/Outcome:** Chose userTriggered commit-assist over postTaskExecution auto-commit.
 - **Next:** Owner to decide whether to keep or remove the now-redundant `log-task-completion` hook.
+
+### 2026-07-06 23:28 — Basic Memory task-documentation + memory system replicated in `.kiro/`
+- **What:** Executed a self-contained handoff prompt to stand up the task-documentation + memory
+  system (first built in a company repo) here in RepoHIVE, adapted to this project. Created:
+  `.kiro/steering/task-workflow.md` (inclusion: always); skills
+  `.kiro/skills/task-researcher/SKILL.md` (its `## Repo architecture` section rewritten for RepoHIVE's
+  TS/Node monorepo — shared/parser/core/cli/web, no DB) and `.kiro/skills/handoff-generator/SKILL.md`;
+  CLI agents `.kiro/agents/{task-researcher,handoff-generator}.json` (exact 7-key shape,
+  model=claude-sonnet-4, JSON validated); and a SessionStart hook
+  `.kiro/hooks/load-memory-on-start.json` (runs `bm tool recent-activity --project personal`).
+  Synced the external `personal` vault (`D:\Vaults\personal-brain`) by briefly starting/stopping
+  `bm mcp --project personal` → `bm status` now "No changes" (embedding model already cached).
+- **Why:** Add per-task narrative + durable-knowledge capture (Basic Memory, browsed in Obsidian)
+  alongside RepoHIVE's existing academic memory. Vault is separate from the `desk365` company vault.
+- **Decision/Outcome:** System is ADDITIVE, not a replacement for PROJECT_STATE/BRAIN/diary/research-log.
+  Two items left for the owner: (1) `.kiro/settings/mcp.json` is write-protected for the agent, so the
+  owner must paste the `basic-memory` MCP entry and reload the window; (2) the vault's Zoho-flavored
+  `work-item-format.md` contract was deliberately NOT edited — owner to choose keep-as-is vs adapt to an
+  academic review-driven shape. Agents are CLI-only (IDE path is skills). Obsidian Dataview plugin
+  needed for the vault boards.
+- **Next:** Owner pastes the MCP config + picks the contract option; then dry-run "start task &lt;id&gt;".
+
+### 2026-07-07 00:35 — Purged all tracker vocabulary (sprints + Zoho) from the vault templates
+- **What:** Owner clarified RepoHIVE has NO sprint concept, ever; then (seeing leftover `zoho-handoff`
+  and `DE-Ixxxx` nodes in the Obsidian graph) asked to remove the remaining tracker references too.
+  Two passes on the `personal` vault templates: (1) removed all "sprint" wording; (2) full
+  de-Zoho/de-DE-Ixxxx pass — rewrote `task-record.md`, `adr.md`, `test-matrix.md`,
+  `work-item-format.md` (stripped Zoho/DE-Ixxxx, generic `<id>` placeholders, `format_version` 1→2),
+  renamed `zoho-handoff.md` → `handoff.md` (old deleted), fixed the `00-index` link. Verified zero
+  `zoho`/`DE-Ixxxx`/`sprint` matches remain in the vault or in `.kiro/`. Re-synced Basic Memory (No changes).
+- **Why:** RepoHIVE is academic/review-driven with no external tracker; the vault templates were
+  inherited Zoho/agile-flavored and polluted the graph. This completes the Task-10 "adapt the contract" work.
+- **Decision/Outcome:** Kept the delivery structure (item_types epic/story/task/bug + 6 phases) but
+  de-branded it. Two generic placeholder ghost nodes remain (`<task-record>`, `<parent record>`) —
+  inherent to templates; recommended hiding `templates/` via the Obsidian graph filter `-path:templates`.
+  Offered the owner the option to also drop the agile item-types/heavier phases for a lighter academic set.
+  (Native fs tools work on the external vault for edit/create/read, but delete does not — used PowerShell to delete.)
+- **Next:** Owner to (a) paste the `basic-memory` mcp.json entry + reload; (b) decide on item-types/phases
+  simplification; (c) optional graph-filter tweak. Then the memory system is ready for a first "start task" dry run.
