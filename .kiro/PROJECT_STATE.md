@@ -10,11 +10,16 @@
 - **Phase:** Review 2 — core grouping algorithm (not yet started; `packages/core` is empty).
 - **Recently done:** Review 1 parser complete (`packages/shared` + `packages/parser` → `graph.json`,
   102 tests) per BRAIN 2026-07-01. Earlier (2026-07-06): stood up the **Basic Memory
-  task-documentation + memory system** in `.kiro/`. Latest (2026-07-07): fixed the memory-MCP binding
+  task-documentation + memory system** in `.kiro/`. (2026-07-07 11:xx): fixed the memory-MCP binding
   and recorded the full decision history to the `personal` vault (17 ADRs + 14 knowledge notes).
+  Latest (2026-07-07 13:20): re-verified the Review 1 parser end-to-end (build + 102 tests + both
+  demo scripts) and wrote `docs/1st/review-1-demo-guide.md` for the Review 1 presentation.
 - **Next review:** Second Review — **15.07.2026** — deliverable: **algorithm** (`group` → `index/`).
-- **Next action:** Write `hierarchical-repository-grouping/tasks.md` (currently empty), then implement
-  `packages/core` (adaptive preserve-vs-reconstruct grouping → `index/`).
+- **Next action:** **Owner will perform the `phase-1-parser` → `main` merge, `review-1` tag, and
+  `phase-2-core` branch themselves** (git milestone ops are owner-driven — an agent-run merge was
+  reverted 2026-07-07 14:01; nothing was pushed). Parser confirmed solid for Review 2. Then write
+  `hierarchical-repository-grouping/tasks.md` (currently empty) and implement `packages/core`
+  (adaptive preserve-vs-reconstruct grouping → `index/`).
 
 ---
 
@@ -37,6 +42,12 @@
 - [x] **Decision history recorded to the `personal` vault** (2026-07-07): 17 ADRs + 14 knowledge notes
       written via the basic-memory MCP (after binding it to `personal`). A prior session's notes were
       never persisted, so the set was regenerated from PROJECT_PLAN + BRAIN + steering.
+- [x] **Review 1 parser re-verified end-to-end** (2026-07-07): `npm run build` clean;
+      `npm test --workspace @repohive/parser` → 102/102 passing; `npm run parse` against
+      `fixtures/sample-java-project` (29 nodes/5 edges) and `fixtures/vantage` (803 nodes/128 edges);
+      `demo:determinism` → identical SHA-256 across 3 runs. Wrote
+      `docs/1st/review-1-demo-guide.md` (commands + real captured output) for the Review 1
+      demonstration, plus `docs/1st/README.md`.
 
 ## In progress
 
@@ -60,13 +71,34 @@
 - **Parser produces the graph that the core algorithm consumes** — must target the existing spec's
   exact schema. (Resolved decision; flagged here as a reminder during build.)
 - Frequency signals (import/call/shared-type) start simple; sharpen later.
-- Git not yet initialized (will set up with the user, walking through each step).
 - Final project name **RepoHIVE** locked; command names still TBD (placeholders in use).
+- **Git IS initialized** (13+ commits, `origin` remote, `main` + `phase-1-parser` branches) — the
+  "git not yet initialized" line above and in `steering/git-workflow.md` is stale and should be
+  corrected. Flagged 2026-07-07, not yet fixed.
+- **Review 1 work not merged to `main` / not tagged.** All parser commits live on `phase-1-parser`
+  (pushed to origin); `main` is still pre-parser. Per `git-workflow.md`, review-ready work should
+  merge to `main` and get a `review-1` tag — owner has not yet requested this.
+- **No vault task-record for the parser work** — it was built (2026-07-01) before the Basic Memory
+  system existed (2026-07-06), so it has no `tasks/` narrative/test-matrix, only BRAIN/STATE entries.
+- Project diary team/date placeholder fields (`Team No.: _____`, week date ranges) still unfilled —
+  fine for internal use, needed before physical submission.
 
 ---
 
 ## Decisions log (most recent first)
 
+- **2026-07-07** — Process correction: **git milestone operations (merge to `main`, tags, phase
+  branches) are owner-driven, not agent-driven.** An agent-performed `phase-1-parser` → `main`
+  `--no-ff` merge + `review-1` tag + `phase-2-core` branch (all local, never pushed) was fully
+  reverted at the owner's request — `main` and `phase-1-parser` restored to their `origin` refs,
+  tag and branch deleted, `docs/1st` + memory edits preserved as uncommitted changes. The owner
+  had only asked whether the parser features were solid to proceed (answer: yes), not for the merge.
+- **2026-07-07** — Re-verified the Review 1 parser end-to-end on request (build, 102 tests, both demo
+  scripts, a real third-party repo parse) rather than trusting prior BRAIN entries alone, and produced
+  a Review 1 demonstration guide (`docs/1st/review-1-demo-guide.md`) with real captured command output
+  for use at the 03.07.2026 review. Surfaced but did not act on: unmerged `phase-1-parser` branch (no
+  `main` merge / `review-1` tag yet), a stale "git not initialized" line in steering/STATE, and blank
+  project-diary submission placeholders — left for the owner to decide on.
 - **2026-07-07** — Reworked project-diary handling: the diary is now AUTO-maintained, WEEKLY, and
   IMPLEMENTATION-ONLY (product/engine code + specs only; meta/infrastructure excluded), moving it from
   draft-for-approval to auto — refines ADR-014 (research-log stays the only approval-gated doc).
