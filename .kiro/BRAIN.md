@@ -223,3 +223,37 @@
   (Native fs tools work on the external vault for edit/create/read, but delete does not — used PowerShell to delete.)
 - **Next:** Owner to (a) paste the `basic-memory` mcp.json entry + reload; (b) decide on item-types/phases
   simplification; (c) optional graph-filter tweak. Then the memory system is ready for a first "start task" dry run.
+
+### 2026-07-07 11:15 — Recorded full decision history to the personal vault + fixed memory-MCP binding
+- **What:** Found the `basic-memory` MCP was bound to the company `desk365` project (the user-level
+  config had a stray `--project desk365 personal` arg, so it resolved to desk365), and that a prior
+  session's claimed "28 vault notes" were never actually persisted — the external vault's `decisions/`
+  and `knowledge/` were empty. After the owner added a workspace-level `.kiro/settings/mcp.json` override
+  binding this workspace to `personal` (verified: reports `Project: personal`), recorded RepoHIVE's full
+  decision history into the vault via the MCP: 17 ADRs (`decisions/ADR-001..017`) + 14 knowledge notes
+  (`knowledge/`), all cross-linked with wikilinks and anchored to `RepoHIVE Overview`.
+- **Why:** The earlier vault task was never truly complete, and writing through a desk365-bound MCP would
+  have contaminated the company vault. The raw planning chat is compacted, so notes were reconstructed
+  from the project's own records (PROJECT_PLAN decision log, BRAIN history, steering) — not invented.
+- **Decision/Outcome:** MCP bound to `personal` via a workspace override (keeps `desk365` the global
+  default). 31 notes created. No ADR marked superseded — reversals recorded inline (e.g. ADR-013 folded
+  the reviewer-guide into a self-contained agent). Trivial items (24h-timestamp rule, temporary parse
+  wrapper, cohesion/coupling rationale) folded into knowledge notes, not ADRs.
+- **Next:** Owner to run `bm sync` on the vault to finalize forward-reference wikilinks + permalinks;
+  optionally simplify the vault contract's item_types/phases; then resume the Review 2 `packages/core` build.
+
+### 2026-07-07 11:31 — Reworked project-diary handling (weekly, implementation-only, auto)
+- **What:** Restructured `docs/project-diary.md` into a weekly implementation log (Week | Dates start-end |
+  Implementation work | Supervisor Sign) with placeholder date ranges, seeded Week 1 with the Phase-1
+  parser. Rewrote item 6 of both `sync-docs-on-stop` hook files (`.json` + `.kiro.hook`) so the diary is
+  auto-maintained, weekly, and implementation-only — explicitly excluding meta work (hooks, steering,
+  vault, PROJECT_STATE/BRAIN, git, agent/MCP config, naming). Dropped the old meta "setup" diary row and
+  the planning-only weekly note.
+- **Why:** Owner flagged the diary kept lagging (unlike STATE/BRAIN) and wanted it reviewer-facing,
+  implementation-only, weekly, with owner-fixated week date ranges.
+- **Decision/Outcome:** Diary moved from draft-for-approval to AUTO (refines ADR-014); research-log
+  remains the only approval-gated doc. Modified the existing hook rather than adding a separate one
+  (avoids a second agent pass per turn-end). Both hook files validate (no diagnostics). May need a
+  window reload to load the new hook.
+- **Next:** Owner to fixate the Week-1 date range; optionally confirm keep-diary-auto vs revert to
+  draft-for-approval. Resume Review 2 (`packages/core`) build.

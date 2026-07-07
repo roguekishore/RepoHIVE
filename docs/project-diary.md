@@ -1,7 +1,10 @@
 # Project Diary — RepoHIVE (23CS701 – Project-I)
 
-> Mirrors the official Project Diary format. **Filled from REAL work only** — no fabricated progress.
-> Copy entries from here into the official diary / Word doc as needed.
+> Reviewer-facing record of **project implementation** progress, organized **by week**.
+> Filled from REAL implementation work only — the engine/product (parser, grouping algorithm, viewer,
+> blast radius) and the specs that define those deliverables. **Excludes** meta/infrastructure work
+> (hooks, steering, the memory vault, PROJECT_STATE/BRAIN upkeep, git setup, naming). No fabricated
+> progress. Dates are **week ranges** — fixate the exact start/end dates yourself.
 
 ## Team & supervisor
 
@@ -21,17 +24,8 @@
 
 ---
 
-## Daily report
+## Weekly implementation log
 
-| Sl. No | Date | Description | Supervisor Sign |
-|--------|------|-------------|-----------------|
-| 1 | 2026-06-22 | Project setup: master plan, steering docs, workspace reorganization, repo backbone. | |
-
----
-
-## Weekly progress
-
-### Week of 2026-06-22 — % completion: setup
-- **Points discussed:** Finalized scope, stack (TS/Node, Tree-Sitter, graphology, React Flow, JSON),
-  three-beat review arc, engine-vs-ecosystem split, Graphify positioning.
-- **Supervisor suggestions:** _____
+| Week | Dates (start – end) | Implementation work | Supervisor Sign |
+|------|---------------------|---------------------|-----------------|
+| 1 | _____ – _____ | **Phase-1 Parser (Review 1 deliverable).** Built `packages/shared` (JSON-contract types: `GraphNode`, `DependencyEdge`, `RawDependencyGraph`) and `packages/parser`: Tree-Sitter Java AST extraction of file/class/function nodes, symbol-table construction, cross-file dependency stitching into de-duplicated import edges written to `graph.json`, deterministic content-derived IDs + canonical ordering, a determinism harness (repeated-run SHA-256 check), and a hand-written sample Java fixture. 102 tests passing (property + unit). | |

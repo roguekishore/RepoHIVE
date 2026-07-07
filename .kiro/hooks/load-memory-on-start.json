@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Load personal memory on session start",
+      "trigger": "SessionStart",
+      "description": "Loads recent personal vault activity into context at session start so the agent recalls in-flight tasks, decisions, and knowledge.",
+      "action": {
+        "type": "command",
+        "command": "C:\\Users\\conta\\.local\\bin\\bm.exe tool recent-activity --project personal --timeframe 14d --page-size 8 --type entity",
+        "timeout": 60
+      }
+    }
+  ]
+}
