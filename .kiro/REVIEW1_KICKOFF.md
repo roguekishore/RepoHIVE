@@ -59,11 +59,11 @@ three are approved (spec-driven rule).
 
 ## Summary checklist
 
-- [ ] Create `dependency-graph-parser/requirements.md` → approve
-- [ ] Create `design.md` → approve
-- [ ] Create `tasks.md` → approve
-- [ ] Confirm Node.js installed; place sample Java repo in `fixtures/sample-java-project/`
-- [ ] Execute parser tasks
-- [ ] Prepare the deck (rubric: domain, lit survey, problem, architecture diagram, presentation, communication)
+- [x] Create `dependency-graph-parser/requirements.md` → approve
+- [x] Create `design.md` → approve
+- [x] Create `tasks.md` → approve
+- [x] Confirm Node.js installed; place sample Java repo in `fixtures/sample-java-project/`
+- [x] Execute parser tasks
+- [x] Prepare the deck (rubric: domain, lit survey, problem, architecture diagram, presentation, communication)
 
 > Git setup and branch methodology are intentionally out of scope here — handled in a separate session.
