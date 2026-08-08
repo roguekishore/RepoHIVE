@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+build/
+**/dist/
+**/build/
+*.tsbuildinfo
+
+# Generated engine artifacts
+graph.json
+**/graph.json
+index/
+**/index/
+
+# Tooling and scrap (not part of the project repo)
+tooling/
+archive/
+
+# Local-only notes
+local-notes/
+
+# Build info / compiled config (regenerated)
+*.tsbuildinfo
+**/vite.config.js
+**/vite.config.d.ts
+
+# Environment & secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Python caches (from MCP tooling, if any leak in)
+__pycache__/
+*.pyc
