@@ -45,3 +45,11 @@ Thumbs.db
 # Python caches (from MCP tooling, if any leak in)
 __pycache__/
 *.pyc
+
+# Example repos
+fixtures/vantage
+fixtures/sample-java-project
+fixtures/broadleaf
+
+# Editor and tooling
+.tooling/
