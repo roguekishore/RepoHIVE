@@ -7,9 +7,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/parser",
-    "typecheck": "tsc -b packages/parser",
+    "build": "tsc -b packages/parser packages/core",
+    "typecheck": "tsc -b packages/parser packages/core",
     "parse": "npm run parse --workspace @repohive/parser --",
+    "group": "npm run group --workspace @repohive/core --",
+    "demo:group-determinism": "npm run demo:group-determinism --workspace @repohive/core --",
+    "demo:baselines": "npm run demo:baselines --workspace @repohive/core --",
     "test": "npm run test --workspaces --if-present"
   },
   "license": "MIT",
