@@ -109,7 +109,14 @@ export function assess(model: WeightedModel, config: AssessmentConfig = DEFAULT_
     const incident = intra + cross;
     const coupling = incident > 0 ? cross / incident : 0;
 
-    const degenerate = nodeIds.length < 2 || intraCount === 0;
+    // Strength-aware degenerate rule (Req 3.9): a region is degenerate if it
+    // has fewer than 2 nodes, zero internal edges, OR zero total intra-region
+    // strength.  A subgraph with edges but no weight carries no signal for the
+    // algorithm to use — scoring it normally would yield cohesion 0, coupling
+    // 0, score 0.5, which sits on the default boundary and would cause the
+    // same input to flip between preserve and reconstruct under a tiny boundary
+    // change.  Both conditions are tested independently so either alone suffices.
+    const degenerate = nodeIds.length < 2 || intraCount === 0 || intra <= 0;
     const modularity = partitionModularity;
     const score = degenerate
       ? clamp01(config.degenerateScore)

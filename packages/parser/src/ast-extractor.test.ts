@@ -378,3 +378,183 @@ test("every class/function node references the file and shares its package/dir",
     { numRuns: 50 },
   );
 });
+
+// --------------------------------------------------------------------------
+// Type-use reference extraction (Gap 1a / Fix 21)
+// --------------------------------------------------------------------------
+
+/** Filter references from an extraction result to only type-use kind. */
+function typeUseTargets(result: ExtractionResult): string[] {
+  return result.references
+    .filter((r) => r.kind === "type-use")
+    .map((r) => r.targetName);
+}
+
+test("field declaration type is collected as a type-use reference", async () => {
+  const { result } = await extractSource(
+    "src/com/example/FieldTest.java",
+    `package com.example;
+     class FieldTest {
+       private OtherClass field;
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("OtherClass"), `expected OtherClass in ${targets}`);
+});
+
+test("method return type is collected as a type-use reference", async () => {
+  const { result } = await extractSource(
+    "src/com/example/ReturnTest.java",
+    `package com.example;
+     class ReturnTest {
+       ReturnType doSomething() { return null; }
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("ReturnType"), `expected ReturnType in ${targets}`);
+});
+
+test("method parameter type is collected as a type-use reference", async () => {
+  const { result } = await extractSource(
+    "src/com/example/ParamTest.java",
+    `package com.example;
+     class ParamTest {
+       void doSomething(ParamClass arg) {}
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("ParamClass"), `expected ParamClass in ${targets}`);
+});
+
+test("varargs parameter type is collected; parameter name is not included (Grammar trap 1)", async () => {
+  const { result } = await extractSource(
+    "src/com/example/VarargsTest.java",
+    `package com.example;
+     class VarargsTest {
+       void log(Object... args) {}
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.some((t) => t === "Object"), `expected Object in ${targets}`);
+  // The parameter name 'args' must never appear as a target
+  assert.ok(!targets.includes("args"), `parameter name 'args' must not be a type-use target`);
+});
+
+test("extends type is collected as a type-use reference", async () => {
+  const { result } = await extractSource(
+    "src/com/example/ExtendsTest.java",
+    `package com.example;
+     class ExtendsTest extends BaseClass {}`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("BaseClass"), `expected BaseClass in ${targets}`);
+});
+
+test("implements types are collected as type-use references", async () => {
+  const { result } = await extractSource(
+    "src/com/example/ImplTest.java",
+    `package com.example;
+     class ImplTest implements Runnable, Comparable {}`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("Runnable"), `expected Runnable in ${targets}`);
+  assert.ok(targets.includes("Comparable"), `expected Comparable in ${targets}`);
+});
+
+test("object creation type is collected as a type-use reference", async () => {
+  const { result } = await extractSource(
+    "src/com/example/NewTest.java",
+    `package com.example;
+     class NewTest {
+       void create() { new CreatedClass(); }
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(targets.includes("CreatedClass"), `expected CreatedClass in ${targets}`);
+});
+
+test("scoped type name is taken atomically, not split into fragments (Grammar trap 2)", async () => {
+  const { result } = await extractSource(
+    "src/com/example/ScopedTest.java",
+    `package com.example;
+     class ScopedTest {
+       java.util.List field;
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  // Must include the full qualified name, not fragments 'java', 'util', 'List'
+  assert.ok(targets.includes("java.util.List"), `expected java.util.List in ${targets}`);
+  assert.ok(!targets.includes("java"), `'java' fragment must not appear separately`);
+  assert.ok(!targets.includes("util"), `'util' fragment must not appear separately`);
+});
+
+test("'var' keyword is excluded from type-use references (Grammar trap 3)", async () => {
+  const { result } = await extractSource(
+    "src/com/example/VarTest.java",
+    `package com.example;
+     class VarTest {
+       void method() { var x = new RealClass(); }
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  assert.ok(!targets.includes("var"), `'var' keyword must never be a type-use target`);
+  assert.ok(targets.includes("RealClass"), `expected RealClass in ${targets}`);
+});
+
+test("primitive types produce no type-use references", async () => {
+  const { result } = await extractSource(
+    "src/com/example/PrimTest.java",
+    `package com.example;
+     class PrimTest {
+       int count;
+       boolean flag;
+       void compute(long x, double y) {}
+     }`,
+  );
+  const targets = typeUseTargets(result);
+  for (const prim of ["int", "boolean", "long", "double", "void"]) {
+    assert.ok(!targets.includes(prim), `primitive '${prim}' must not be a type-use target`);
+  }
+});
+
+// Feature: dependency-graph-parser, new correctness property:
+// every emitted edge has at least one non-zero signal (Gap 1a / Fix 21)
+test("every emitted edge has at least one non-zero signal after type-use extraction", async () => {
+  // A file with a field reference — type-use gives sharedTypeCount ≥ 1 even
+  // with no import, so no all-zero-signal edge can be emitted for that pair.
+  const source = `
+package com.example;
+import com.example.Other;
+class SignalTest {
+  Other field;
+  Other doSomething(Other arg) { return null; }
+}`;
+  const { result: r1 } = await extractSource("src/com/example/SignalTest.java", source);
+  // All type-use references from this file should have kind "type-use"
+  const typeUse = r1.references.filter((ref) => ref.kind === "type-use");
+  assert.ok(typeUse.length > 0, "expected at least one type-use reference from the field/param/return");
+  for (const ref of typeUse) {
+    assert.equal(ref.kind, "type-use");
+    assert.equal(ref.fromNodeId, "file:src/com/example/SignalTest.java");
+  }
+});
+
+// Feature: dependency-graph-parser, property: type-use references are
+// independent of reference processing order (R6.7 / Gap 1a).
+test("type-use reference set is independent of extraction (property: deterministic on re-extract)", async () => {
+  const source = `
+package com.example;
+class DeterministicTest extends BaseA implements InterfaceB {
+  TypeC field;
+  TypeD method(TypeE arg) { return null; }
+}`;
+  const { result: first } = await extractSource("src/com/example/DeterministicTest.java", source);
+  const { result: second } = await extractSource("src/com/example/DeterministicTest.java", source);
+  const firstTargets = typeUseTargets(first).sort();
+  const secondTargets = typeUseTargets(second).sort();
+  assert.deepEqual(firstTargets, secondTargets, "type-use extraction must be deterministic");
+  // Verify expected types are present
+  for (const expected of ["BaseA", "InterfaceB", "TypeC", "TypeD", "TypeE"]) {
+    assert.ok(firstTargets.includes(expected), `expected ${expected} in type-use refs`);
+  }
+});

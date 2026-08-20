@@ -304,6 +304,168 @@ function walkDeclarations(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Type-use reference extraction (Gap 1a / Fix 21)
+// ---------------------------------------------------------------------------
+
+/**
+ * Node types whose `type` *field* carries a declared Java type.
+ * Verified empirically against the pinned tree-sitter-java WASM grammar.
+ * Note: `spread_parameter` is handled separately in collectTypeReferences
+ * because it has no `type` field — the type is a direct named child.
+ */
+const TYPED_BY_FIELD = new Set<string>([
+  "field_declaration",
+  "method_declaration",
+  "formal_parameter",
+  "local_variable_declaration",
+  "object_creation_expression",
+]);
+
+/**
+ * Wrapper node types whose *children* are all declared types (not using the
+ * `type` field).
+ */
+const TYPE_WRAPPERS = new Set<string>([
+  "superclass",
+  "super_interfaces",
+  "type_list",
+  "throws",
+  "type_arguments",
+]);
+
+/**
+ * Node types that carry a type *name*.  Primitives have their own node types
+ * (`integral_type`, `floating_point_type`, `boolean_type`, `void_type`) and
+ * are therefore excluded for free by restricting to these two names.
+ */
+const TYPE_NAME_NODE_TYPES = new Set<string>(["type_identifier", "scoped_type_identifier"]);
+
+/**
+ * Extract declared type names reachable from a single type node, without
+ * descending into a scoped name's own segments (Grammar trap 2: descending
+ * into `scoped_type_identifier` children yields fragments, not the full name)
+ * and skipping `var` (Grammar trap 3: `var` appears as `type_identifier`).
+ *
+ * Results are pushed into `out` so callers can accumulate across multiple
+ * positions without intermediate allocations.
+ */
+export function typeNamesOf(typeNode: Node, out: string[]): void {
+  if (TYPE_NAME_NODE_TYPES.has(typeNode.type)) {
+    const text = normalizeTypeText(typeNode.text);
+    // Skip the `var` keyword — it is a synthetic type_identifier in the
+    // grammar but carries no class reference (Grammar trap 3).
+    if (text !== "var") {
+      out.push(text); // do NOT recurse: scoped names are atomic (Grammar trap 2)
+    }
+    return;
+  }
+  // generic_type wraps a type_identifier + type_arguments; array_type wraps a
+  // type_identifier + dimensions.  Recurse into their children to reach both
+  // the base type and any type arguments.
+  if (typeNode.type === "generic_type" || typeNode.type === "array_type") {
+    for (const child of typeNode.namedChildren) {
+      typeNamesOf(child, out);
+    }
+    return;
+  }
+  // type_arguments is a list of type names inside `< >`.
+  if (typeNode.type === "type_arguments") {
+    for (const child of typeNode.namedChildren) {
+      typeNamesOf(child, out);
+    }
+    return;
+  }
+  // type_list is the concrete child of super_interfaces / throws — it holds a
+  // comma-separated list of type_identifier or generic_type nodes.
+  if (typeNode.type === "type_list") {
+    for (const child of typeNode.namedChildren) {
+      typeNamesOf(child, out);
+    }
+    return;
+  }
+  // Primitives, wildcards, dimensions, annotation nodes at the type level:
+  // contribute no type name — fall through silently.
+}
+
+/**
+ * Recursively walk the syntax tree and collect every declared-type-position
+ * type name as a `"type-use"` {@link RawReference}.
+ *
+ * References are **file-scoped** (`fromNodeId = fileId`), matching how import
+ * references are modelled — the grouping core attributes edges to files.
+ *
+ * Grammar traps (all verified empirically):
+ * 1. Type positions use `type_identifier`, not `identifier` — the distinction
+ *    makes collection tractable without name-resolution guesswork.
+ * 2. `scoped_type_identifier` must NOT be descended into — handled by
+ *    {@link typeNamesOf}.
+ * 3. `var` appears as a `type_identifier` — excluded by {@link typeNamesOf}.
+ *
+ * The `spread_parameter` node has no `type` *field* (Grammar trap 1 from the
+ * design), so it is handled separately by walking its named children.
+ */
+export function collectTypeReferences(root: Node, fileId: NodeId): RawReference[] {
+  const references: RawReference[] = [];
+  const names: string[] = [];
+
+  function walk(node: Node): void {
+    for (const child of node.namedChildren) {
+      // Nodes whose `type` field holds a declared type.
+      if (TYPED_BY_FIELD.has(child.type)) {
+        const typeField = child.childForFieldName("type");
+        if (typeField !== null) {
+          names.length = 0;
+          typeNamesOf(typeField, names);
+          for (const name of names) {
+            references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
+          }
+          names.length = 0;
+        }
+        // Recurse into the node body so nested declarations are visited.
+        walk(child);
+        continue;
+      }
+
+      // spread_parameter has no `type` field (Grammar trap 1): the type is a
+      // direct named child.  It appears inside formal_parameters, which is not
+      // in TYPED_BY_FIELD, so it must be handled here rather than above.
+      if (child.type === "spread_parameter") {
+        names.length = 0;
+        for (const c of child.namedChildren) {
+          typeNamesOf(c, names);
+        }
+        for (const name of names) {
+          references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
+        }
+        names.length = 0;
+        continue;
+      }
+
+      // Wrapper nodes whose children are all declared types.
+      if (TYPE_WRAPPERS.has(child.type)) {
+        names.length = 0;
+        for (const c of child.namedChildren) {
+          typeNamesOf(c, names);
+        }
+        for (const name of names) {
+          references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
+        }
+        names.length = 0;
+        // Do NOT recurse further into wrapper nodes — their children are type
+        // names, not declaration bodies.
+        continue;
+      }
+
+      // Any other node: recurse to find declarations nested within it.
+      walk(child);
+    }
+  }
+
+  walk(root);
+  return references;
+}
+
 /**
  * Collect the file's unresolved cross-file references for the
  * {@link import("./stitcher.js")} to resolve against the symbol table (R3.1
@@ -383,7 +545,7 @@ function extractFromRoot(root: Node, file: CollectedFile): ExtractionResult {
 
   return {
     nodes: [...nodesById.values()],
-    references: collectReferences(root, fileId),
+    references: [...collectReferences(root, fileId), ...collectTypeReferences(root, fileId)],
     packagePath,
   };
 }

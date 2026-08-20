@@ -319,3 +319,102 @@ test("modularity over an all-zero-strength projection is treated as not computed
     withoutModularity.regions.map((r) => r.score)
   );
 });
+
+// Feature: hierarchical-repository-grouping, Property 9 (extension): a region
+// whose intra-region edges all carry zero strength is degenerate (Gap 16 fix)
+test("zero-strength intra edges make a region degenerate and yield the configured degenerate score", () => {
+  // Three files in one package, two intra-region edges both carrying zero
+  // strength (all signals 0).  Without the strength-aware guard the region
+  // would score combineScore(0, 0) = 0.5 — not the documented neutral score.
+  const graph: RawDependencyGraph = {
+    nodes: [
+      { id: "file:src/com/zs/A.java", kind: "file", packagePath: "com.zs", directoryPath: "src/com/zs" },
+      { id: "file:src/com/zs/B.java", kind: "file", packagePath: "com.zs", directoryPath: "src/com/zs" },
+      { id: "file:src/com/zs/C.java", kind: "file", packagePath: "com.zs", directoryPath: "src/com/zs" },
+    ],
+    edges: [
+      { source: "file:src/com/zs/A.java", target: "file:src/com/zs/B.java", importFrequency: 0, methodCallFrequency: 0, sharedTypeCount: 0 },
+      { source: "file:src/com/zs/B.java", target: "file:src/com/zs/C.java", importFrequency: 0, methodCallFrequency: 0, sharedTypeCount: 0 },
+    ],
+  };
+  const degenerateScore = 0.0;
+  const assessment = assess(weightedModelOf(graph), { ...DEFAULT_ASSESSMENT_CONFIG, degenerateScore });
+  assert.equal(assessment.regions.length, 1);
+  const region = assessment.regions[0]!;
+  assert.ok(region.degenerate, "a region with only zero-strength edges must be degenerate");
+  assert.equal(region.score, degenerateScore, "score must be the configured degenerate score, not combineScore");
+});
+
+// Regression: a mix of zero and non-zero intra strengths is NOT degenerate
+test("a region with at least one non-zero intra-strength edge is not degenerate", () => {
+  const graph: RawDependencyGraph = {
+    nodes: [
+      { id: "file:src/com/mixed/X.java", kind: "file", packagePath: "com.mixed", directoryPath: "src/com/mixed" },
+      { id: "file:src/com/mixed/Y.java", kind: "file", packagePath: "com.mixed", directoryPath: "src/com/mixed" },
+      { id: "file:src/com/mixed/Z.java", kind: "file", packagePath: "com.mixed", directoryPath: "src/com/mixed" },
+    ],
+    edges: [
+      // zero-strength edge
+      { source: "file:src/com/mixed/X.java", target: "file:src/com/mixed/Y.java", importFrequency: 0, methodCallFrequency: 0, sharedTypeCount: 0 },
+      // real edge
+      { source: "file:src/com/mixed/Y.java", target: "file:src/com/mixed/Z.java", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0 },
+    ],
+  };
+  const assessment = assess(weightedModelOf(graph));
+  assert.equal(assessment.regions.length, 1);
+  const region = assessment.regions[0]!;
+  assert.ok(!region.degenerate, "presence of a non-zero intra edge must keep the region non-degenerate");
+  assert.ok(region.score > 0, "score must be > 0 for a non-degenerate region with real cohesion");
+});
+
+// Feature: hierarchical-repository-grouping, Property 9 (extension): a
+// zero-strength region with default boundary must reconstruct — and produce
+// exactly ONE group rather than one singleton per file (Gap 16 regression).
+test("reconstructing a zero-strength region yields one group, not one singleton per file", async () => {
+  // Six files, five zero-strength intra edges.  Before the fix this produced
+  // six Level-2 groups of size 1.  After the fix the region is degenerate and
+  // any boundary forces reconstruct to return a single community.
+  const pkg = "com.singletons";
+  const dir = "src/com/singletons";
+  const f = (n: string) => `file:${dir}/${n}.java`;
+  const files = ["A", "B", "C", "D", "E", "F"].map((n) => ({
+    id: f(n), kind: "file" as const, packagePath: pkg, directoryPath: dir,
+  }));
+  const zeroEdge = (src: string, tgt: string) => ({
+    source: f(src), target: f(tgt),
+    importFrequency: 0, methodCallFrequency: 0, sharedTypeCount: 0,
+  });
+  const graph: RawDependencyGraph = {
+    nodes: files,
+    edges: [
+      zeroEdge("A", "B"), zeroEdge("B", "C"), zeroEdge("C", "D"),
+      zeroEdge("D", "E"), zeroEdge("E", "F"),
+    ],
+  };
+
+  const { ingest } = await import("./ingestor.js");
+  const { computeWeights } = await import("./weights.js");
+  const { construct } = await import("./constructor.js");
+  const { LouvainCommunityDetector } = await import("./community.js");
+
+  const ingested = ingest(graph);
+  assert.ok(ingested.ok);
+  const weighted = computeWeights(ingested.value);
+  const assessment = assess(weighted, { ...DEFAULT_ASSESSMENT_CONFIG, degenerateScore: 0.0 });
+  const region = assessment.regions[0]!;
+  assert.ok(region.degenerate, "all-zero-strength region must be degenerate");
+
+  // Force reconstruct with boundary 0.6 (above degenerate score 0)
+  const result = construct(
+    weighted, assessment,
+    { structuralQualityBoundary: 0.6, communityDetectionSeed: 42 },
+    new LouvainCommunityDetector()
+  );
+  assert.equal(result.decisions.length, 1);
+  assert.equal(result.decisions[0]!.action, "reconstruct");
+  const groups = result.regionGroups.get(result.decisions[0]!.regionId);
+  assert.ok(groups !== undefined);
+  // The fix: one community for the whole region, not six singletons.
+  assert.equal(groups.length, 1, `expected 1 group, got ${groups.length} (singleton explosion)`);
+  assert.equal(groups[0]!.fileIds.length, 6, "the single group must contain all 6 files");
+});

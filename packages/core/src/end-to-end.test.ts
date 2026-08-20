@@ -196,7 +196,10 @@ test("the checked-in sample-java-project fixture groups with every input node as
 
   const raw = JSON.parse(readFileSync(fixturePath, "utf8")) as RawDependencyGraph;
   assert.equal(raw.nodes.length, 29);
-  assert.equal(raw.edges.length, 5);
+  // Edge count updated after Wave A (Gap 1a + 1c) re-parse: type-use edges and
+  // same-package resolution now produce 6 edges instead of 5 (one additional
+  // intra-package edge discovered via sharedTypeCount).
+  assert.equal(raw.edges.length, 6);
 
   const result = groupGraph(raw);
   assert.ok(result.ok, "the parser fixture must group under the default config");

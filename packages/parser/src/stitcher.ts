@@ -35,10 +35,12 @@
  * - `importFrequency` counts the resolved import-based references for the pair,
  *   each resolved reference counted exactly once (R6.2). It is seeded at `0` and
  *   only ever incremented by `1`, so it is always a finite non-negative integer.
- * - `methodCallFrequency` (R6.3) and `sharedTypeCount` (R6.4) are recorded for
- *   **every** edge and held at the Phase-1 value `0`, because cross-entity
- *   method-call and shared-type resolution are deferred. They are never left
- *   absent or undefined (R6.6).
+ * - `sharedTypeCount` (R6.4) counts resolved `type-use` references — field,
+ *   parameter, return, `extends`/`implements`, and `new` type positions — for the
+ *   pair.  Each occurrence is counted once; the count is a finite non-negative
+ *   integer (R6.5, R6.6).
+ * - `methodCallFrequency` (R6.3) counts resolved `method-call` references for
+ *   the pair (Phase-1 optional; seeded at `0` until method-call extraction lands).
  * - Every signal is therefore a finite, non-negative integer, never negative,
  *   fractional, `NaN`, or `Infinity` (R6.5), and a signal with no contributing
  *   reference is exactly `0` (R6.6).
@@ -116,11 +118,23 @@ function edgeKey(source: NodeId, target: NodeId): string {
  * A reference contributes nothing when its target name is unresolved (R5.4),
  * either endpoint is absent from the node set (R5.5), either endpoint is a
  * `function` node (R5.2), or the endpoints are identical (self-edge, R5.6).
+ *
+ * @param singleTypeImports  Per-file map of simple name → FQN derived from the
+ *   file's single-type import declarations (e.g. `"Helper" → "com.other.Helper"`).
+ *   Used by the simple-name resolution path (Gap 1c).
+ * @param wildcardPackages  Per-file list of package prefixes from wildcard
+ *   import declarations (e.g. `["com.other"]`), in canonical order.
+ *   Used by the simple-name resolution path (Gap 1c).
+ * @param referringPackage  The `packagePath` of the file that owns this
+ *   reference.  Used as the same-package candidate (Gap 1c).
  */
 function resolveEndpoints(
   reference: RawReference,
   nodesById: Map<NodeId, GraphNode>,
   symbols: SymbolTable,
+  singleTypeImports: Map<string, string>,
+  wildcardPackages: readonly string[],
+  referringPackage: string,
 ): { source: NodeId; target: NodeId } | null {
   const source = reference.fromNodeId;
   const sourceNode = nodesById.get(source);
@@ -130,10 +144,47 @@ function resolveEndpoints(
   }
 
   // Resolve the referenced name; an out-of-project name yields no edge (R5.4).
-  const target = symbols.lookup(reference.targetName);
+  // Gap 1c: when the direct lookup misses and the name is a bare simple name
+  // (no "."), try the JLS-precedence candidate list:
+  //   1. Single-type import of that simple name in the referring file.
+  //   2. Same package as the referring file  (the crux — no import needed).
+  //   3. Each wildcard-imported package, in canonical order.
+  // This mirrors the JLS §7.5 shadowing rule: a single-type import shadows any
+  // same-package class of the same simple name.  Trying same-package first would
+  // mint wrong edges to real nodes in the common "import com.other.Helper" case.
+  let target = symbols.lookup(reference.targetName);
+  if (target === null && !reference.targetName.includes(".")) {
+    const simpleName = reference.targetName;
+
+    // Candidate 1: single-type import (import precedence — JLS §7.5.1 shadows §7.5.3).
+    const importedFqn = singleTypeImports.get(simpleName);
+    if (importedFqn !== undefined) {
+      target = symbols.lookup(importedFqn);
+    }
+
+    // Candidate 2: same package.
+    if (target === null && referringPackage.length > 0) {
+      target = symbols.lookup(`${referringPackage}.${simpleName}`);
+    } else if (target === null && referringPackage.length === 0) {
+      // Default package: the FQN is the simple name itself — already tried above,
+      // but the symbol table key for a default-package class is the bare simple
+      // name, so this is a no-op (already covered by the direct lookup).
+    }
+
+    // Candidate 3: wildcard imports, in canonical order (already sorted in the
+    // pre-pass; first hit wins, matching JLS §7.5.2 single-type import dominance).
+    if (target === null) {
+      for (const pkg of wildcardPackages) {
+        target = symbols.lookup(`${pkg}.${simpleName}`);
+        if (target !== null) break;
+      }
+    }
+  }
+
   if (target === null) {
     return null;
   }
+
   const targetNode = nodesById.get(target);
   // Defensive: symbol-table ids are drawn from the node set, but guard anyway
   // so no dangling endpoint can ever be emitted (R5.5).
@@ -172,12 +223,105 @@ export function stitch(
     nodesById.set(node.id, node);
   }
 
+  // -------------------------------------------------------------------------
+  // Gap 1c: pre-pass — build a per-file import index so simple type names can
+  // be resolved via JLS precedence (single-type import → same package → wildcard).
+  //
+  // Structure per file:
+  //   singleTypeImports: Map<simpleName, fqn>   — "Helper" → "com.other.Helper"
+  //   wildcardPackages:  string[]               — ["com.other"] (canonical order)
+  //
+  // Only import references are processed; type-use references carry simple names
+  // that are already the resolution target, not the source of resolution context.
+  // -------------------------------------------------------------------------
+  type FileImportIndex = {
+    singleTypeImports: Map<string, string>;
+    wildcardPackages: string[];
+  };
+  const fileImportIndex = new Map<NodeId, FileImportIndex>();
+
+  /** Get or create the import index entry for a file node id. */
+  function indexFor(fileId: NodeId): FileImportIndex {
+    let entry = fileImportIndex.get(fileId);
+    if (entry === undefined) {
+      entry = { singleTypeImports: new Map(), wildcardPackages: [] };
+      fileImportIndex.set(fileId, entry);
+    }
+    return entry;
+  }
+
+  // Determine the file node id for any node id: a file node is itself; a
+  // class/function node's file is determined by its definedInFile field.
+  function owningFileId(nodeId: NodeId): NodeId | null {
+    const node = nodesById.get(nodeId);
+    if (node === undefined) return null;
+    if (node.kind === "file") return nodeId;
+    return node.definedInFile ?? null;
+  }
+
+  for (const ref of references) {
+    if (ref.kind !== "import") continue;
+
+    const fileId = owningFileId(ref.fromNodeId);
+    if (fileId === null) continue;
+
+    const name = ref.targetName;
+    if (name.endsWith(".*")) {
+      // Wildcard import: strip the ".*" to get the package prefix.
+      const pkg = name.slice(0, -2);
+      const idx = indexFor(fileId);
+      if (!idx.wildcardPackages.includes(pkg)) {
+        idx.wildcardPackages.push(pkg);
+      }
+    } else if (!name.includes(".")) {
+      // Single-segment import (rare but legal in the default package): the
+      // simple name IS the FQN.  Map it to itself.
+      const idx = indexFor(fileId);
+      if (!idx.singleTypeImports.has(name)) {
+        idx.singleTypeImports.set(name, name);
+      }
+    } else {
+      // Dotted single-type import: derive the simple name from the last segment.
+      const lastDot = name.lastIndexOf(".");
+      const simpleName = name.slice(lastDot + 1);
+      const idx = indexFor(fileId);
+      // First-seen wins (R4.5 mirroring): if the same simple name is imported
+      // twice, keep the canonical-first one (the references are in source order;
+      // a duplicate import is a Java compile error anyway).
+      if (!idx.singleTypeImports.has(simpleName)) {
+        idx.singleTypeImports.set(simpleName, name);
+      }
+    }
+  }
+
+  // Sort each file's wildcard list so candidate expansion is deterministic
+  // and independent of reference processing order.
+  for (const idx of fileImportIndex.values()) {
+    idx.wildcardPackages.sort();
+  }
+
   // De-duplication + frequency accumulation keyed by (source, target): parallel
   // references between the same ordered pair collapse into one edge (R5.3).
   const accumulators = new Map<string, EdgeAccumulator>();
 
   for (const reference of references) {
-    const endpoints = resolveEndpoints(reference, nodesById, symbols);
+    // Resolve the referring file id and its package for the simple-name path.
+    const referringFileId = owningFileId(reference.fromNodeId) ?? reference.fromNodeId;
+    const referringFileNode = nodesById.get(referringFileId);
+    const referringPackage = referringFileNode?.packagePath ?? "";
+    const importIdx = fileImportIndex.get(referringFileId) ?? {
+      singleTypeImports: new Map<string, string>(),
+      wildcardPackages: [],
+    };
+
+    const endpoints = resolveEndpoints(
+      reference,
+      nodesById,
+      symbols,
+      importIdx.singleTypeImports,
+      importIdx.wildcardPackages,
+      referringPackage,
+    );
     if (endpoints === null) {
       continue;
     }
@@ -199,10 +343,27 @@ export function stitch(
       accumulators.set(key, accumulator);
     }
 
-    // Count each resolved import reference exactly once toward the collapsed
-    // edge (R6.2). Non-import kinds do not contribute to importFrequency.
-    if (reference.kind === "import") {
-      accumulator.importFrequency += 1;
+    // Increment the appropriate frequency signal for this resolved reference.
+    // The switch is total over RawReferenceKind: every arm is a commutative
+    // increment, so the final signal values are independent of processing order
+    // (R6.7).  The type-use and method-call arms are structurally wired here
+    // (inert until those reference kinds are emitted by the extractor).
+    switch (reference.kind) {
+      case "import":
+        // Count each resolved import reference exactly once toward the collapsed
+        // edge (R6.2).
+        accumulator.importFrequency += 1;
+        break;
+      case "type-use":
+        // Count each resolved type-use reference once toward sharedTypeCount
+        // (R6.4).  This is the Gap 1a activation: type-use references now
+        // populate the third frequency signal rather than being silently dropped.
+        accumulator.sharedTypeCount += 1;
+        break;
+      case "method-call":
+        // methodCallFrequency will be incremented here once method-call
+        // extraction lands (Gap 1b).
+        break;
     }
   }
 
