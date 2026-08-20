@@ -311,6 +311,8 @@ function walkDeclarations(
 /**
  * Node types whose `type` *field* carries a declared Java type.
  * Verified empirically against the pinned tree-sitter-java WASM grammar.
+ * Note: `spread_parameter` is handled separately in collectTypeReferences
+ * because it has no `type` field — the type is a direct named child.
  */
 const TYPED_BY_FIELD = new Set<string>([
   "field_declaration",
@@ -374,6 +376,14 @@ export function typeNamesOf(typeNode: Node, out: string[]): void {
     }
     return;
   }
+  // type_list is the concrete child of super_interfaces / throws — it holds a
+  // comma-separated list of type_identifier or generic_type nodes.
+  if (typeNode.type === "type_list") {
+    for (const child of typeNode.namedChildren) {
+      typeNamesOf(child, out);
+    }
+    return;
+  }
   // Primitives, wildcards, dimensions, annotation nodes at the type level:
   // contribute no type name — fall through silently.
 }
@@ -403,25 +413,32 @@ export function collectTypeReferences(root: Node, fileId: NodeId): RawReference[
     for (const child of node.namedChildren) {
       // Nodes whose `type` field holds a declared type.
       if (TYPED_BY_FIELD.has(child.type)) {
-        if (child.type === "spread_parameter") {
-          // spread_parameter has no `type` field; the type is a direct child.
+        const typeField = child.childForFieldName("type");
+        if (typeField !== null) {
           names.length = 0;
-          for (const c of child.namedChildren) {
-            typeNamesOf(c, names);
+          typeNamesOf(typeField, names);
+          for (const name of names) {
+            references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
           }
-        } else {
-          const typeField = child.childForFieldName("type");
-          if (typeField !== null) {
-            names.length = 0;
-            typeNamesOf(typeField, names);
-          }
+          names.length = 0;
+        }
+        // Recurse into the node body so nested declarations are visited.
+        walk(child);
+        continue;
+      }
+
+      // spread_parameter has no `type` field (Grammar trap 1): the type is a
+      // direct named child.  It appears inside formal_parameters, which is not
+      // in TYPED_BY_FIELD, so it must be handled here rather than above.
+      if (child.type === "spread_parameter") {
+        names.length = 0;
+        for (const c of child.namedChildren) {
+          typeNamesOf(c, names);
         }
         for (const name of names) {
           references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
         }
         names.length = 0;
-        // Recurse into the node body so nested declarations are visited.
-        walk(child);
         continue;
       }
 
