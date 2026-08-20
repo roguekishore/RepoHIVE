@@ -121,21 +121,20 @@ function edgeKey(source: NodeId, target: NodeId): string {
  *
  * @param singleTypeImports  Per-file map of simple name → FQN derived from the
  *   file's single-type import declarations (e.g. `"Helper" → "com.other.Helper"`).
- *   Used by the simple-name resolution path (Gap 1c activation).
+ *   Used by the simple-name resolution path (Gap 1c).
  * @param wildcardPackages  Per-file list of package prefixes from wildcard
  *   import declarations (e.g. `["com.other"]`), in canonical order.
- *   Used by the simple-name resolution path (Gap 1c activation).
+ *   Used by the simple-name resolution path (Gap 1c).
  * @param referringPackage  The `packagePath` of the file that owns this
- *   reference.  Used as the same-package candidate (Gap 1c activation).
+ *   reference.  Used as the same-package candidate (Gap 1c).
  */
 function resolveEndpoints(
   reference: RawReference,
   nodesById: Map<NodeId, GraphNode>,
   symbols: SymbolTable,
-  // Gap 1c plumbing — used by the activation commit (commit 2).
-  _singleTypeImports: Map<string, string>,
-  _wildcardPackages: readonly string[],
-  _referringPackage: string,
+  singleTypeImports: Map<string, string>,
+  wildcardPackages: readonly string[],
+  referringPackage: string,
 ): { source: NodeId; target: NodeId } | null {
   const source = reference.fromNodeId;
   const sourceNode = nodesById.get(source);
@@ -145,10 +144,47 @@ function resolveEndpoints(
   }
 
   // Resolve the referenced name; an out-of-project name yields no edge (R5.4).
-  const target = symbols.lookup(reference.targetName);
+  // Gap 1c: when the direct lookup misses and the name is a bare simple name
+  // (no "."), try the JLS-precedence candidate list:
+  //   1. Single-type import of that simple name in the referring file.
+  //   2. Same package as the referring file  (the crux — no import needed).
+  //   3. Each wildcard-imported package, in canonical order.
+  // This mirrors the JLS §7.5 shadowing rule: a single-type import shadows any
+  // same-package class of the same simple name.  Trying same-package first would
+  // mint wrong edges to real nodes in the common "import com.other.Helper" case.
+  let target = symbols.lookup(reference.targetName);
+  if (target === null && !reference.targetName.includes(".")) {
+    const simpleName = reference.targetName;
+
+    // Candidate 1: single-type import (import precedence — JLS §7.5.1 shadows §7.5.3).
+    const importedFqn = singleTypeImports.get(simpleName);
+    if (importedFqn !== undefined) {
+      target = symbols.lookup(importedFqn);
+    }
+
+    // Candidate 2: same package.
+    if (target === null && referringPackage.length > 0) {
+      target = symbols.lookup(`${referringPackage}.${simpleName}`);
+    } else if (target === null && referringPackage.length === 0) {
+      // Default package: the FQN is the simple name itself — already tried above,
+      // but the symbol table key for a default-package class is the bare simple
+      // name, so this is a no-op (already covered by the direct lookup).
+    }
+
+    // Candidate 3: wildcard imports, in canonical order (already sorted in the
+    // pre-pass; first hit wins, matching JLS §7.5.2 single-type import dominance).
+    if (target === null) {
+      for (const pkg of wildcardPackages) {
+        target = symbols.lookup(`${pkg}.${simpleName}`);
+        if (target !== null) break;
+      }
+    }
+  }
+
   if (target === null) {
     return null;
   }
+
   const targetNode = nodesById.get(target);
   // Defensive: symbol-table ids are drawn from the node set, but guard anyway
   // so no dangling endpoint can ever be emitted (R5.5).
