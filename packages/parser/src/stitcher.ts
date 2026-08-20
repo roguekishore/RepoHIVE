@@ -213,8 +213,10 @@ export function stitch(
         accumulator.importFrequency += 1;
         break;
       case "type-use":
-        // sharedTypeCount will be incremented here once type-use extraction
-        // lands (Gap 1a activation commit).
+        // Count each resolved type-use reference once toward sharedTypeCount
+        // (R6.4).  This is the Gap 1a activation: type-use references now
+        // populate the third frequency signal rather than being silently dropped.
+        accumulator.sharedTypeCount += 1;
         break;
       case "method-call":
         // methodCallFrequency will be incremented here once method-call

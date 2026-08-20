@@ -304,9 +304,11 @@ test("every edge carries exactly three finite non-negative integer frequency sig
           assert.ok(Number.isInteger(signal), `non-integer signal ${signal}`);
           assert.ok(signal >= 0, `negative signal ${signal}`);
         }
-        // Phase-1 deferred signals are present and exactly 0, never absent (R6.3, R6.4, R6.6).
+        // Gap 1a (Fix 21): sharedTypeCount is now populated from type-use references, so it
+        // is a finite non-negative integer but is no longer pinned to 0.  The per-signal loop
+        // above already verifies the R6.5 / R6.6 invariants.  methodCallFrequency stays 0
+        // until method-call extraction lands (Gap 1b).
         assert.equal(edge.methodCallFrequency, 0);
-        assert.equal(edge.sharedTypeCount, 0);
         // importFrequency for a present edge is at least 0 and, when the edge
         // exists, reflects a real count with no contribution left undefined (R6.6).
         assert.notEqual(edge.importFrequency, undefined);
