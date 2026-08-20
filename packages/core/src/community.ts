@@ -82,7 +82,15 @@ export class LouvainCommunityDetector implements CommunityDetector {
       }
     }
 
-    if (graph.size === 0 || nodeIds.length < 2) {
+    // Also degenerate when every edge carries zero weight: modularity deltas
+    // are 0/0 = NaN, no node ever moves, and every file becomes its own
+    // community.  Mirror the "no dependency signal to rebuild from" rationale.
+    let totalWeight = 0;
+    graph.forEachEdge((_e, attrs) => {
+      totalWeight += (attrs["weight"] as number) ?? 0;
+    });
+
+    if (graph.size === 0 || nodeIds.length < 2 || totalWeight <= 0) {
       return { communityOf: new Map(nodeIds.map((id) => [id, 0])) };
     }
 
