@@ -528,7 +528,7 @@ function extractFromRoot(root: Node, file: CollectedFile): ExtractionResult {
 
   return {
     nodes: [...nodesById.values()],
-    references: collectReferences(root, fileId),
+    references: [...collectReferences(root, fileId), ...collectTypeReferences(root, fileId)],
     packagePath,
   };
 }
