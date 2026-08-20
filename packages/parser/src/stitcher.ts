@@ -118,11 +118,24 @@ function edgeKey(source: NodeId, target: NodeId): string {
  * A reference contributes nothing when its target name is unresolved (R5.4),
  * either endpoint is absent from the node set (R5.5), either endpoint is a
  * `function` node (R5.2), or the endpoints are identical (self-edge, R5.6).
+ *
+ * @param singleTypeImports  Per-file map of simple name → FQN derived from the
+ *   file's single-type import declarations (e.g. `"Helper" → "com.other.Helper"`).
+ *   Used by the simple-name resolution path (Gap 1c activation).
+ * @param wildcardPackages  Per-file list of package prefixes from wildcard
+ *   import declarations (e.g. `["com.other"]`), in canonical order.
+ *   Used by the simple-name resolution path (Gap 1c activation).
+ * @param referringPackage  The `packagePath` of the file that owns this
+ *   reference.  Used as the same-package candidate (Gap 1c activation).
  */
 function resolveEndpoints(
   reference: RawReference,
   nodesById: Map<NodeId, GraphNode>,
   symbols: SymbolTable,
+  // Gap 1c plumbing — used by the activation commit (commit 2).
+  _singleTypeImports: Map<string, string>,
+  _wildcardPackages: readonly string[],
+  _referringPackage: string,
 ): { source: NodeId; target: NodeId } | null {
   const source = reference.fromNodeId;
   const sourceNode = nodesById.get(source);
@@ -174,12 +187,105 @@ export function stitch(
     nodesById.set(node.id, node);
   }
 
+  // -------------------------------------------------------------------------
+  // Gap 1c: pre-pass — build a per-file import index so simple type names can
+  // be resolved via JLS precedence (single-type import → same package → wildcard).
+  //
+  // Structure per file:
+  //   singleTypeImports: Map<simpleName, fqn>   — "Helper" → "com.other.Helper"
+  //   wildcardPackages:  string[]               — ["com.other"] (canonical order)
+  //
+  // Only import references are processed; type-use references carry simple names
+  // that are already the resolution target, not the source of resolution context.
+  // -------------------------------------------------------------------------
+  type FileImportIndex = {
+    singleTypeImports: Map<string, string>;
+    wildcardPackages: string[];
+  };
+  const fileImportIndex = new Map<NodeId, FileImportIndex>();
+
+  /** Get or create the import index entry for a file node id. */
+  function indexFor(fileId: NodeId): FileImportIndex {
+    let entry = fileImportIndex.get(fileId);
+    if (entry === undefined) {
+      entry = { singleTypeImports: new Map(), wildcardPackages: [] };
+      fileImportIndex.set(fileId, entry);
+    }
+    return entry;
+  }
+
+  // Determine the file node id for any node id: a file node is itself; a
+  // class/function node's file is determined by its definedInFile field.
+  function owningFileId(nodeId: NodeId): NodeId | null {
+    const node = nodesById.get(nodeId);
+    if (node === undefined) return null;
+    if (node.kind === "file") return nodeId;
+    return node.definedInFile ?? null;
+  }
+
+  for (const ref of references) {
+    if (ref.kind !== "import") continue;
+
+    const fileId = owningFileId(ref.fromNodeId);
+    if (fileId === null) continue;
+
+    const name = ref.targetName;
+    if (name.endsWith(".*")) {
+      // Wildcard import: strip the ".*" to get the package prefix.
+      const pkg = name.slice(0, -2);
+      const idx = indexFor(fileId);
+      if (!idx.wildcardPackages.includes(pkg)) {
+        idx.wildcardPackages.push(pkg);
+      }
+    } else if (!name.includes(".")) {
+      // Single-segment import (rare but legal in the default package): the
+      // simple name IS the FQN.  Map it to itself.
+      const idx = indexFor(fileId);
+      if (!idx.singleTypeImports.has(name)) {
+        idx.singleTypeImports.set(name, name);
+      }
+    } else {
+      // Dotted single-type import: derive the simple name from the last segment.
+      const lastDot = name.lastIndexOf(".");
+      const simpleName = name.slice(lastDot + 1);
+      const idx = indexFor(fileId);
+      // First-seen wins (R4.5 mirroring): if the same simple name is imported
+      // twice, keep the canonical-first one (the references are in source order;
+      // a duplicate import is a Java compile error anyway).
+      if (!idx.singleTypeImports.has(simpleName)) {
+        idx.singleTypeImports.set(simpleName, name);
+      }
+    }
+  }
+
+  // Sort each file's wildcard list so candidate expansion is deterministic
+  // and independent of reference processing order.
+  for (const idx of fileImportIndex.values()) {
+    idx.wildcardPackages.sort();
+  }
+
   // De-duplication + frequency accumulation keyed by (source, target): parallel
   // references between the same ordered pair collapse into one edge (R5.3).
   const accumulators = new Map<string, EdgeAccumulator>();
 
   for (const reference of references) {
-    const endpoints = resolveEndpoints(reference, nodesById, symbols);
+    // Resolve the referring file id and its package for the simple-name path.
+    const referringFileId = owningFileId(reference.fromNodeId) ?? reference.fromNodeId;
+    const referringFileNode = nodesById.get(referringFileId);
+    const referringPackage = referringFileNode?.packagePath ?? "";
+    const importIdx = fileImportIndex.get(referringFileId) ?? {
+      singleTypeImports: new Map<string, string>(),
+      wildcardPackages: [],
+    };
+
+    const endpoints = resolveEndpoints(
+      reference,
+      nodesById,
+      symbols,
+      importIdx.singleTypeImports,
+      importIdx.wildcardPackages,
+      referringPackage,
+    );
     if (endpoints === null) {
       continue;
     }
