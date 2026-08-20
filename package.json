@@ -15,7 +15,7 @@
     "demo:baselines": "npm run demo:baselines --workspace @repohive/core --",
     "test": "npm run test --workspaces --if-present"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@types/node": "20.19.9",
     "shadcn": "^4.12.0",
