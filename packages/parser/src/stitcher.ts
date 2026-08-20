@@ -35,10 +35,12 @@
  * - `importFrequency` counts the resolved import-based references for the pair,
  *   each resolved reference counted exactly once (R6.2). It is seeded at `0` and
  *   only ever incremented by `1`, so it is always a finite non-negative integer.
- * - `methodCallFrequency` (R6.3) and `sharedTypeCount` (R6.4) are recorded for
- *   **every** edge and held at the Phase-1 value `0`, because cross-entity
- *   method-call and shared-type resolution are deferred. They are never left
- *   absent or undefined (R6.6).
+ * - `sharedTypeCount` (R6.4) counts resolved `type-use` references — field,
+ *   parameter, return, `extends`/`implements`, and `new` type positions — for the
+ *   pair.  Each occurrence is counted once; the count is a finite non-negative
+ *   integer (R6.5, R6.6).
+ * - `methodCallFrequency` (R6.3) counts resolved `method-call` references for
+ *   the pair (Phase-1 optional; seeded at `0` until method-call extraction lands).
  * - Every signal is therefore a finite, non-negative integer, never negative,
  *   fractional, `NaN`, or `Infinity` (R6.5), and a signal with no contributing
  *   reference is exactly `0` (R6.6).
@@ -199,10 +201,25 @@ export function stitch(
       accumulators.set(key, accumulator);
     }
 
-    // Count each resolved import reference exactly once toward the collapsed
-    // edge (R6.2). Non-import kinds do not contribute to importFrequency.
-    if (reference.kind === "import") {
-      accumulator.importFrequency += 1;
+    // Increment the appropriate frequency signal for this resolved reference.
+    // The switch is total over RawReferenceKind: every arm is a commutative
+    // increment, so the final signal values are independent of processing order
+    // (R6.7).  The type-use and method-call arms are structurally wired here
+    // (inert until those reference kinds are emitted by the extractor).
+    switch (reference.kind) {
+      case "import":
+        // Count each resolved import reference exactly once toward the collapsed
+        // edge (R6.2).
+        accumulator.importFrequency += 1;
+        break;
+      case "type-use":
+        // sharedTypeCount will be incremented here once type-use extraction
+        // lands (Gap 1a activation commit).
+        break;
+      case "method-call":
+        // methodCallFrequency will be incremented here once method-call
+        // extraction lands (Gap 1b).
+        break;
     }
   }
 
