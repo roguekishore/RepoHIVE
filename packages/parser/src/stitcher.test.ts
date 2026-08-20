@@ -345,3 +345,167 @@ test("edge set is independent of reference processing order", () => {
     ),
   );
 });
+
+// --- Gap 1c: same-package simple-name resolution (Fix 22) -----------------
+
+/** Build a type-use reference (simple name from type-use extraction). */
+function typeUseRef(fromNodeId: string, targetName: string): RawReference {
+  return { fromNodeId, targetName, kind: "type-use" };
+}
+
+/**
+ * Minimal two-file, same-package setup for Gap 1c tests.
+ * Both files and their classes live in "com.example".
+ */
+function samePackageNodes() {
+  const fileX: GraphNode = {
+    id: "file:src/com/example/X.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "src/com/example",
+  };
+  const classX: GraphNode = {
+    id: "class:com.example.X",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "src/com/example",
+    definedInFile: fileX.id,
+  };
+  const fileY: GraphNode = {
+    id: "file:src/com/example/Y.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "src/com/example",
+  };
+  const classY: GraphNode = {
+    id: "class:com.example.Y",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "src/com/example",
+    definedInFile: fileY.id,
+  };
+  return { fileX, classX, fileY, classY };
+}
+
+test("same-package simple name resolves to its package sibling (Gap 1c core case)", () => {
+  // X.java uses 'Y' (simple name) — no import needed within the same package.
+  const { fileX, classX, fileY, classY } = samePackageNodes();
+  const nodes = [fileX, classX, fileY, classY];
+  const symbols = buildSymbolTable(nodes);
+  // type-use reference with the bare simple name — exactly what the extractor emits.
+  const refs: RawReference[] = [typeUseRef(fileX.id, "Y")];
+  const edges = stitch(nodes, refs, symbols);
+  assert.equal(edges.length, 1, "expected one edge for same-package type-use");
+  assert.equal(edges[0]!.source, fileX.id);
+  assert.equal(edges[0]!.target, classY.id);
+  assert.equal(edges[0]!.sharedTypeCount, 1);
+  assert.equal(edges[0]!.importFrequency, 0);
+});
+
+test("single-type import of simple name takes precedence over same-package class (JLS §7.5)", () => {
+  // File X is in com.example and also has a same-package class Y.
+  // It also imports com.other.Y via a single-type import.
+  // The edge target must be com.other.Y, NOT com.example.Y.
+  const { fileX, classX, fileY, classY } = samePackageNodes();
+  // A class with the same simple name in a different package.
+  const fileOtherY: GraphNode = {
+    id: "file:src/com/other/Y.java",
+    kind: "file",
+    packagePath: "com.other",
+    directoryPath: "src/com/other",
+  };
+  const classOtherY: GraphNode = {
+    id: "class:com.other.Y",
+    kind: "class",
+    packagePath: "com.other",
+    directoryPath: "src/com/other",
+    definedInFile: fileOtherY.id,
+  };
+  const nodes = [fileX, classX, fileY, classY, fileOtherY, classOtherY];
+  const symbols = buildSymbolTable(nodes);
+  // The import reference establishes the single-type import context for fileX.
+  // The type-use reference uses the bare simple name 'Y'.
+  const refs: RawReference[] = [
+    importRef(fileX.id, "com.other.Y"),  // single-type import
+    typeUseRef(fileX.id, "Y"),           // bare name — must resolve via import, not same-pkg
+  ];
+  const edges = stitch(nodes, refs, symbols);
+  // Should produce two edges: one from the import (to com.other.Y as a class),
+  // and one from the type-use (also to com.other.Y because import wins).
+  // importFrequency edge: fileX → classOtherY (from the import reference)
+  // sharedTypeCount edge: fileX → classOtherY (from the type-use, resolved via import)
+  // Both collapse onto one accumulated edge since same (source, target).
+  const edgeToOther = edges.find((e) => e.target === classOtherY.id);
+  const edgeToSamePkg = edges.find((e) => e.target === classY.id);
+  assert.ok(edgeToOther !== undefined, "import-precedence must resolve to com.other.Y");
+  assert.equal(edgeToOther!.sharedTypeCount, 1, "type-use must count toward sharedTypeCount");
+  assert.equal(edgeToSamePkg, undefined, "same-package Y must NOT be the type-use target when import exists");
+});
+
+test("an unresolvable simple name produces no edge (R5.4)", () => {
+  // 'Unknown' is neither in the same package nor imported.
+  const { fileX, classX } = samePackageNodes();
+  const nodes = [fileX, classX];
+  const symbols = buildSymbolTable(nodes);
+  const edges = stitch(nodes, [typeUseRef(fileX.id, "Unknown")], symbols);
+  assert.equal(edges.length, 0, "unresolvable simple name must produce no edge");
+});
+
+test("a dotted FQN bypasses the simple-name resolution path and resolves directly", () => {
+  const { fileX, classX, fileY, classY } = samePackageNodes();
+  const nodes = [fileX, classX, fileY, classY];
+  const symbols = buildSymbolTable(nodes);
+  // FQN already works via the existing direct lookup.
+  const refs: RawReference[] = [typeUseRef(fileX.id, "com.example.Y")];
+  const edges = stitch(nodes, refs, symbols);
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.target, classY.id);
+});
+
+test("same-package simple name within the same file produces no self-edge (R5.6)", () => {
+  // A file node referencing itself (source === target) is the self-edge case.
+  // When fileX references its own classX, source=fileX.id, target=classX.id —
+  // those are different ids, so it produces a valid file→class edge, NOT filtered.
+  // The actual R5.6 case is when resolved target === source, e.g. a file-scoped
+  // reference that resolves to the same file node id.
+  // We test instead that a classX→classX reference (same id on both sides) is dropped.
+  const { fileX, classX, fileY, classY } = samePackageNodes();
+  const nodes = [fileX, classX, fileY, classY];
+  const symbols = buildSymbolTable(nodes);
+  // classX referencing 'X' — resolves to classX itself → self-edge, dropped (R5.6).
+  const refs: RawReference[] = [typeUseRef(classX.id, "X")];
+  const edges = stitch(nodes, refs, symbols);
+  assert.equal(edges.length, 0, "class referencing its own type must produce no self-edge (R5.6)");
+});
+
+// Property: resolution is invariant under shuffling the reference array when
+// same-package simple names are involved (R5.7, R6.7 — extension for Gap 1c).
+test("same-package resolution is independent of reference processing order", () => {
+  const { fileX, classX, fileY, classY } = samePackageNodes();
+  const nodes = [fileX, classX, fileY, classY];
+  const symbols = buildSymbolTable(nodes);
+
+  const refs: RawReference[] = [
+    typeUseRef(fileX.id, "Y"),
+    typeUseRef(fileX.id, "Y"), // duplicate → same edge, count 2
+    typeUseRef(fileY.id, "X"),
+  ];
+
+  const edgeSetKey = (edges: DependencyEdge[]) =>
+    [...edges]
+      .sort((a, b) => `${a.source}\0${a.target}`.localeCompare(`${b.source}\0${b.target}`))
+      .map((e) => `${e.source}→${e.target}:i${e.importFrequency}:t${e.sharedTypeCount}`)
+      .join("|");
+
+  const forward = stitch(nodes, refs, symbols);
+  const reversed = stitch(nodes, [...refs].reverse(), symbols);
+  assert.equal(edgeSetKey(forward), edgeSetKey(reversed),
+    "same-package resolution must produce identical edges regardless of reference order");
+  // Verify expected counts
+  const xy = forward.find((e) => e.source === fileX.id && e.target === classY.id);
+  const yx = forward.find((e) => e.source === fileY.id && e.target === classX.id);
+  assert.ok(xy !== undefined, "expected X→Y edge");
+  assert.equal(xy!.sharedTypeCount, 2, "two type-use refs to Y must accumulate to 2");
+  assert.ok(yx !== undefined, "expected Y→X edge");
+  assert.equal(yx!.sharedTypeCount, 1);
+});
