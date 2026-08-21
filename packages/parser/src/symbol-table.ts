@@ -60,12 +60,33 @@ export interface SymbolTableBuilder {
 }
 
 /**
- * Derive the FQN key for a `class` node: the id with its `class:` prefix
- * removed. The id already encodes `packagePath.simpleName` (or the simple name
- * alone in the default package), so no reconstruction is needed (R4.2, R4.3).
+ * Derive the FQN key for a `class` node in import-form (dotted, not $ form).
+ *
+ * After Gap 5 (Fix 7), class ids use `$$` to escape literal `$` in identifier
+ * segments, while a single `$` denotes the nested-type separator. To produce
+ * the import-form key that the stitcher looks up (e.g. "com.example.Outer.Inner"
+ * for a nested class), we:
+ * 1. Strip the "class:" prefix.
+ * 2. Replace `$$` (escaped literal $) with a placeholder that cannot appear in
+ *    any id, to avoid double-converting it.
+ * 3. Replace the remaining single `$` (nested-type separators) with `.`.
+ * 4. Restore the placeholder as literal `$`.
+ *
+ * This builds the key from the structural encoding rather than id-slicing alone
+ * (R4.2, R4.3; Fix 7 preferred approach).
+ *
+ * Example:
+ *   "class:com.example.Outer$Inner"   -> "com.example.Outer.Inner"  (nested)
+ *   "class:com.example.Outer$$Inner"  -> "com.example.Outer$Inner"  (top-level with $ in name)
  */
 function classKey(node: GraphNode): string {
-  return node.id.slice(CLASS_ID_PREFIX.length);
+  const fqn = node.id.slice(CLASS_ID_PREFIX.length);
+  // Placeholder chosen outside the range of any id character set.
+  const PLACEHOLDER = "\x00";
+  return fqn
+    .replace(/\$\$/g, PLACEHOLDER)      // protect escaped $$
+    .replace(/\$/g, ".")                  // convert separator $ to .
+    .replace(/\x00/g, "$");             // restore literal $
 }
 
 /**
