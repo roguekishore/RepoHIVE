@@ -70,6 +70,12 @@ export interface ParseSuccess {
    * deterministically to the byte-first candidate. Omitted when none occurred.
    */
   crossScopeAmbiguities?: number;
+  /**
+   * Count of directories skipped by the collector's exclusion policy (Fix 16 —
+   * Gap 19): build / VCS / dependency directories that were not descended.
+   * Omitted when none were skipped.
+   */
+  excludedDirectoryCount?: number;
 }
 
 /**

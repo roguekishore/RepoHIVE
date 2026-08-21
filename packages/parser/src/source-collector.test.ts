@@ -21,6 +21,7 @@ import fc from "fast-check";
 
 import {
   collectSourceFiles,
+  DEFAULT_EXCLUDED_SEGMENTS,
   type CollectorDeps,
   type DirentLike,
 } from "./source-collector.js";
@@ -383,4 +384,85 @@ test("collected result is independent of filesystem enumeration order", async ()
     ),
     { numRuns: 100 },
   );
+});
+
+// --------------------------------------------------------------------------
+// Fix 16 (Gap 19): default-on, overridable exclusion policy.
+// --------------------------------------------------------------------------
+
+test("default exclusions skip build/VCS/dependency dirs and do not descend them", async () => {
+  const model = buildModel([
+    { path: "src/com/example/A.java", leafType: "file" },
+    { path: "target/generated-sources/G.java", leafType: "file" },
+    { path: "build/B.java", leafType: "file" },
+    { path: ".git/hooks/X.java", leafType: "file" },
+    { path: "node_modules/pkg/N.java", leafType: "file" },
+  ]);
+  const excluded: string[] = [];
+  const result = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model), {
+    onExcludedDirectory: (p) => excluded.push(p),
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  // Only the authored source under src/ survives.
+  assert.deepEqual(
+    result.value.map((f) => f.relativePath),
+    ["src/com/example/A.java"],
+  );
+  // The excluded top-level dirs were skipped (recorded), not descended — so the
+  // nested target/generated-sources is never even seen.
+  assert.deepEqual(
+    [...excluded].sort(),
+    [".git", "build", "node_modules", "target"].sort(),
+  );
+});
+
+test("a package directory named 'build' is excluded by default; an override re-includes it", async () => {
+  const model = buildModel([
+    { path: "src/com/build/Thing.java", leafType: "file" },
+    { path: "src/A.java", leafType: "file" },
+  ]);
+  // Default: the 'build' segment is excluded, so Thing.java is dropped — this is
+  // the documented false-positive the override exists for.
+  const def = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model));
+  assert.equal(def.ok, true);
+  if (!def.ok) return;
+  assert.deepEqual(def.value.map((f) => f.relativePath), ["src/A.java"]);
+  // Override with an empty set (the --include-generated behavior) re-includes it.
+  const all = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model), {
+    excludedSegments: new Set(),
+  });
+  assert.equal(all.ok, true);
+  if (!all.ok) return;
+  assert.deepEqual(
+    all.value.map((f) => f.relativePath).sort(),
+    ["src/A.java", "src/com/build/Thing.java"].sort(),
+  );
+});
+
+test("exclusion is segment-exact and case-sensitive: 'Build' is not excluded", async () => {
+  const model = buildModel([
+    { path: "Build/C.java", leafType: "file" }, // capital B — not a default segment
+    { path: "building/D.java", leafType: "file" }, // substring of 'build' — not excluded
+  ]);
+  const result = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(
+    result.value.map((f) => f.relativePath).sort(),
+    ["Build/C.java", "building/D.java"].sort(),
+  );
+});
+
+test("a custom excluded segment is skipped alongside the defaults", async () => {
+  const model = buildModel([
+    { path: "src/A.java", leafType: "file" },
+    { path: "vendor/V.java", leafType: "file" },
+  ]);
+  const result = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model), {
+    excludedSegments: new Set([...DEFAULT_EXCLUDED_SEGMENTS, "vendor"]),
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.map((f) => f.relativePath), ["src/A.java"]);
 });

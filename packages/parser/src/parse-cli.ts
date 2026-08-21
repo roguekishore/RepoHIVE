@@ -20,6 +20,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseProject } from "./orchestrator.js";
+import { DEFAULT_EXCLUDED_SEGMENTS } from "./source-collector.js";
 
 /** Resolve the default fixture directory relative to this compiled module. */
 function defaultFixtureDirectory(): string {
@@ -30,7 +31,28 @@ function defaultFixtureDirectory(): string {
 }
 
 async function main(): Promise<void> {
-  const [projectArg, outputArg] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+
+  // Exclusion flags (Fix 16 — Gap 19):
+  //   --include-generated   include everything (turn the default exclusions off)
+  //   --exclude a,b,c        add segments to the default exclusion list
+  const includeGenerated = args.includes("--include-generated");
+  const excludeIdx = args.indexOf("--exclude");
+  const extraExcludes =
+    excludeIdx >= 0 && args[excludeIdx + 1] !== undefined
+      ? args[excludeIdx + 1]!
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      : [];
+
+  // Positional args are everything that is neither a flag nor a flag's value.
+  const flagValueIndices = new Set<number>();
+  if (excludeIdx >= 0) flagValueIndices.add(excludeIdx + 1);
+  const [projectArg, outputArg] = args.filter(
+    (a, i) => !a.startsWith("--") && !flagValueIndices.has(i),
+  );
+
   // Resolve relative paths against the directory the user invoked npm from
   // (INIT_CWD), not this module's cwd — npm's `--workspace` indirection changes
   // the process cwd to the package directory, which would break a relative arg.
@@ -45,7 +67,15 @@ async function main(): Promise<void> {
       ? path.resolve(invocationCwd, outputArg)
       : undefined;
 
-  const result = await parseProject({ projectDirectory, outputPath });
+  // undefined -> collector default list; empty set -> include everything.
+  let excludedSegments: ReadonlySet<string> | undefined;
+  if (includeGenerated) {
+    excludedSegments = new Set();
+  } else if (extraExcludes.length > 0) {
+    excludedSegments = new Set([...DEFAULT_EXCLUDED_SEGMENTS, ...extraExcludes]);
+  }
+
+  const result = await parseProject({ projectDirectory, outputPath, excludedSegments });
 
   if (result.ok) {
     // eslint-disable-next-line no-console
@@ -62,6 +92,9 @@ async function main(): Promise<void> {
               } (byte-first pick, recorded)`,
             ]
           : []),
+        includeGenerated
+          ? `  exclude : off (--include-generated)`
+          : `  exclude : ${result.value.excludedDirectoryCount ?? 0} dir(s) skipped (build/VCS/generated)`,
         `  output  : ${result.value.outputPath}`,
         `  result  : OK`,
       ].join("\n"),

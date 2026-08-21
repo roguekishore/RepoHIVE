@@ -76,6 +76,12 @@ export interface ParseOptions {
    * used as the base so the output location is stable and OS-independent).
    */
   outputPath?: string;
+  /**
+   * Directory-name segments to exclude from collection (Fix 16 — Gap 19).
+   * Omitted → the collector's default list; an empty set → include everything
+   * (`--include-generated`).
+   */
+  excludedSegments?: ReadonlySet<string>;
 }
 
 /**
@@ -149,7 +155,13 @@ export async function parseProject(
   // 2. Collect Java source files in canonical order; fatal collection errors
   //    (unreadable directory, no `.java` files) are returned immediately
   //    (R2.4, R2.5).
-  const collection = await deps.collector.collect(validated);
+  let excludedDirectoryCount = 0;
+  const collection = await deps.collector.collect(validated, {
+    excludedSegments: options.excludedSegments,
+    onExcludedDirectory: () => {
+      excludedDirectoryCount += 1;
+    },
+  });
   if (!collection.ok) {
     return collection;
   }
@@ -201,8 +213,13 @@ export async function parseProject(
   // 6. Serialize atomically and return success (R7, R8, R9).
   const outputPath = resolveOutputPath(validated, options.outputPath);
   const written = await deps.serializer.write(nodes, edges, outputPath);
-  if (written.ok && crossScopeAmbiguities > 0) {
-    written.value.crossScopeAmbiguities = crossScopeAmbiguities;
+  if (written.ok) {
+    if (crossScopeAmbiguities > 0) {
+      written.value.crossScopeAmbiguities = crossScopeAmbiguities;
+    }
+    if (excludedDirectoryCount > 0) {
+      written.value.excludedDirectoryCount = excludedDirectoryCount;
+    }
   }
   return written;
 }
