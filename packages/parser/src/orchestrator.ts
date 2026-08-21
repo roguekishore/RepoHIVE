@@ -177,7 +177,18 @@ export async function parseProject(
   //    (R4, R5, R6). These run even when errors were recorded so behavior stays
   //    uniform, but their output is discarded by the gate below when needed.
   const symbols = deps.symbolTableBuilder.build(nodes);
-  const edges: DependencyEdge[] = deps.stitcher.stitch(nodes, references, symbols);
+  // Count cross-source-root resolution ambiguities so the run can report them
+  // (Fix 24 — Gap 2); each was resolved deterministically to the byte-first
+  // candidate, so this is an audit signal, not an error.
+  let crossScopeAmbiguities = 0;
+  const edges: DependencyEdge[] = deps.stitcher.stitch(
+    nodes,
+    references,
+    symbols,
+    () => {
+      crossScopeAmbiguities += 1;
+    },
+  );
 
   // 5. Error gate: if any recoverable error was recorded, return them all and
   //    write nothing. The serializer is never invoked, so no partial/empty
@@ -189,5 +200,9 @@ export async function parseProject(
 
   // 6. Serialize atomically and return success (R7, R8, R9).
   const outputPath = resolveOutputPath(validated, options.outputPath);
-  return deps.serializer.write(nodes, edges, outputPath);
+  const written = await deps.serializer.write(nodes, edges, outputPath);
+  if (written.ok && crossScopeAmbiguities > 0) {
+    written.value.crossScopeAmbiguities = crossScopeAmbiguities;
+  }
+  return written;
 }

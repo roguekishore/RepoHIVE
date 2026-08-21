@@ -63,6 +63,13 @@ export interface ParseSuccess {
   nodeCount: number;
   /** Number of edges written. */
   edgeCount: number;
+  /**
+   * Count of cross-source-root resolution ambiguities recorded during stitching
+   * (Fix 24 — Gap 2): references whose FQN was absent from the referring file's
+   * own source root but present in more than one other root, each resolved
+   * deterministically to the byte-first candidate. Omitted when none occurred.
+   */
+  crossScopeAmbiguities?: number;
 }
 
 /**

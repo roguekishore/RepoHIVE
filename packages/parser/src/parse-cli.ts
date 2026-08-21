@@ -55,6 +55,13 @@ async function main(): Promise<void> {
         `  project : ${projectDirectory}`,
         `  nodes   : ${result.value.nodeCount}`,
         `  edges   : ${result.value.edgeCount}`,
+        ...(result.value.crossScopeAmbiguities
+          ? [
+              `  x-scope : ${result.value.crossScopeAmbiguities} cross-root ambiguit${
+                result.value.crossScopeAmbiguities === 1 ? "y" : "ies"
+              } (byte-first pick, recorded)`,
+            ]
+          : []),
         `  output  : ${result.value.outputPath}`,
         `  result  : OK`,
       ].join("\n"),
