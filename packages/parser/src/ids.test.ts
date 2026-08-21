@@ -308,6 +308,47 @@ test("default-package class with $ in name uses $$ (no leading dot regression)",
   assert.ok(!id.startsWith("class:."), "no leading dot for default package");
 });
 
+// ---------------------------------------------------------------------------
+// Fix 24 (Gap 2): source-root scope in class/function ids.
+// ---------------------------------------------------------------------------
+
+test("empty scope leaves class and function ids unscoped (backward compatible)", () => {
+  assert.equal(buildClassId("com.example", ["UserService"], ""), "class:com.example.UserService");
+  assert.equal(
+    buildFunctionId("com.example.UserService", "save", ["com.example.User"], ""),
+    "func:com.example.UserService#save(com.example.User)",
+  );
+  // Omitting the arg entirely is equivalent to an empty scope.
+  assert.equal(
+    buildClassId("com.example", ["UserService"]),
+    buildClassId("com.example", ["UserService"], ""),
+  );
+});
+
+test("a non-empty scope prefixes the FQN with '<scope>|'", () => {
+  assert.equal(
+    buildClassId("com.example", ["UserService"], "src/test/java"),
+    "class:src/test/java|com.example.UserService",
+  );
+  assert.equal(
+    buildFunctionId("com.example.UserService", "save", ["com.example.User"], "src/test/java"),
+    "func:src/test/java|com.example.UserService#save(com.example.User)",
+  );
+});
+
+test("the same FQN under different source roots yields distinct ids (Gap 2)", () => {
+  const core = buildClassId("org.b", ["OfferServiceTest"], "core/mod/src/test/java");
+  const integ = buildClassId("org.b", ["OfferServiceTest"], "integration/src/test/java");
+  assert.notEqual(core, integ);
+});
+
+test("the scope↔FQN boundary is the last '|' since an FQN never contains '|'", () => {
+  const id = buildClassId("com.example", ["Outer", "Inner"], "weird/place/Foo.java");
+  // The FQN portion is everything after the last '|'.
+  const fqn = id.slice("class:".length).slice(id.slice("class:".length).lastIndexOf("|") + 1);
+  assert.equal(fqn, "com.example.Outer$Inner");
+});
+
 // Feature: dependency-graph-parser, Property (Gap 5): for any two structurally
 // distinct entities, their ids differ — even when segments contain $ characters.
 // This is the single most important test: it exercises the escaping correctness

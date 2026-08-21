@@ -27,6 +27,16 @@
  * The mapping is injective: a run of `$$` only ever arises from escaping,
  * a single `$` only ever arises from the separator.
  *
+ * ## Source-root scope (Fix 24 — Gap 2)
+ *
+ * A Java FQN is unique only within one source root, so multi-module repos can
+ * declare the same FQN twice. `class` and `function` ids therefore carry an
+ * optional source-root scope prefix `<scope>|` (the scope is derived by
+ * `source-root.ts`). An empty scope (repository-root source root) omits the
+ * separator, so single-root ids keep their unscoped form. A Java FQN never
+ * contains `|`, so the scope↔FQN boundary is unambiguously the last `|` and no
+ * escaping is needed. `file` ids are never scoped — a path is already unique.
+ *
  * Canonical id string forms:
  *
  * | Kind     | Form                                                        | Example                                             |
@@ -51,6 +61,24 @@ const PACKAGE_SEPARATOR = ".";
 const NESTED_TYPE_SEPARATOR = "$";
 /** Separator between an enclosing-class FQN and a function name. */
 const FUNCTION_NAME_SEPARATOR = "#";
+/**
+ * Separator between the source-root scope and the FQN in a scoped id
+ * (Fix 24 — Gap 2). A Java FQN never contains `|`, so the scope↔FQN boundary is
+ * always the last `|`; the encoding is unambiguously decodable without escaping.
+ */
+const SCOPE_SEPARATOR = "|";
+
+/**
+ * Prefix an id body with its source-root scope when the scope is non-empty
+ * (Fix 24 — Gap 2). An empty scope (source root == repository root) omits the
+ * separator, so single-source-root ids keep their unscoped form and FQN
+ * uniqueness *within one root* is unaffected. A non-empty scope distinguishes
+ * the same FQN declared under different source roots (the multi-module case),
+ * which is what removes the duplicate-id collision.
+ */
+function withScope(scope: string, body: string): string {
+  return scope.length === 0 ? body : scope + SCOPE_SEPARATOR + body;
+}
 
 /**
  * Guard: a `relativePath` that enters a file id MUST be a forward-slash,
@@ -145,14 +173,18 @@ export function buildClassFqn(
  * @param packagePath declared dotted package, or `""` for the default package.
  * @param nestedTypeNames enclosing-type chain, outermost first (see
  *   {@link buildClassFqn}).
+ * @param scope the file's source root (see {@link withScope}); `""` (default)
+ *   for a repository-root source root, leaving the id unscoped (Fix 24 — Gap 2).
  * @returns the content-derived class node id (e.g.
- *   `class:com.example.Outer$Inner`).
+ *   `class:com.example.Outer$Inner`, or
+ *   `class:src/test/java|com.example.Outer$Inner` when scoped).
  */
 export function buildClassId(
   packagePath: string,
   nestedTypeNames: readonly string[],
+  scope = "",
 ): NodeId {
-  return CLASS_ID_PREFIX + buildClassFqn(packagePath, nestedTypeNames);
+  return CLASS_ID_PREFIX + withScope(scope, buildClassFqn(packagePath, nestedTypeNames));
 }
 
 /**
@@ -166,6 +198,9 @@ export function buildClassId(
  * @param functionName simple method / constructor name.
  * @param parameterTypes declared parameter types in source order (empty for a
  *   no-argument function).
+ * @param scope the declaring file's source root (see {@link withScope}); `""`
+ *   (default) leaves the id unscoped. The scope must match the enclosing
+ *   class's scope so a method and its class share a source root (Fix 24 — Gap 2).
  * @returns the content-derived function node id (e.g.
  *   `func:com.example.UserService#save(com.example.User)`).
  */
@@ -173,7 +208,11 @@ export function buildFunctionId(
   enclosingClassFqn: string,
   functionName: string,
   parameterTypes: readonly string[],
+  scope = "",
 ): NodeId {
   const params = parameterTypes.join(",");
-  return `${FUNCTION_ID_PREFIX}${enclosingClassFqn}${FUNCTION_NAME_SEPARATOR}${functionName}(${params})`;
+  return `${FUNCTION_ID_PREFIX}${withScope(
+    scope,
+    `${enclosingClassFqn}${FUNCTION_NAME_SEPARATOR}${functionName}(${params})`,
+  )}`;
 }

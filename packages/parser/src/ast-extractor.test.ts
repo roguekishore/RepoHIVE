@@ -121,10 +121,10 @@ record ARecord(int value) {}`;
 
   const classIds = idsOfKind(result.nodes, "class").sort();
   assert.deepEqual(classIds, [
-    "class:com.example.AClass",
-    "class:com.example.AnEnum",
-    "class:com.example.AnInterface",
-    "class:com.example.ARecord",
+    "class:src|com.example.AClass",
+    "class:src|com.example.AnEnum",
+    "class:src|com.example.AnInterface",
+    "class:src|com.example.ARecord",
   ].sort());
 
   // Every class node carries the file's package/dir and points at the file.
@@ -148,10 +148,10 @@ class Outer {
 
   const classIds = idsOfKind(result.nodes, "class").sort();
   assert.deepEqual(classIds, [
-    "class:com.example.Outer",
-    "class:com.example.Outer$Inner",
-    "class:com.example.Outer$Nested",
-    "class:com.example.Outer$Nested$Deep",
+    "class:src|com.example.Outer",
+    "class:src|com.example.Outer$Inner",
+    "class:src|com.example.Outer$Nested",
+    "class:src|com.example.Outer$Nested$Deep",
   ].sort());
 });
 
@@ -167,10 +167,10 @@ class Calc {
 
   const funcIds = idsOfKind(result.nodes, "function").sort();
   assert.deepEqual(funcIds, [
-    "func:com.example.Calc#add()",
-    "func:com.example.Calc#add(int)",
-    "func:com.example.Calc#add(int,int)",
-    "func:com.example.Calc#add(long)",
+    "func:src|com.example.Calc#add()",
+    "func:src|com.example.Calc#add(int)",
+    "func:src|com.example.Calc#add(int,int)",
+    "func:src|com.example.Calc#add(long)",
   ].sort());
 });
 
@@ -182,7 +182,7 @@ class User {
   const { result } = await extractSource("src/com/example/User.java", source);
 
   const funcIds = idsOfKind(result.nodes, "function");
-  assert.ok(funcIds.includes("func:com.example.User#User(String)"));
+  assert.ok(funcIds.includes("func:src|com.example.User#User(String)"));
 });
 
 // --------------------------------------------------------------------------
@@ -294,7 +294,7 @@ class Broken {
 
 test("continues extracting remaining files after an unparseable file", async () => {
   const broken = "src/Broken.java";
-  const good = "src/Good.java";
+  const good = "src/com/example/Good.java";
   const sources: Record<string, string> = {
     [broken]: "class Broken { void m( {",
     [good]: "package com.example;\nclass Good {}",
@@ -313,7 +313,7 @@ test("continues extracting remaining files after an unparseable file", async () 
   assert.equal(brokenResult, null);
   assert.notEqual(goodResult, null);
   assert.ok(
-    idsOfKind(goodResult!.nodes, "class").includes("class:com.example.Good"),
+    idsOfKind(goodResult!.nodes, "class").includes("class:src|com.example.Good"),
   );
   // The broken file was recorded but did not stop extraction of the good file.
   assert.equal(errors.errors().length, 1);
@@ -422,7 +422,7 @@ class Anon {
   assert.equal(runMethods.length, 2,
     `expected 2 distinct run() methods, got: ${runMethods}`);
   // One is on Anon directly
-  assert.ok(funcIds.includes("func:com.example.Anon#run()"),
+  assert.ok(funcIds.includes("func:src|com.example.Anon#run()"),
     `Anon#run() must exist: ${funcIds}`);
   // One is on the anonymous class
   assert.ok(funcIds.some((id) => id.includes("Runnable#0") && id.includes("run()")),
@@ -469,7 +469,7 @@ enum Op {
   assert.equal(applyMethods.length, 3,
     `expected 3 distinct apply(int,int) methods, got: ${applyMethods}`);
   // One is directly on Op
-  assert.ok(funcIds.includes("func:com.example.Op#apply(int,int)"),
+  assert.ok(funcIds.includes("func:src|com.example.Op#apply(int,int)"),
     `abstract apply must exist on Op: ${funcIds}`);
   // One is under ADD constant scope
   assert.ok(funcIds.some((id) => id.includes("Op$ADD") && id.includes("apply(int,int)")),
@@ -564,7 +564,7 @@ class Sig {
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // Must be "varargs(int...)" — NOT "varargs(int... a...)"
-  assert.ok(funcIds.includes("func:com.example.Sig#varargs(int...)"),
+  assert.ok(funcIds.includes("func:src|com.example.Sig#varargs(int...)"),
     `expected 'varargs(int...)' in ${funcIds}`);
   assert.ok(!funcIds.some((id) => id.includes("a...")),
     `parameter name must not appear in id: ${funcIds}`);
@@ -577,7 +577,7 @@ class Sig {
 }`;
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
-  assert.ok(funcIds.includes("func:com.example.Sig#log(String,Object...)"),
+  assert.ok(funcIds.includes("func:src|com.example.Sig#log(String,Object...)"),
     `expected 'log(String,Object...)' in ${funcIds}`);
   assert.ok(!funcIds.some((id) => id.includes("args")),
     `parameter name 'args' must not appear in id`);
@@ -594,7 +594,7 @@ class Sig {
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // Must be "twoParams(int,int)" — only types, not names
-  assert.ok(funcIds.includes("func:com.example.Sig#twoParams(int,int)"),
+  assert.ok(funcIds.includes("func:src|com.example.Sig#twoParams(int,int)"),
     `expected 'twoParams(int,int)' in ${funcIds}`);
   // Parameter names must not appear in the id
   assert.ok(!funcIds.some((id) => id.includes("width") || id.includes("height")),
@@ -609,7 +609,7 @@ class Sig {
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // Must be "annotated(String)" — annotation stripped
-  assert.ok(funcIds.includes("func:com.example.Sig#annotated(String)"),
+  assert.ok(funcIds.includes("func:src|com.example.Sig#annotated(String)"),
     `expected 'annotated(String)' in ${funcIds}`);
   assert.ok(!funcIds.some((id) => id.includes("Deprecated")),
     `annotation must not appear in id: ${funcIds}`);
@@ -623,7 +623,7 @@ class Sig {
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // int a[] → the type is int, dimensions is [], so "int[]"
-  assert.ok(funcIds.some((id) => id.startsWith("func:com.example.Sig#arr(")),
+  assert.ok(funcIds.some((id) => id.startsWith("func:src|com.example.Sig#arr(")),
     `expected arr() function in ${funcIds}`);
 });
 
@@ -635,10 +635,10 @@ record Rec(int a, String b) {
   const { result } = await extractSource("src/com/example/Rec.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // Compact constructor should reflect the record header: Rec(int,String)
-  assert.ok(funcIds.includes("func:com.example.Rec#Rec(int,String)"),
+  assert.ok(funcIds.includes("func:src|com.example.Rec#Rec(int,String)"),
     `expected 'Rec(int,String)' compact constructor in ${funcIds}`);
   // Must not collide with an explicit no-arg constructor if present
-  assert.ok(!funcIds.includes("func:com.example.Rec#Rec()"),
+  assert.ok(!funcIds.includes("func:src|com.example.Rec#Rec()"),
     `compact constructor must not produce empty-params id: ${funcIds}`);
 });
 
@@ -651,9 +651,9 @@ record Pair(int x, int y) {
   const { result } = await extractSource("src/com/example/Pair.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
   // Compact ctor: Pair(int,int); explicit ctor: Pair(int)
-  assert.ok(funcIds.includes("func:com.example.Pair#Pair(int,int)"),
+  assert.ok(funcIds.includes("func:src|com.example.Pair#Pair(int,int)"),
     `expected compact ctor 'Pair(int,int)' in ${funcIds}`);
-  assert.ok(funcIds.includes("func:com.example.Pair#Pair(int)"),
+  assert.ok(funcIds.includes("func:src|com.example.Pair#Pair(int)"),
     `expected explicit ctor 'Pair(int)' in ${funcIds}`);
 });
 
@@ -686,7 +686,9 @@ class Stable {
 test("package declaration with spaces around dots yields canonical packagePath", async () => {
   const source = `package com . example;
 public class Ws {}`;
-  const { result } = await extractSource("Ws.java", source);
+  // Package-rooted path so the source root is the repo root (empty scope),
+  // keeping this Gap-7 whitespace test focused on packagePath, not scoping.
+  const { result } = await extractSource("com/example/Ws.java", source);
   const fileNode = result.nodes.find((n) => n.kind === "file")!;
   assert.equal(fileNode.packagePath, "com.example", "spaces around dots must be stripped");
   assert.ok(

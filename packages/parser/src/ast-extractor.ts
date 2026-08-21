@@ -51,6 +51,7 @@ import { Language, Parser, type Node } from "web-tree-sitter";
 
 import type { GraphNode, NodeId } from "@repohive/shared";
 import { buildClassFqn, buildClassId, buildFileId, buildFunctionId } from "./ids.js";
+import { deriveSourceRoot } from "./source-root.js";
 import { makeError, type ParseErrorCollector } from "./errors.js";
 import type { CollectedFile, ExtractionResult, RawReference } from "./types.js";
 
@@ -459,17 +460,18 @@ function walkDeclarations(
   directoryPath: string,
   fileId: NodeId,
   nodesById: Map<NodeId, GraphNode>,
+  sourceRoot: string,
 ): void {
   for (const child of node.namedChildren) {
     if (TYPE_DECLARATION_TYPES.has(child.type)) {
       const nameNode = child.childForFieldName("name");
       // A type declaration with no name is malformed; skip it but continue.
       if (nameNode === null) {
-        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
         continue;
       }
       const nextChain = [...typeChain, nameNode.text];
-      const classId = buildClassId(packagePath, nextChain);
+      const classId = buildClassId(packagePath, nextChain, sourceRoot);
       if (!nodesById.has(classId)) {
         const classNode: GraphNode = {
           id: classId,
@@ -484,7 +486,7 @@ function walkDeclarations(
       }
       // Recurse into the type body with the extended chain so nested / inner
       // types and their members are captured at any depth (R3.3).
-      walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById);
+      walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
       continue;
     }
 
@@ -497,9 +499,9 @@ function walkDeclarations(
       const nameNode = child.childForFieldName("name");
       if (nameNode !== null && child.childForFieldName("body") !== null) {
         const nextChain = [...typeChain, nameNode.text];
-        walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById);
+        walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
       } else {
-        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
       }
       continue;
     }
@@ -529,7 +531,7 @@ function walkDeclarations(
       // Emit a class node for the anonymous class itself (R3.3 — "each class
       // declaration"; anonymous classes are class declarations in the JLS).
       if (nextChain.length > 0) {
-        const classId = buildClassId(packagePath, nextChain);
+        const classId = buildClassId(packagePath, nextChain, sourceRoot);
         if (!nodesById.has(classId)) {
           const classNode: GraphNode = {
             id: classId,
@@ -544,7 +546,7 @@ function walkDeclarations(
         }
       }
 
-      walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById);
+      walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
       continue;
     }
 
@@ -558,7 +560,7 @@ function walkDeclarations(
         const nameNode = child.childForFieldName("name");
         const functionName = nameNode !== null ? nameNode.text : typeChain[typeChain.length - 1]!;
         const parameterTypes = parameterTypesOf(child);
-        const functionId = buildFunctionId(enclosingFqn, functionName, parameterTypes);
+        const functionId = buildFunctionId(enclosingFqn, functionName, parameterTypes, sourceRoot);
         if (!nodesById.has(functionId)) {
           const functionNode: GraphNode = {
             id: functionId,
@@ -586,15 +588,16 @@ function walkDeclarations(
           directoryPath,
           fileId,
           nodesById,
+          sourceRoot,
         );
       } else {
-        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
       }
       continue;
     }
 
     // Any other node: recurse to find declarations nested within it.
-    walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+    walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById, sourceRoot);
   }
 }
 
@@ -827,6 +830,9 @@ function extractFromRoot(root: Node, file: CollectedFile): ExtractionResult {
   const packagePath = readPackagePath(root);
   const directoryPath = directoryPathOf(file.relativePath);
   const fileId = buildFileId(file.relativePath);
+  // Source root scopes class/function ids so the same FQN in two modules does
+  // not collide (Fix 24 — Gap 2). Derived from the package↔directory law.
+  const sourceRoot = deriveSourceRoot(file.relativePath, packagePath);
 
   const nodesById = new Map<NodeId, GraphNode>();
 
@@ -838,7 +844,7 @@ function extractFromRoot(root: Node, file: CollectedFile): ExtractionResult {
   }
   nodesById.set(fileId, fileNode);
 
-  walkDeclarations(root, [], packagePath, directoryPath, fileId, nodesById);
+  walkDeclarations(root, [], packagePath, directoryPath, fileId, nodesById, sourceRoot);
 
   return {
     nodes: [...nodesById.values()],

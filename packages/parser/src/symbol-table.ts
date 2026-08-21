@@ -80,7 +80,13 @@ export interface SymbolTableBuilder {
  *   "class:com.example.Outer$$Inner"  -> "com.example.Outer$Inner"  (top-level with $ in name)
  */
 function classKey(node: GraphNode): string {
-  const fqn = node.id.slice(CLASS_ID_PREFIX.length);
+  let fqn = node.id.slice(CLASS_ID_PREFIX.length);
+  // Strip the source-root scope prefix, if any (Fix 24 — Gap 2). A Java FQN
+  // never contains `|`, so the scope↔FQN boundary is the last `|`.
+  const bar = fqn.lastIndexOf("|");
+  if (bar >= 0) {
+    fqn = fqn.slice(bar + 1);
+  }
   // Placeholder chosen outside the range of any id character set.
   const PLACEHOLDER = "\x00";
   return fqn
@@ -98,7 +104,13 @@ function classKey(node: GraphNode): string {
  * contain one).
  */
 function functionKey(node: GraphNode): string | null {
-  const body = node.id.slice(FUNCTION_ID_PREFIX.length);
+  let body = node.id.slice(FUNCTION_ID_PREFIX.length);
+  // Strip the source-root scope prefix, if any (Fix 24 — Gap 2): the scope sits
+  // before the enclosing FQN and the last `|` is its boundary.
+  const scopeBar = body.lastIndexOf("|");
+  if (scopeBar >= 0) {
+    body = body.slice(scopeBar + 1);
+  }
   const separatorIndex = body.indexOf(FUNCTION_NAME_SEPARATOR);
   if (separatorIndex < 0) {
     return null;

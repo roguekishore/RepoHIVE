@@ -362,22 +362,25 @@ test("end-to-end: emitted graph.json conforms to the downstream contract with ze
 
   // Spot-check representative entities the fixture is designed to produce.
   const ids = new Set(parsed.nodes.map((n: GraphNode) => n.id));
-  assert.ok(ids.has("class:com.example.model.User"), "User class node present");
+  // Files live under `src/com/example/...`, so the source root is `src` and
+  // class/function ids carry the `src|` scope prefix (Fix 24 — Gap 2). File ids
+  // are never scoped (a path is already unique).
+  assert.ok(ids.has("class:src|com.example.model.User"), "User class node present");
   assert.ok(
-    ids.has("class:com.example.model.User$Role"),
+    ids.has("class:src|com.example.model.User$Role"),
     "nested User.Role class node present ($-joined FQN)",
   );
   assert.ok(
-    ids.has("class:com.example.service.UserService$Session"),
+    ids.has("class:src|com.example.service.UserService$Session"),
     "inner UserService.Session class node present",
   );
   // Overloads produce distinct function nodes distinguished by parameter types.
   assert.ok(
-    ids.has("func:com.example.model.User#getName()"),
+    ids.has("func:src|com.example.model.User#getName()"),
     "no-arg getName overload present",
   );
   assert.ok(
-    ids.has("func:com.example.model.User#getName(String)"),
+    ids.has("func:src|com.example.model.User#getName(String)"),
     "String-arg getName overload present",
   );
 
@@ -385,7 +388,7 @@ test("end-to-end: emitted graph.json conforms to the downstream contract with ze
   const hasCrossFileEdge = parsed.edges.some(
     (e: DependencyEdge) =>
       e.source === "file:src/com/example/app/Main.java" &&
-      e.target === "class:com.example.model.User",
+      e.target === "class:src|com.example.model.User",
   );
   assert.ok(hasCrossFileEdge, "expected Main.java -> User import edge");
 
