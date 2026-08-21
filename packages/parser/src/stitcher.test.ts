@@ -27,7 +27,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { DependencyEdge, GraphNode } from "@repohive/shared";
-import type { RawReference } from "./types.js";
+import type { CrossScopeAmbiguity, RawReference } from "./types.js";
 import { buildSymbolTable } from "./symbol-table.js";
 import { createStitcher, stitch } from "./stitcher.js";
 
@@ -93,15 +93,21 @@ test("drops references whose target is not in the project (R5.4)", () => {
   assert.equal(edges.length, 0);
 });
 
-test("drops edges with a function endpoint (R5.2)", () => {
+test("a function-target reference maps up to its enclosing class, never a function endpoint (R5.2, Gap 8)", () => {
   const symbols = buildSymbolTable(baseNodes);
-  // A static-member import resolves to a function node; it must not become an edge.
+  // A static-member import resolves to a function node; R5.2 forbids a function
+  // *endpoint*, so the edge maps up to the enclosing class rather than being
+  // dropped (Fix 10 — Gap 8, part 3).
   const edges = stitch(
     baseNodes,
     [importRef(fileA.id, "com.example.B.helper")],
     symbols,
   );
-  assert.equal(edges.length, 0);
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.source, fileA.id);
+  assert.equal(edges[0]!.target, classB.id);
+  // The endpoint is the class, never the function (Property 4 / R5.2).
+  assert.notEqual(edges[0]!.target, funcBHelper.id);
 });
 
 test("drops references whose source node is absent from the node set (R5.5)", () => {
@@ -508,4 +514,165 @@ test("same-package resolution is independent of reference processing order", () 
   assert.equal(xy!.sharedTypeCount, 2, "two type-use refs to Y must accumulate to 2");
   assert.ok(yx !== undefined, "expected Y→X edge");
   assert.equal(yx!.sharedTypeCount, 1);
+});
+
+// --- Fix 24 (Gap 2): source-root-scoped resolution ------------------------
+
+test("resolves a reference within the referring file's own source root first (Gap 2)", () => {
+  // The same FQN exists in two source roots; a reference from `core` must
+  // resolve to the `core` copy, matching Java classpath semantics.
+  const coreRef: GraphNode = {
+    id: "file:core/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+  };
+  const coreA: GraphNode = {
+    id: "class:core|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+    definedInFile: "file:core/com/example/A.java",
+  };
+  const integA: GraphNode = {
+    id: "class:integration|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "integration/com/example",
+    definedInFile: "file:integration/com/example/A.java",
+  };
+  const nodes = [coreRef, coreA, integA];
+  const refs: RawReference[] = [
+    { fromNodeId: coreRef.id, targetName: "com.example.A", kind: "import" },
+  ];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes));
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.target, "class:core|com.example.A");
+});
+
+test("a single cross-root match resolves as a genuine cross-module edge (Gap 2)", () => {
+  const appRef: GraphNode = {
+    id: "file:app/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "app/com/example",
+  };
+  const libOnly: GraphNode = {
+    id: "class:lib|com.example.Only",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "lib/com/example",
+    definedInFile: "file:lib/com/example/Only.java",
+  };
+  const nodes = [appRef, libOnly];
+  const refs: RawReference[] = [
+    { fromNodeId: appRef.id, targetName: "com.example.Only", kind: "import" },
+  ];
+  const ambiguities: CrossScopeAmbiguity[] = [];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes), (a) => ambiguities.push(a));
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.target, "class:lib|com.example.Only");
+  assert.equal(ambiguities.length, 0, "a single cross-root match is not ambiguous");
+});
+
+test("an ambiguous cross-root FQN picks byte-first and records the ambiguity (Gap 2)", () => {
+  // The referrer's own root (`app`) has no `A`; two other roots do. The stitcher
+  // picks the byte-first candidate deterministically and records the ambiguity.
+  const appRef: GraphNode = {
+    id: "file:app/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "app/com/example",
+  };
+  const coreA: GraphNode = {
+    id: "class:core|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+    definedInFile: "file:core/com/example/A.java",
+  };
+  const integA: GraphNode = {
+    id: "class:integration|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "integration/com/example",
+    definedInFile: "file:integration/com/example/A.java",
+  };
+  const nodes = [appRef, coreA, integA];
+  const refs: RawReference[] = [
+    { fromNodeId: appRef.id, targetName: "com.example.A", kind: "import" },
+  ];
+  const ambiguities: CrossScopeAmbiguity[] = [];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes), (a) => ambiguities.push(a));
+  assert.equal(edges.length, 1);
+  // "class:core|..." sorts before "class:integration|..." byte-wise.
+  assert.equal(edges[0]!.target, "class:core|com.example.A");
+  assert.equal(ambiguities.length, 1);
+  assert.equal(ambiguities[0]!.targetFqn, "com.example.A");
+  assert.equal(ambiguities[0]!.chosenId, "class:core|com.example.A");
+  assert.deepEqual(ambiguities[0]!.candidateIds, [
+    "class:core|com.example.A",
+    "class:integration|com.example.A",
+  ]);
+  assert.equal(ambiguities[0]!.referringFile, "file:app/com/example/Ref.java");
+});
+
+// --- Fix 10 (Gap 8): static-member import maps up to the enclosing class ---
+
+test("a static-member import resolves to an edge to the enclosing class (Gap 8)", () => {
+  // `import static p.Helper.help;` resolves to the help() function node; R5.2
+  // forbids a function endpoint, so the edge maps up to the Helper class.
+  const fileUser: GraphNode = {
+    id: "file:q/UsesStatic.java",
+    kind: "file",
+    packagePath: "q",
+    directoryPath: "q",
+  };
+  const classHelper: GraphNode = {
+    id: "class:p.Helper",
+    kind: "class",
+    packagePath: "p",
+    directoryPath: "p",
+    definedInFile: "file:p/Helper.java",
+  };
+  const funcHelp: GraphNode = {
+    id: "func:p.Helper#help()",
+    kind: "function",
+    packagePath: "p",
+    directoryPath: "p",
+    definedInFile: "file:p/Helper.java",
+  };
+  const nodes = [fileUser, classHelper, funcHelp];
+  const refs: RawReference[] = [
+    { fromNodeId: fileUser.id, targetName: "p.Helper.help", kind: "import" },
+  ];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes));
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.source, "file:q/UsesStatic.java");
+  assert.equal(edges[0]!.target, "class:p.Helper");
+  // Never a function endpoint (Property 4 still holds after the map-up).
+  assert.notEqual(edges[0]!.target, "func:p.Helper#help()");
+});
+
+test("a function target whose enclosing class is absent from the graph is dropped (Gap 8, R5.5)", () => {
+  const fileUser: GraphNode = {
+    id: "file:q/UsesGone.java",
+    kind: "file",
+    packagePath: "q",
+    directoryPath: "q",
+  };
+  // Only the function node exists; its enclosing class:p.Gone is NOT in the set.
+  const funcGone: GraphNode = {
+    id: "func:p.Gone#m()",
+    kind: "function",
+    packagePath: "p",
+    directoryPath: "p",
+    definedInFile: "file:p/Gone.java",
+  };
+  const nodes = [fileUser, funcGone];
+  const refs: RawReference[] = [
+    { fromNodeId: fileUser.id, targetName: "p.Gone.m", kind: "import" },
+  ];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes));
+  assert.equal(edges.length, 0, "no dangling edge when the enclosing class is absent");
 });

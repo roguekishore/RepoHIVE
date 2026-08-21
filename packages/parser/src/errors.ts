@@ -38,6 +38,7 @@ export type ParseErrorReason =
   | "no-java-files" // R2.5
   | "file-unreadable" // R10.2
   | "file-unparseable" // R10.1
+  | "duplicate-node-id" // R3.12 — two distinct declarations produce the same id
   | "output-unwritable"; // R8.4, R8.5
 
 /**
@@ -62,6 +63,19 @@ export interface ParseSuccess {
   nodeCount: number;
   /** Number of edges written. */
   edgeCount: number;
+  /**
+   * Count of cross-source-root resolution ambiguities recorded during stitching
+   * (Fix 24 — Gap 2): references whose FQN was absent from the referring file's
+   * own source root but present in more than one other root, each resolved
+   * deterministically to the byte-first candidate. Omitted when none occurred.
+   */
+  crossScopeAmbiguities?: number;
+  /**
+   * Count of directories skipped by the collector's exclusion policy (Fix 16 —
+   * Gap 19): build / VCS / dependency directories that were not descended.
+   * Omitted when none were skipped.
+   */
+  excludedDirectoryCount?: number;
 }
 
 /**

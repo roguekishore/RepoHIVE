@@ -56,3 +56,24 @@ export interface ExtractionResult {
   /** The file's declared dotted package, or `""` for the default package. */
   packagePath: string;
 }
+
+/**
+ * A record of a cross-source-root resolution ambiguity (Fix 24 — Gap 2).
+ *
+ * Emitted when a reference's FQN is not found in the referring file's own
+ * source root but exists in **more than one** other source root, so no
+ * classpath-local answer exists. The stitcher picks the byte-first candidate
+ * deterministically and records the ambiguity here so the choice is auditable
+ * (consistent with the project's honest-caveats posture). This never enters the
+ * JSON contract; it is surfaced on {@link ParseSuccess} and the CLI only.
+ */
+export interface CrossScopeAmbiguity {
+  /** The `file` node id whose reference was ambiguous. */
+  referringFile: NodeId;
+  /** The fully qualified name that resolved to multiple source roots. */
+  targetFqn: string;
+  /** The deterministically chosen (byte-first) target node id. */
+  chosenId: NodeId;
+  /** All candidate node ids, in canonical order (chosenId is the first). */
+  candidateIds: NodeId[];
+}

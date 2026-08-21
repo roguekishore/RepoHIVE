@@ -66,9 +66,51 @@ const defaultDeps: CollectorDeps = {
   readdir: (p) => nodeFs.readdir(p, { withFileTypes: true }),
 };
 
+/**
+ * Default directory-name segments excluded from collection (Fix 16 — Gap 19).
+ * These hold machine-generated or vendored `.java` that is not authored source;
+ * indexing them inflates every count and (per Gap 2) manufactures duplicate
+ * FQNs. Matching is segment-exact and case-sensitive, so a real package named
+ * `building` is safe.
+ */
+export const DEFAULT_EXCLUDED_SEGMENTS: readonly string[] = [
+  ".git",
+  ".hg",
+  ".svn",
+  "node_modules",
+  "target",
+  "build",
+  "out",
+  "bin",
+  ".gradle",
+  ".mvn",
+  ".idea",
+  "generated-sources",
+  "generated",
+];
+
+/** Options controlling the collector's exclusion policy (Fix 16 — Gap 19). */
+export interface CollectOptions {
+  /**
+   * Directory-name segments to exclude, matched segment-exact and
+   * case-sensitively. Defaults to {@link DEFAULT_EXCLUDED_SEGMENTS}. Pass an
+   * empty set to include everything (the `--include-generated` override).
+   */
+  excludedSegments?: ReadonlySet<string>;
+  /**
+   * Notified with the root-relative path of each directory skipped by the
+   * exclusion policy (the subtree is not descended). Lets callers report how
+   * much was excluded without re-walking.
+   */
+  onExcludedDirectory?: (relativePath: string) => void;
+}
+
 /** The public SourceFileCollector interface (design: "SourceFileCollector (R2)"). */
 export interface SourceFileCollector {
-  collect(root: CollectorRoot): Promise<Result<CollectedFile[], ParseError>>;
+  collect(
+    root: CollectorRoot,
+    options?: CollectOptions,
+  ): Promise<Result<CollectedFile[], ParseError>>;
 }
 
 /** Extract a filesystem error code (`ENOENT`, `EACCES`, ...) if present. */
@@ -117,9 +159,14 @@ export function createSourceFileCollector(
   deps: CollectorDeps = defaultDeps,
 ): SourceFileCollector {
   return {
-    async collect(root) {
+    async collect(root, options) {
       const rootAbsolute = root.absolutePath;
       const files: CollectedFile[] = [];
+      // Exclusion policy (Fix 16 — Gap 19): default-on, overridable. An empty
+      // set means "exclude nothing" (the --include-generated override).
+      const excludedSegments =
+        options?.excludedSegments ?? new Set(DEFAULT_EXCLUDED_SEGMENTS);
+      const onExcludedDirectory = options?.onExcludedDirectory;
 
       // Recursive walk. Returns a fatal ParseError (unreadable directory) or
       // `null` on success; discovered `.java` files accumulate into `files`.
@@ -153,6 +200,14 @@ export function createSourceFileCollector(
           const entryAbsolute = path.join(absoluteDir, entry.name);
 
           if (entry.isDirectory()) {
+            // Exclusion policy (Fix 16 — Gap 19): skip build / VCS / dependency
+            // directories entirely — the subtree is not descended, which is both
+            // the correctness fix and a cost saving. Segment-exact,
+            // case-sensitive (R2.2), so `Build/` is not excluded.
+            if (excludedSegments.has(entry.name)) {
+              onExcludedDirectory?.(toPosixRelative(rootAbsolute, entryAbsolute));
+              continue;
+            }
             const nestedError = await walk(entryAbsolute);
             if (nestedError !== null) {
               return nestedError;
@@ -211,6 +266,7 @@ export function createSourceFileCollector(
 export function collectSourceFiles(
   root: CollectorRoot,
   deps: CollectorDeps = defaultDeps,
+  options?: CollectOptions,
 ): Promise<Result<CollectedFile[], ParseError>> {
-  return createSourceFileCollector(deps).collect(root);
+  return createSourceFileCollector(deps).collect(root, options);
 }

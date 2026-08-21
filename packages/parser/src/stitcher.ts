@@ -63,8 +63,13 @@
  */
 
 import type { DependencyEdge, GraphNode, NodeId } from "@repohive/shared";
-import type { RawReference } from "./types.js";
+import type { CrossScopeAmbiguity, RawReference } from "./types.js";
 import type { SymbolTable } from "./symbol-table.js";
+import { deriveSourceRoot } from "./source-root.js";
+import { CLASS_ID_PREFIX, FILE_ID_PREFIX, FUNCTION_ID_PREFIX } from "./ids.js";
+
+/** Sink notified of each cross-source-root resolution ambiguity (Fix 24 — Gap 2). */
+export type AmbiguitySink = (ambiguity: CrossScopeAmbiguity) => void;
 
 /**
  * Separator used to key an edge by its ordered `(source, target)` pair. The
@@ -103,12 +108,30 @@ export interface Stitcher {
     nodes: GraphNode[],
     references: RawReference[],
     symbols: SymbolTable,
+    onAmbiguity?: AmbiguitySink,
   ): DependencyEdge[];
 }
 
 /** Build the edge key for an ordered `(source, target)` pair. */
 function edgeKey(source: NodeId, target: NodeId): string {
   return source + EDGE_KEY_SEPARATOR + target;
+}
+
+/**
+ * Map a `function` node id up to the id of its enclosing `class` (Fix 10 —
+ * Gap 8). A function id is `func:<scope>|<enclosingFqn>#name(params)`; the
+ * enclosing class id is the same scope + FQN under the `class:` prefix, so we
+ * swap the prefix and drop the `#member(params)` tail. Both share the source
+ * root, so the scope segment carries over untouched.
+ *
+ *   func:p.Helper#help()                -> class:p.Helper
+ *   func:src/test|com.x.A#m(int)         -> class:src/test|com.x.A
+ */
+function enclosingClassIdOf(functionId: NodeId): NodeId {
+  const body = functionId.slice(FUNCTION_ID_PREFIX.length);
+  const hash = body.indexOf("#");
+  const enclosing = hash >= 0 ? body.slice(0, hash) : body;
+  return CLASS_ID_PREFIX + enclosing;
 }
 
 /**
@@ -135,6 +158,9 @@ function resolveEndpoints(
   singleTypeImports: Map<string, string>,
   wildcardPackages: readonly string[],
   referringPackage: string,
+  referringScope: string,
+  referringFileId: NodeId,
+  onAmbiguity: AmbiguitySink | undefined,
 ): { source: NodeId; target: NodeId } | null {
   const source = reference.fromNodeId;
   const sourceNode = nodesById.get(source);
@@ -143,41 +169,56 @@ function resolveEndpoints(
     return null;
   }
 
-  // Resolve the referenced name; an out-of-project name yields no edge (R5.4).
-  // Gap 1c: when the direct lookup misses and the name is a bare simple name
-  // (no "."), try the JLS-precedence candidate list:
-  //   1. Single-type import of that simple name in the referring file.
-  //   2. Same package as the referring file  (the crux — no import needed).
-  //   3. Each wildcard-imported package, in canonical order.
-  // This mirrors the JLS §7.5 shadowing rule: a single-type import shadows any
-  // same-package class of the same simple name.  Trying same-package first would
-  // mint wrong edges to real nodes in the common "import com.other.Helper" case.
-  let target = symbols.lookup(reference.targetName);
-  if (target === null && !reference.targetName.includes(".")) {
+  // Build the JLS-precedence candidate FQN list (Gap 1c order, unchanged): the
+  // name as written first, then — for a bare simple name — the single-type
+  // import, the same package, and each wildcard package in canonical order.
+  const candidateFqns: string[] = [reference.targetName];
+  if (!reference.targetName.includes(".")) {
     const simpleName = reference.targetName;
-
-    // Candidate 1: single-type import (import precedence — JLS §7.5.1 shadows §7.5.3).
+    // Candidate 1: single-type import (JLS §7.5.1 shadows §7.5.3).
     const importedFqn = singleTypeImports.get(simpleName);
     if (importedFqn !== undefined) {
-      target = symbols.lookup(importedFqn);
+      candidateFqns.push(importedFqn);
     }
-
-    // Candidate 2: same package.
-    if (target === null && referringPackage.length > 0) {
-      target = symbols.lookup(`${referringPackage}.${simpleName}`);
-    } else if (target === null && referringPackage.length === 0) {
-      // Default package: the FQN is the simple name itself — already tried above,
-      // but the symbol table key for a default-package class is the bare simple
-      // name, so this is a no-op (already covered by the direct lookup).
+    // Candidate 2: same package (default package: FQN is the simple name, already first).
+    if (referringPackage.length > 0) {
+      candidateFqns.push(`${referringPackage}.${simpleName}`);
     }
+    // Candidate 3: wildcard imports, canonical order.
+    for (const pkg of wildcardPackages) {
+      candidateFqns.push(`${pkg}.${simpleName}`);
+    }
+  }
 
-    // Candidate 3: wildcard imports, in canonical order (already sorted in the
-    // pre-pass; first hit wins, matching JLS §7.5.2 single-type import dominance).
-    if (target === null) {
-      for (const pkg of wildcardPackages) {
-        target = symbols.lookup(`${pkg}.${simpleName}`);
-        if (target !== null) break;
+  // Resolve each candidate scope-first (Fix 24 — Gap 2): prefer a definition in
+  // the referring file's own source root (Java classpath semantics), then fall
+  // back across roots. One cross-root match is an unambiguous cross-module edge;
+  // several matches resolve deterministically to the byte-first candidate and
+  // record the ambiguity. The first candidate FQN that resolves wins, so JLS
+  // precedence is preserved.
+  let target: NodeId | null = null;
+  for (const fqn of candidateFqns) {
+    const local = symbols.lookupInScope(referringScope, fqn);
+    if (local !== null) {
+      target = local;
+      break;
+    }
+    const candidates = symbols.lookupAcrossScopes(fqn);
+    if (candidates.length === 1) {
+      target = candidates[0]!;
+      break;
+    }
+    if (candidates.length > 1) {
+      target = candidates[0]!; // byte-first (canonical order)
+      if (onAmbiguity !== undefined) {
+        onAmbiguity({
+          referringFile: referringFileId,
+          targetFqn: fqn,
+          chosenId: candidates[0]!,
+          candidateIds: [...candidates],
+        });
       }
+      break;
     }
   }
 
@@ -185,21 +226,38 @@ function resolveEndpoints(
     return null;
   }
 
-  const targetNode = nodesById.get(target);
+  let targetNode = nodesById.get(target);
   // Defensive: symbol-table ids are drawn from the node set, but guard anyway
   // so no dangling endpoint can ever be emitted (R5.5).
   if (targetNode === undefined) {
     return null;
   }
 
-  // Edges connect only file/class-scoped nodes; drop any function endpoint
-  // (e.g. a resolved static-member import) (R5.2).
-  if (sourceNode.kind === "function" || targetNode.kind === "function") {
+  // A resolved `function` target — e.g. a static-member import
+  // `import static p.Helper.help;` that resolves to the `help` method node —
+  // maps UP to its enclosing class (Fix 10 — Gap 8): R5.2 forbids a function
+  // *endpoint*, not the dependency itself. The referencing file genuinely
+  // depends on the class that declares the imported member.
+  if (targetNode.kind === "function") {
+    const classId = enclosingClassIdOf(target);
+    const classNode = nodesById.get(classId);
+    if (classNode === undefined) {
+      // The enclosing class is not in the graph; drop rather than dangle (R5.5).
+      return null;
+    }
+    target = classId;
+    targetNode = classNode;
+  }
+
+  // A `function` *source* endpoint is still dropped (R5.2); sources are files in
+  // Phase 1, so this is defensive.
+  if (sourceNode.kind === "function") {
     return null;
   }
 
-  // No self-referential edges, including intra-file references that resolve to
-  // the same node (R5.6).
+  // No self-referential edges, including after mapping a function target up to
+  // its class (R5.6) — this guard MUST run after the map-up above so a file that
+  // statically imports a member of a class it declares cannot form a self-edge.
   if (source === target) {
     return null;
   }
@@ -217,6 +275,7 @@ export function stitch(
   nodes: GraphNode[],
   references: RawReference[],
   symbols: SymbolTable,
+  onAmbiguity?: AmbiguitySink,
 ): DependencyEdge[] {
   const nodesById = new Map<NodeId, GraphNode>();
   for (const node of nodes) {
@@ -309,6 +368,13 @@ export function stitch(
     const referringFileId = owningFileId(reference.fromNodeId) ?? reference.fromNodeId;
     const referringFileNode = nodesById.get(referringFileId);
     const referringPackage = referringFileNode?.packagePath ?? "";
+    // Derive the referring file's source root so resolution can prefer its own
+    // classpath before reaching across roots (Fix 24 — Gap 2). Uses the same
+    // helper the extractor used to scope ids, so the two never disagree.
+    const referringRelPath = referringFileId.startsWith(FILE_ID_PREFIX)
+      ? referringFileId.slice(FILE_ID_PREFIX.length)
+      : referringFileId;
+    const referringScope = deriveSourceRoot(referringRelPath, referringPackage);
     const importIdx = fileImportIndex.get(referringFileId) ?? {
       singleTypeImports: new Map<string, string>(),
       wildcardPackages: [],
@@ -321,6 +387,9 @@ export function stitch(
       importIdx.singleTypeImports,
       importIdx.wildcardPackages,
       referringPackage,
+      referringScope,
+      referringFileId,
+      onAmbiguity,
     );
     if (endpoints === null) {
       continue;
