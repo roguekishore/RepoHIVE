@@ -66,7 +66,7 @@ import type { DependencyEdge, GraphNode, NodeId } from "@repohive/shared";
 import type { CrossScopeAmbiguity, RawReference } from "./types.js";
 import type { SymbolTable } from "./symbol-table.js";
 import { deriveSourceRoot } from "./source-root.js";
-import { FILE_ID_PREFIX } from "./ids.js";
+import { CLASS_ID_PREFIX, FILE_ID_PREFIX, FUNCTION_ID_PREFIX } from "./ids.js";
 
 /** Sink notified of each cross-source-root resolution ambiguity (Fix 24 — Gap 2). */
 export type AmbiguitySink = (ambiguity: CrossScopeAmbiguity) => void;
@@ -115,6 +115,23 @@ export interface Stitcher {
 /** Build the edge key for an ordered `(source, target)` pair. */
 function edgeKey(source: NodeId, target: NodeId): string {
   return source + EDGE_KEY_SEPARATOR + target;
+}
+
+/**
+ * Map a `function` node id up to the id of its enclosing `class` (Fix 10 —
+ * Gap 8). A function id is `func:<scope>|<enclosingFqn>#name(params)`; the
+ * enclosing class id is the same scope + FQN under the `class:` prefix, so we
+ * swap the prefix and drop the `#member(params)` tail. Both share the source
+ * root, so the scope segment carries over untouched.
+ *
+ *   func:p.Helper#help()                -> class:p.Helper
+ *   func:src/test|com.x.A#m(int)         -> class:src/test|com.x.A
+ */
+function enclosingClassIdOf(functionId: NodeId): NodeId {
+  const body = functionId.slice(FUNCTION_ID_PREFIX.length);
+  const hash = body.indexOf("#");
+  const enclosing = hash >= 0 ? body.slice(0, hash) : body;
+  return CLASS_ID_PREFIX + enclosing;
 }
 
 /**
@@ -209,21 +226,38 @@ function resolveEndpoints(
     return null;
   }
 
-  const targetNode = nodesById.get(target);
+  let targetNode = nodesById.get(target);
   // Defensive: symbol-table ids are drawn from the node set, but guard anyway
   // so no dangling endpoint can ever be emitted (R5.5).
   if (targetNode === undefined) {
     return null;
   }
 
-  // Edges connect only file/class-scoped nodes; drop any function endpoint
-  // (e.g. a resolved static-member import) (R5.2).
-  if (sourceNode.kind === "function" || targetNode.kind === "function") {
+  // A resolved `function` target — e.g. a static-member import
+  // `import static p.Helper.help;` that resolves to the `help` method node —
+  // maps UP to its enclosing class (Fix 10 — Gap 8): R5.2 forbids a function
+  // *endpoint*, not the dependency itself. The referencing file genuinely
+  // depends on the class that declares the imported member.
+  if (targetNode.kind === "function") {
+    const classId = enclosingClassIdOf(target);
+    const classNode = nodesById.get(classId);
+    if (classNode === undefined) {
+      // The enclosing class is not in the graph; drop rather than dangle (R5.5).
+      return null;
+    }
+    target = classId;
+    targetNode = classNode;
+  }
+
+  // A `function` *source* endpoint is still dropped (R5.2); sources are files in
+  // Phase 1, so this is defensive.
+  if (sourceNode.kind === "function") {
     return null;
   }
 
-  // No self-referential edges, including intra-file references that resolve to
-  // the same node (R5.6).
+  // No self-referential edges, including after mapping a function target up to
+  // its class (R5.6) — this guard MUST run after the map-up above so a file that
+  // statically imports a member of a class it declares cannot form a self-edge.
   if (source === target) {
     return null;
   }
