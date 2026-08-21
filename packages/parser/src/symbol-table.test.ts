@@ -252,3 +252,48 @@ test("createSymbolTableBuilder builds an equivalent table", () => {
   const table = createSymbolTableBuilder().build(nodes);
   assert.equal(table.lookup("com.example.A"), "class:com.example.A");
 });
+
+// --- Fix 24 (Gap 2): source-root-scoped resolution ------------------------
+
+test("lookupInScope resolves an FQN within its own source root", () => {
+  const table = buildSymbolTable([
+    { id: "class:core|com.example.A", kind: "class", directoryPath: "core/x", definedInFile: "file:core/x/A.java" },
+    { id: "class:integration|com.example.A", kind: "class", directoryPath: "integration/x", definedInFile: "file:integration/x/A.java" },
+  ]);
+  assert.equal(table.lookupInScope("core", "com.example.A"), "class:core|com.example.A");
+  assert.equal(
+    table.lookupInScope("integration", "com.example.A"),
+    "class:integration|com.example.A",
+  );
+});
+
+test("lookupInScope misses when the scope does not match", () => {
+  const table = buildSymbolTable([
+    { id: "class:core|com.example.A", kind: "class", directoryPath: "core/x", definedInFile: "file:core/x/A.java" },
+  ]);
+  assert.equal(table.lookupInScope("integration", "com.example.A"), null);
+  assert.equal(table.lookupInScope("", "com.example.A"), null);
+});
+
+test("lookupAcrossScopes lists every defining node in canonical order (Gap 2)", () => {
+  const table = buildSymbolTable([
+    { id: "class:integration|com.example.A", kind: "class", directoryPath: "integration/x", definedInFile: "file:integration/x/A.java" },
+    { id: "class:core|com.example.A", kind: "class", directoryPath: "core/x", definedInFile: "file:core/x/A.java" },
+  ]);
+  // Canonical (byte-wise) order: "class:core|..." < "class:integration|...".
+  assert.deepEqual(table.lookupAcrossScopes("com.example.A"), [
+    "class:core|com.example.A",
+    "class:integration|com.example.A",
+  ]);
+  // lookup (scope-agnostic) returns the canonical-first of the two.
+  assert.equal(table.lookup("com.example.A"), "class:core|com.example.A");
+  assert.deepEqual(table.lookupAcrossScopes("com.example.Nope"), []);
+});
+
+test("an unscoped id resolves under the empty scope (backward compatible)", () => {
+  const table = buildSymbolTable([
+    { id: "class:com.example.A", kind: "class", directoryPath: "src" },
+  ]);
+  assert.equal(table.lookupInScope("", "com.example.A"), "class:com.example.A");
+  assert.equal(table.lookup("com.example.A"), "class:com.example.A");
+});

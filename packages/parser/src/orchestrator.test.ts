@@ -114,7 +114,11 @@ function scriptedExtractor(
 
 const passthroughSymbolTableBuilder: SymbolTableBuilder = {
   build(): SymbolTable {
-    return { lookup: () => null };
+    return {
+      lookup: () => null,
+      lookupInScope: () => null,
+      lookupAcrossScopes: () => [],
+    };
   },
 };
 
