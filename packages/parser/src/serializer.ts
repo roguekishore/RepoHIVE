@@ -155,17 +155,41 @@ function normalizeEdge(edge: DependencyEdge): DependencyEdge {
  * Build the contract-conforming, endpoint-swept graph ready for canonical
  * stringification.
  *
- * Nodes are normalized for field omission; edges are normalized for field
- * projection and then swept so that any edge whose `source` or `target` is not
- * an emitted node id is dropped with a diagnostic (R7.6). Ordering is left to
- * {@link stringifyGraph}, which sorts canonically.
+ * Nodes are normalized for field omission; a global uniqueness gate rejects
+ * any graph containing duplicate node ids (R3.12, Fix 7 — Gap 5), returning a
+ * structured diagnostic naming both defining files. Edges are normalized for
+ * field projection and then swept so that any edge whose `source` or `target`
+ * is not an emitted node id is dropped with a diagnostic (R7.6). Ordering is
+ * left to {@link stringifyGraph}, which sorts canonically.
  */
 function buildGraph(
   nodes: GraphNode[],
   edges: DependencyEdge[],
   onDiagnostic: DiagnosticSink,
-): RawDependencyGraph {
+): { graph: RawDependencyGraph; duplicateError?: ParseError } {
   const normalizedNodes = nodes.map(normalizeNode);
+
+  // Global node-id uniqueness gate (R3.12, Fix 7 — Gap 5).
+  // Two structurally distinct declarations producing the same id is a parser
+  // defect; surface it as a structured error naming both defining files so the
+  // diagnostic is actionable rather than silently dropping one.
+  const seen = new Map<string, string>(); // id -> defining file id
+  for (const node of normalizedNodes) {
+    const previous = seen.get(node.id);
+    if (previous !== undefined) {
+      const definingFile =
+        node.definedInFile ?? node.id;
+      const duplicateError: ParseError = makeError(
+        "duplicate-node-id",
+        `Two distinct declarations produced the same node identifier "${node.id}" ` +
+          `(defined in ${previous} and ${definingFile})`,
+        definingFile,
+      );
+      return { graph: { nodes: [], edges: [] }, duplicateError };
+    }
+    seen.set(node.id, node.definedInFile ?? node.id);
+  }
+
   const nodeIds = new Set(normalizedNodes.map((n) => n.id));
 
   const emittedEdges: DependencyEdge[] = [];
@@ -183,7 +207,7 @@ function buildGraph(
     emittedEdges.push(normalizeEdge(edge));
   }
 
-  return { nodes: normalizedNodes, edges: emittedEdges };
+  return { graph: { nodes: normalizedNodes, edges: emittedEdges } };
 }
 
 /** Extract a filesystem error code (`ENOENT`, `EACCES`, ...) if present. */
@@ -227,7 +251,12 @@ export function createGraphSerializer(
 ): GraphSerializer {
   return {
     async write(nodes, edges, outputPath) {
-      const graph = buildGraph(nodes, edges, onDiagnostic);
+      const { graph, duplicateError } = buildGraph(nodes, edges, onDiagnostic);
+
+      // Duplicate node id: return the structured error immediately, write nothing.
+      if (duplicateError !== undefined) {
+        return err([duplicateError]);
+      }
 
       // Serialize the entire document in memory first, so a serialization
       // failure never leaves a partial file on disk (R8.4).
