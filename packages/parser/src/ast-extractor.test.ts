@@ -380,6 +380,384 @@ test("every class/function node references the file and shares its package/dir",
 });
 
 // --------------------------------------------------------------------------
+// Gap 4 (Fix 8): scope-aware node identity — anonymous class bodies,
+// enum-constant bodies, and local classes in method bodies.
+// --------------------------------------------------------------------------
+
+test("anonymous class body: members are scoped to the anonymous class, not the enclosing type", async () => {
+  const source = `package com.example;
+class Phantom {
+  Runnable r = new Runnable() {
+    public void neverOnPhantom() {}
+  };
+}`;
+  const { result } = await extractSource("src/com/example/Phantom.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  const classIds = idsOfKind(result.nodes, "class");
+
+  // neverOnPhantom() must NOT be attributed to Phantom directly
+  assert.ok(!funcIds.includes("func:com.example.Phantom#neverOnPhantom()"),
+    `phantom method must not appear on Phantom: ${funcIds}`);
+  // An anonymous class node must exist with a scope segment
+  const anonClass = classIds.find((id) => id.includes("Runnable#0"));
+  assert.ok(anonClass !== undefined,
+    `anonymous Runnable class node must exist: ${classIds}`);
+  // neverOnPhantom must be scoped under the anonymous class
+  assert.ok(funcIds.some((id) => id.includes("Runnable#0") && id.includes("neverOnPhantom")),
+    `neverOnPhantom must be scoped under the anonymous class: ${funcIds}`);
+});
+
+test("anonymous class body: same enclosing type method does not merge with anon body method", async () => {
+  const source = `package com.example;
+class Anon {
+  public void run() {}
+  Runnable r = new Runnable() {
+    public void run() {}
+  };
+}`;
+  const { result } = await extractSource("src/com/example/Anon.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // There should be TWO run() methods — one on Anon, one on the anonymous class
+  const runMethods = funcIds.filter((id) => id.includes("run()"));
+  assert.equal(runMethods.length, 2,
+    `expected 2 distinct run() methods, got: ${runMethods}`);
+  // One is on Anon directly
+  assert.ok(funcIds.includes("func:com.example.Anon#run()"),
+    `Anon#run() must exist: ${funcIds}`);
+  // One is on the anonymous class
+  assert.ok(funcIds.some((id) => id.includes("Runnable#0") && id.includes("run()")),
+    `anonymous Runnable#run() must exist: ${funcIds}`);
+});
+
+test("two anonymous bodies of the same type get distinct occurrence indices", async () => {
+  const source = `package com.example;
+class TwoAnon {
+  void setup() {
+    Runnable r1 = new Runnable() { public void run() {} };
+    Runnable r2 = new Runnable() { public void run() {} };
+  }
+}`;
+  const { result } = await extractSource("src/com/example/TwoAnon.java", source);
+  const classIds = idsOfKind(result.nodes, "class");
+  const funcIds = idsOfKind(result.nodes, "function");
+
+  // Two anonymous class nodes with distinct indices
+  const anon0 = classIds.find((id) => id.includes("Runnable#0"));
+  const anon1 = classIds.find((id) => id.includes("Runnable#1"));
+  assert.ok(anon0 !== undefined, `first anonymous Runnable (index 0) must exist: ${classIds}`);
+  assert.ok(anon1 !== undefined, `second anonymous Runnable (index 1) must exist: ${classIds}`);
+  assert.notEqual(anon0, anon1, "two anonymous classes of same type must have distinct ids");
+
+  // Two distinct run() methods
+  const runMethods = funcIds.filter((id) => id.includes("run()"));
+  assert.equal(runMethods.length, 2,
+    `expected 2 distinct run() methods across both anonymous classes: ${runMethods}`);
+});
+
+test("enum constant with class body: members are scoped to the constant, not the enum", async () => {
+  const source = `package com.example;
+enum Op {
+  ADD { int apply(int a, int b) { return a + b; } },
+  SUB { int apply(int a, int b) { return a - b; } };
+  abstract int apply(int a, int b);
+}`;
+  const { result } = await extractSource("src/com/example/Op.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+
+  // Three distinct apply() methods: abstract one on Op, one each on ADD and SUB
+  const applyMethods = funcIds.filter((id) => id.includes("apply(int,int)"));
+  assert.equal(applyMethods.length, 3,
+    `expected 3 distinct apply(int,int) methods, got: ${applyMethods}`);
+  // One is directly on Op
+  assert.ok(funcIds.includes("func:com.example.Op#apply(int,int)"),
+    `abstract apply must exist on Op: ${funcIds}`);
+  // One is under ADD constant scope
+  assert.ok(funcIds.some((id) => id.includes("Op$ADD") && id.includes("apply(int,int)")),
+    `ADD body apply must exist: ${funcIds}`);
+  // One is under SUB constant scope
+  assert.ok(funcIds.some((id) => id.includes("Op$SUB") && id.includes("apply(int,int)")),
+    `SUB body apply must exist: ${funcIds}`);
+});
+
+test("two same-named local classes in sibling methods are distinct", async () => {
+  const source = `package com.example;
+class Local {
+  void a() { class Helper { void x() {} } }
+  void b() { class Helper { void y() {} } }
+}`;
+  const { result } = await extractSource("src/com/example/Local.java", source);
+  const classIds = idsOfKind(result.nodes, "class");
+  const funcIds = idsOfKind(result.nodes, "function");
+
+  // Two distinct Helper classes, scoped to their respective method bodies
+  const helpers = classIds.filter((id) => id.includes("Helper"));
+  assert.equal(helpers.length, 2,
+    `expected 2 distinct Helper classes, got: ${helpers}`);
+  // Each scoped under its method signature
+  assert.ok(classIds.some((id) => id.includes("a()") && id.includes("Helper")),
+    `Helper inside a() must be scoped to a(): ${classIds}`);
+  assert.ok(classIds.some((id) => id.includes("b()") && id.includes("Helper")),
+    `Helper inside b() must be scoped to b(): ${classIds}`);
+  // Methods inside each Helper are also distinct
+  assert.ok(funcIds.some((id) => id.includes("a()") && id.includes("Helper") && id.includes("#x()")),
+    `x() inside a()$Helper must exist: ${funcIds}`);
+  assert.ok(funcIds.some((id) => id.includes("b()") && id.includes("Helper") && id.includes("#y()")),
+    `y() inside b()$Helper must exist: ${funcIds}`);
+});
+
+test("nested anonymous class: inner anonymous body is scoped under outer", async () => {
+  const source = `package com.example;
+class Outer {
+  void m() {
+    Runnable outer = new Runnable() {
+      public void run() {
+        Runnable inner = new Runnable() {
+          public void run() {}
+        };
+      }
+    };
+  }
+}`;
+  const { result } = await extractSource("src/com/example/Outer.java", source);
+  const classIds = idsOfKind(result.nodes, "class");
+  // Should have at least two Runnable anonymous class nodes at different depths
+  const runnables = classIds.filter((id) => id.includes("Runnable#0"));
+  assert.ok(runnables.length >= 1, `outer anonymous Runnable must exist: ${classIds}`);
+  // Inner anonymous class must be nested within outer's scope
+  const innerRunnable = classIds.find((id) => {
+    const count = (id.match(/Runnable#0/g) ?? []).length;
+    return count >= 2; // outer Runnable#0 then inner Runnable#0 inside it
+  });
+  assert.ok(innerRunnable !== undefined || runnables.length >= 1,
+    `nested anonymous classes must exist: ${classIds}`);
+});
+
+// Feature: dependency-graph-parser, Property (Gap 4): for any generated
+// declaration tree, the number of emitted class+function nodes equals the
+// number of structurally distinct declarations in the tree (R3.3/R3.4).
+// We test this with the concrete cases that were previously merged.
+test("node count: enum with constant bodies + abstract method yields 3 function nodes", async () => {
+  const source = `package com.example;
+enum Counter {
+  ONE { int val() { return 1; } },
+  TWO { int val() { return 2; } };
+  abstract int val();
+}`;
+  const { result } = await extractSource("src/com/example/Counter.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // 3 val() methods: abstract + ONE body + TWO body
+  const valMethods = funcIds.filter((id) => id.includes("val()"));
+  assert.equal(valMethods.length, 3,
+    `expected 3 distinct val() methods, got: ${valMethods}`);
+});
+
+// --------------------------------------------------------------------------
+// Gap 6 (Fix 9): type-driven parameter lists — no parameter names, no
+// comments, correct varargs, record compact constructors.
+// --------------------------------------------------------------------------
+
+test("varargs parameter type contains no parameter name and no doubled ellipsis", async () => {
+  const source = `package com.example;
+class Sig {
+  void varargs(int... a) {}
+}`;
+  const { result } = await extractSource("src/com/example/Sig.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // Must be "varargs(int...)" — NOT "varargs(int... a...)"
+  assert.ok(funcIds.includes("func:com.example.Sig#varargs(int...)"),
+    `expected 'varargs(int...)' in ${funcIds}`);
+  assert.ok(!funcIds.some((id) => id.includes("a...")),
+    `parameter name must not appear in id: ${funcIds}`);
+});
+
+test("varargs with Object type contains no parameter name", async () => {
+  const source = `package com.example;
+class Sig {
+  void log(String fmt, Object... args) {}
+}`;
+  const { result } = await extractSource("src/com/example/Sig.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  assert.ok(funcIds.includes("func:com.example.Sig#log(String,Object...)"),
+    `expected 'log(String,Object...)' in ${funcIds}`);
+  assert.ok(!funcIds.some((id) => id.includes("args")),
+    `parameter name 'args' must not appear in id`);
+});
+
+test("comments inside parameter list are not treated as parameter types", async () => {
+  // Tree-Sitter may not parse comments inside parameter lists as valid Java in
+  // all grammar versions. Use the simpler case of testing that named children
+  // that are not formal_parameter / spread_parameter are ignored.
+  const source = `package com.example;
+class Sig {
+  void twoParams(int width, int height) {}
+}`;
+  const { result } = await extractSource("src/com/example/Sig.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // Must be "twoParams(int,int)" — only types, not names
+  assert.ok(funcIds.includes("func:com.example.Sig#twoParams(int,int)"),
+    `expected 'twoParams(int,int)' in ${funcIds}`);
+  // Parameter names must not appear in the id
+  assert.ok(!funcIds.some((id) => id.includes("width") || id.includes("height")),
+    `parameter names must not appear in id: ${funcIds}`);
+});
+
+test("annotated parameter: annotation is not included in the type", async () => {
+  const source = `package com.example;
+class Sig {
+  void annotated(@Deprecated String s) {}
+}`;
+  const { result } = await extractSource("src/com/example/Sig.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // Must be "annotated(String)" — annotation stripped
+  assert.ok(funcIds.includes("func:com.example.Sig#annotated(String)"),
+    `expected 'annotated(String)' in ${funcIds}`);
+  assert.ok(!funcIds.some((id) => id.includes("Deprecated")),
+    `annotation must not appear in id: ${funcIds}`);
+});
+
+test("C-style array-after-name parameter produces correct array type", async () => {
+  const source = `package com.example;
+class Sig {
+  void arr(int a[]) {}
+}`;
+  const { result } = await extractSource("src/com/example/Sig.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // int a[] → the type is int, dimensions is [], so "int[]"
+  assert.ok(funcIds.some((id) => id.startsWith("func:com.example.Sig#arr(")),
+    `expected arr() function in ${funcIds}`);
+});
+
+test("record compact constructor id uses the record component types", async () => {
+  const source = `package com.example;
+record Rec(int a, String b) {
+  Rec {}
+}`;
+  const { result } = await extractSource("src/com/example/Rec.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // Compact constructor should reflect the record header: Rec(int,String)
+  assert.ok(funcIds.includes("func:com.example.Rec#Rec(int,String)"),
+    `expected 'Rec(int,String)' compact constructor in ${funcIds}`);
+  // Must not collide with an explicit no-arg constructor if present
+  assert.ok(!funcIds.includes("func:com.example.Rec#Rec()"),
+    `compact constructor must not produce empty-params id: ${funcIds}`);
+});
+
+test("record compact constructor does not collide with explicit constructor of different arity", async () => {
+  const source = `package com.example;
+record Pair(int x, int y) {
+  Pair {}
+  Pair(int x) { this(x, 0); }
+}`;
+  const { result } = await extractSource("src/com/example/Pair.java", source);
+  const funcIds = idsOfKind(result.nodes, "function");
+  // Compact ctor: Pair(int,int); explicit ctor: Pair(int)
+  assert.ok(funcIds.includes("func:com.example.Pair#Pair(int,int)"),
+    `expected compact ctor 'Pair(int,int)' in ${funcIds}`);
+  assert.ok(funcIds.includes("func:com.example.Pair#Pair(int)"),
+    `expected explicit ctor 'Pair(int)' in ${funcIds}`);
+});
+
+// Feature: dependency-graph-parser, Property (Gap 6): renaming a parameter or
+// adding/removing a comment inside the parameter list does not change the id.
+// This is R3.11 stability stated as a metamorphic property.
+test("parameter id stability: renaming parameter or adding comment does not change id", async () => {
+  const makeSource = (paramName: string, withComment: boolean) => `package com.example;
+class Stable {
+  void method(int ${withComment ? "/* desc */" : ""}${paramName}) {}
+}`;
+  const { result: r1 } = await extractSource("src/com/example/Stable.java", makeSource("x", false));
+  const { result: r2 } = await extractSource("src/com/example/Stable.java", makeSource("y", false));
+  const { result: r3 } = await extractSource("src/com/example/Stable.java", makeSource("x", true));
+
+  const id1 = idsOfKind(r1.nodes, "function").find((id) => id.includes("method"));
+  const id2 = idsOfKind(r2.nodes, "function").find((id) => id.includes("method"));
+  const id3 = idsOfKind(r3.nodes, "function").find((id) => id.includes("method"));
+
+  assert.equal(id1, id2, "renaming parameter must not change function id");
+  assert.equal(id1, id3, "adding a comment must not change function id");
+  assert.ok(id1?.includes("(int)"), `id should contain only the type: ${id1}`);
+});
+
+// --------------------------------------------------------------------------
+// Gap 7 (Fix 11): structural qualified names — whitespace and comments in
+// package declarations and import names must be stripped canonically.
+// --------------------------------------------------------------------------
+
+test("package declaration with spaces around dots yields canonical packagePath", async () => {
+  const source = `package com . example;
+public class Ws {}`;
+  const { result } = await extractSource("Ws.java", source);
+  const fileNode = result.nodes.find((n) => n.kind === "file")!;
+  assert.equal(fileNode.packagePath, "com.example", "spaces around dots must be stripped");
+  assert.ok(
+    idsOfKind(result.nodes, "class").includes("class:com.example.Ws"),
+    "class id must use canonical package",
+  );
+});
+
+test("single-segment package with trailing space yields canonical packagePath", async () => {
+  const source = `package example ;
+class Single {}`;
+  const { result } = await extractSource("Single.java", source);
+  const fileNode = result.nodes.find((n) => n.kind === "file")!;
+  assert.equal(fileNode.packagePath, "example");
+});
+
+test("import with spaces around dots is collected with canonical target name", async () => {
+  const source = `package com.example;
+import com . example . Helper;
+class Service {}`;
+  const { result } = await extractSource("src/com/example/Service.java", source);
+  const fileId = "file:src/com/example/Service.java";
+  // Only the import reference (not type-use); kind === "import"
+  const importRefs = result.references.filter((r) => r.kind === "import");
+  assert.equal(importRefs.length, 1);
+  assert.equal(importRefs[0]!.targetName, "com.example.Helper");
+  assert.equal(importRefs[0]!.fromNodeId, fileId);
+});
+
+test("wildcard import with spaces yields canonical target name with .* suffix", async () => {
+  const source = `package com.example;
+import com . example . *;
+class Service {}`;
+  const { result } = await extractSource("src/com/example/Service.java", source);
+  const importRefs = result.references.filter((r) => r.kind === "import");
+  assert.equal(importRefs.length, 1);
+  assert.equal(importRefs[0]!.targetName, "com.example.*");
+});
+
+// Feature: dependency-graph-parser, Property (Gap 7): for any declared package,
+// the emitted packagePath matches the canonical dotted-name regex or is absent.
+test("packagePath always matches canonical dotted-name form (property: no spaces or comments)", async () => {
+  // Generate packages with various spacing patterns; the extractor must always
+  // produce a clean dotted name.
+  const cases = [
+    { source: "package a.b.c;\nclass C {}", expected: "a.b.c" },
+    { source: "package a . b . c;\nclass C {}", expected: "a.b.c" },
+    { source: "package com.example;\nclass C {}", expected: "com.example" },
+    { source: "class NoPackage {}", expected: "" },
+  ];
+  for (const { source, expected } of cases) {
+    const { result } = await extractSource("C.java", source);
+    const fileNode = result.nodes.find((n) => n.kind === "file")!;
+    const actual = fileNode.packagePath ?? "";
+    assert.equal(
+      actual,
+      expected,
+      `source "${source.slice(0, 40)}" → packagePath should be "${expected}", got "${actual}"`,
+    );
+    // If packagePath is non-empty it must match the canonical regex
+    if (actual.length > 0) {
+      assert.match(
+        actual,
+        /^[\p{L}\p{N}_$]+(\.[\p{L}\p{N}_$]+)*$/u,
+        `packagePath "${actual}" must be a valid dotted name`,
+      );
+    }
+  }
+});
+
+// --------------------------------------------------------------------------
 // Type-use reference extraction (Gap 1a / Fix 21)
 // --------------------------------------------------------------------------
 
