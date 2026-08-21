@@ -181,16 +181,57 @@ function normalizeTypeText(text: string): string {
 }
 
 /**
+ * Derive the exact dotted name of a scoped_identifier or bare identifier
+ * node by joining its identifier descendants with ".", ignoring whitespace
+ * trivia and comments entirely (Fix 11 — Gap 7: structural qualified names).
+ *
+ * Reading the raw text span via node.text is wrong because "package com .
+ * example;" produces "com . example" rather than "com.example", and a
+ * comment inside the name ("com./x/example") leaks the comment text.
+ * Walking the identifier descendants is exact: a scoped_identifier is a tree
+ * of identifier children; joining them with "." is canonical regardless of
+ * trivia the author wrote.
+ *
+ * Only identifier leaf nodes contribute segments; every other named child
+ * (annotations, comments, brackets) is silently skipped by construction.
+ *
+ * @param node a scoped_identifier or bare identifier Tree-Sitter node.
+ * @returns the canonical dotted name, e.g. "com.example.service".
+ */
+function dottedNameOf(node: Node): string {
+  if (node.type === "identifier") {
+    return node.text;
+  }
+  const segments: string[] = [];
+  const walk = (n: Node): void => {
+    for (const child of n.namedChildren) {
+      if (child.type === "identifier") {
+        segments.push(child.text);
+      } else if (child.type === "scoped_identifier") {
+        walk(child);
+      }
+      // Comments, annotations, and other extras are ignored by construction.
+    }
+  };
+  walk(node);
+  return segments.join(".");
+}
+
+/**
  * Read the file's declared package as a dotted name, or `""` for the default
  * package (R3.7, R3.8). The `package_declaration` carries the dotted name as a
  * `scoped_identifier` (or a bare `identifier` for a single-segment package).
+ *
+ * Uses {@link dottedNameOf} to build the name structurally, so whitespace and
+ * comments inside the qualified name are ignored and the result is always in
+ * canonical dotted form (Fix 11 — Gap 7).
  */
 function readPackagePath(root: Node): string {
   for (const child of root.namedChildren) {
     if (child.type === "package_declaration") {
       for (const named of child.namedChildren) {
         if (named.type === "scoped_identifier" || named.type === "identifier") {
-          return normalizeTypeText(named.text);
+          return dottedNameOf(named);
         }
       }
     }
@@ -199,33 +240,200 @@ function readPackagePath(root: Node): string {
 }
 
 /**
+ * Derive the declared type text from a single parameter node in a type-driven
+ * way (Fix 9 — Gap 6): only the declared type, never the parameter name,
+ * annotations, or comments.
+ *
+ * - For formal_parameter: read the "type" field, append "dimensions" field if
+ *   present (handles C-style array-after-name like "int a[]").
+ * - For spread_parameter: tree-sitter-java has no "type" FIELD on this node
+ *   (Grammar trap 1), but the type IS present as a direct named child of the
+ *   appropriate type; find it structurally then append exactly one "...".
+ *
+ * Returns null when no type can be determined (should not happen for
+ * well-formed parameters; callers skip null results).
+ */
+function declaredTypeText(param: Node): string | null {
+  if (param.type === "spread_parameter") {
+    // tree-sitter-java's spread_parameter has children: [modifiers?] type name
+    // The type node is the first non-annotation named child whose type ends with
+    // "_type" or is "type_identifier" / "scoped_type_identifier" / "generic_type"
+    // / "array_type".
+    const typeChild = param.namedChildren.find((c) => {
+      const t = c.type;
+      return (
+        t === "type_identifier" ||
+        t === "scoped_type_identifier" ||
+        t === "generic_type" ||
+        t === "array_type" ||
+        t.endsWith("_type")
+      );
+    });
+    if (typeChild === null || typeChild === undefined) {
+      return null;
+    }
+    return normalizeTypeText(typeChild.text) + "...";
+  }
+
+  // formal_parameter: read the "type" field + optional "dimensions" field
+  const typeField = param.childForFieldName("type");
+  if (typeField === null) {
+    return null;
+  }
+  let text = normalizeTypeText(typeField.text);
+  const dimensions = param.childForFieldName("dimensions");
+  if (dimensions !== null) {
+    text += normalizeTypeText(dimensions.text);
+  }
+  return text;
+}
+
+/**
+ * For a compact_constructor_declaration (a record's canonical constructor),
+ * derive the parameter-type list from the enclosing record_declaration's
+ * record_header / formal_parameters. Returns null when the declaration cannot
+ * be found (should not happen for well-formed records).
+ */
+function recordHeaderTypesOf(declaration: Node): string[] | null {
+  // Walk up to find the enclosing record_declaration
+  let current: Node | null = declaration.parent;
+  while (current !== null && current.type !== "record_declaration") {
+    current = current.parent;
+  }
+  if (current === null) {
+    return null;
+  }
+  // The record_declaration has a "parameters" field (its record components)
+  const params = current.childForFieldName("parameters");
+  if (params === null) {
+    return null;
+  }
+  const types: string[] = [];
+  for (const param of params.namedChildren) {
+    if (param.type !== "formal_parameter" && param.type !== "spread_parameter") {
+      continue;
+    }
+    const text = declaredTypeText(param);
+    if (text !== null) {
+      types.push(text);
+    }
+  }
+  return types;
+}
+
+/**
  * Extract the declared parameter-type list of a callable, in source order, so
- * overloads are distinguished by their signature (R3.4). Receiver parameters
- * (`this`) are ignored; varargs are rendered with a trailing `...`.
+ * overloads are distinguished by their signature (R3.4).
+ *
+ * Type-driven (Fix 9 — Gap 6): only formal_parameter and spread_parameter nodes
+ * are processed; comments, annotations, receiver_parameters, and any other
+ * named children of the parameter list are ignored. The type text comes from
+ * the declared "type" field (never the parameter name or raw text), so renaming
+ * a parameter or editing a comment cannot change the id (R3.11 stability).
+ *
+ * Compact constructors (record canonical constructors) have no "parameters"
+ * node; their signature is derived from the enclosing record_declaration's
+ * record header components so the id reflects the real signature.
  */
 function parameterTypesOf(declaration: Node): string[] {
   const parameters = declaration.childForFieldName("parameters");
+
   if (parameters === null) {
+    // compact_constructor_declaration: synthesize from the record header
+    if (declaration.type === "compact_constructor_declaration") {
+      return recordHeaderTypesOf(declaration) ?? [];
+    }
     return [];
   }
+
   const types: string[] = [];
   for (const param of parameters.namedChildren) {
-    if (param.type === "receiver_parameter") {
+    // Only process actual parameter nodes; skip receiver_parameter, modifiers,
+    // annotations at the list level, and any comment extras.
+    if (param.type !== "formal_parameter" && param.type !== "spread_parameter") {
       continue;
     }
-    const typeNode = param.childForFieldName("type");
-    const baseText = typeNode !== null ? typeNode.text : param.text;
-    let typeText = normalizeTypeText(baseText);
-    const dimensions = param.childForFieldName("dimensions");
-    if (dimensions !== null) {
-      typeText += normalizeTypeText(dimensions.text);
+    const text = declaredTypeText(param);
+    if (text !== null) {
+      types.push(text);
     }
-    if (param.type === "spread_parameter") {
-      typeText += "...";
-    }
-    types.push(typeText);
   }
   return types;
+}
+
+/**
+ * Walk up the tree from a node to find the nearest enclosing scope —
+ * a block (method/constructor/initializer body) or class_body (class
+ * declaration body). This is used to determine the correct scope for
+ * computing anonymous-class occurrence indices.
+ *
+ * Returns null when no enclosing scope can be found (the node is at
+ * file scope).
+ */
+function findEnclosingScope(node: Node): Node | null {
+  let current: Node | null = node.parent;
+  while (current !== null) {
+    if (current.type === "block" || current.type === "class_body") {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+/**
+ * Derive the base type name for an object_creation_expression node — the
+ * instantiated type as written, normalized. Returns "" when no type can be
+ * found (should not happen for well-formed code).
+ */
+function anonymousBaseTypeName(node: Node): string {
+  const typeNode = node.childForFieldName("type");
+  if (typeNode === null) return "";
+  return normalizeTypeText(typeNode.text);
+}
+
+/**
+ * Compute the 0-based occurrence index of an anonymous-class body among all
+ * object_creation_expression nodes with the same base type name that appear
+ * within the given scope node (the enclosing block, class body, or method body),
+ * ordered by their start byte position (source order).
+ *
+ * Source order is content — positions are stable across repeated parses of
+ * the same file — so this is a pure function of the tree with no run counter
+ * (R3.10, R3.11).
+ */
+function anonymousOccurrenceIndex(scope: Node, target: Node, baseType: string): number {
+  const positions: number[] = [];
+  const collectAnon = (n: Node): void => {
+    for (const child of n.namedChildren) {
+      if (
+        child.type === "object_creation_expression" &&
+        child.namedChildren.some((c) => c.type === "class_body") &&
+        anonymousBaseTypeName(child) === baseType
+      ) {
+        positions.push(child.startIndex);
+      }
+      collectAnon(child);
+    }
+  };
+  collectAnon(scope);
+  positions.sort((a, b) => a - b);
+  const targetPos = target.startIndex;
+  const idx = positions.indexOf(targetPos);
+  return idx >= 0 ? idx : 0;
+}
+
+/**
+ * Derive the scope segment for a function declaration, used when recursing
+ * into its body so that local classes declared inside are correctly scoped.
+ * The segment has the form "name(paramTypes)" — the same substring that
+ * appears after "#" in the function's own id.
+ */
+function functionScopeSegment(child: Node, typeChain: readonly string[]): string {
+  const nameNode = child.childForFieldName("name");
+  const functionName = nameNode !== null ? nameNode.text : typeChain[typeChain.length - 1] ?? "";
+  const parameterTypes = parameterTypesOf(child);
+  return `${functionName}(${parameterTypes.join(",")})`;
 }
 
 /**
@@ -233,6 +441,16 @@ function parameterTypesOf(declaration: Node): string[] {
  * `typeChain` is the enclosing declared-type chain (outermost first); it is
  * empty at file scope. Nodes are de-duplicated by id so no two distinct nodes
  * ever share an identifier (R3.12).
+ *
+ * Scope segments (Fix 8 — Gap 4): every naming scope pushes a segment onto
+ * the chain, not only named type declarations:
+ * - named type declarations (as before): push the declared simple name
+ * - enum_constant with a class body: push the constant name as a segment
+ * - object_creation_expression with a body (anonymous class): push a
+ *   content-derived segment "<BaseType>#<occurrenceIndex>" so members of two
+ *   anonymous bodies of the same type in one method are distinct
+ * - function declaration: recurse with an added method-signature segment so
+ *   local classes in different methods with the same name are distinct
  */
 function walkDeclarations(
   node: Node,
@@ -270,6 +488,66 @@ function walkDeclarations(
       continue;
     }
 
+    // Enum constant with a class body (Fix 8 — Gap 4): the constant's name IS
+    // a naming scope — push it so methods/types declared in different enum
+    // constants are distinct. Only recurse when a body actually exists;
+    // plain constants with no body need no extra segment.
+    // The grammar field is named "body" (not "class_body") on enum_constant.
+    if (child.type === "enum_constant") {
+      const nameNode = child.childForFieldName("name");
+      if (nameNode !== null && child.childForFieldName("body") !== null) {
+        const nextChain = [...typeChain, nameNode.text];
+        walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById);
+      } else {
+        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+      }
+      continue;
+    }
+
+    // Anonymous class body (Fix 8 — Gap 4): object_creation_expression with
+    // a class_body child is an anonymous class instantiation. Emit a class node
+    // for the anonymous class itself and recurse with an extended chain so
+    // its members are correctly scoped. The segment is "<BaseType>#<k>" where
+    // k is the occurrence index of this anonymous body among same-type siblings
+    // in source order — a pure function of the tree, never a run counter.
+    // NOTE: class_body is in grammar's "children" array, not in "fields",
+    // so we must find it as a named child, not via childForFieldName().
+    if (
+      child.type === "object_creation_expression" &&
+      child.namedChildren.some((c) => c.type === "class_body")
+    ) {
+      const baseType = anonymousBaseTypeName(child);
+      const seg = baseType !== "" ? baseType : "anon";
+      // Find the nearest enclosing block or class_body to use as the scope
+      // for the occurrence index, so two anonymous classes at different nesting
+      // depths or in different methods stay distinct.
+      const scopeNode = findEnclosingScope(child);
+      const k = anonymousOccurrenceIndex(scopeNode ?? child, child, seg);
+      const segment = `${seg}#${k}`;
+      const nextChain = [...typeChain, segment];
+
+      // Emit a class node for the anonymous class itself (R3.3 — "each class
+      // declaration"; anonymous classes are class declarations in the JLS).
+      if (nextChain.length > 0) {
+        const classId = buildClassId(packagePath, nextChain);
+        if (!nodesById.has(classId)) {
+          const classNode: GraphNode = {
+            id: classId,
+            kind: "class",
+            directoryPath,
+            definedInFile: fileId,
+          };
+          if (packagePath.length > 0) {
+            classNode.packagePath = packagePath;
+          }
+          nodesById.set(classId, classNode);
+        }
+      }
+
+      walkDeclarations(child, nextChain, packagePath, directoryPath, fileId, nodesById);
+      continue;
+    }
+
     if (FUNCTION_DECLARATION_TYPES.has(child.type)) {
       // A callable is only meaningful inside a declared type; when one appears
       // at file scope (malformed input) there is no enclosing FQN, so skip it.
@@ -294,8 +572,24 @@ function walkDeclarations(
           nodesById.set(functionId, functionNode);
         }
       }
-      // Recurse into the body to capture local / nested type declarations.
-      walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+      // Recurse into the body with a method-scope segment (Fix 8 — Gap 4) so
+      // local classes declared inside different methods with the same simple
+      // name are disambiguated: Helper inside a() -> "a()$Helper", inside
+      // b() -> "b()$Helper". Only push the segment when we are already inside
+      // a type (typeChain non-empty) — file-scope callables are skipped above.
+      if (typeChain.length > 0) {
+        const methodSeg = functionScopeSegment(child, typeChain);
+        walkDeclarations(
+          child,
+          [...typeChain, methodSeg],
+          packagePath,
+          directoryPath,
+          fileId,
+          nodesById,
+        );
+      } else {
+        walkDeclarations(child, typeChain, packagePath, directoryPath, fileId, nodesById);
+      }
       continue;
     }
 
@@ -505,7 +799,10 @@ function collectReferences(root: Node, fileId: NodeId): RawReference[] {
     let wildcard = false;
     for (const named of child.namedChildren) {
       if (named.type === "scoped_identifier" || named.type === "identifier") {
-        name = normalizeTypeText(named.text);
+        // Use dottedNameOf for structural traversal so whitespace/comments in
+        // the import name (e.g. `import com . example . Foo;`) are stripped
+        // canonically rather than preserved (Fix 11 — Gap 7).
+        name = dottedNameOf(named);
       } else if (named.type === "asterisk") {
         wildcard = true;
       }
