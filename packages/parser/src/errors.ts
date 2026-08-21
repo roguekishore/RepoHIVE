@@ -38,6 +38,7 @@ export type ParseErrorReason =
   | "no-java-files" // R2.5
   | "file-unreadable" // R10.2
   | "file-unparseable" // R10.1
+  | "duplicate-node-id" // R3.12 — two distinct declarations produce the same id
   | "output-unwritable"; // R8.4, R8.5
 
 /**

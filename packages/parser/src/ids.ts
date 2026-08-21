@@ -14,13 +14,26 @@
  * path (`relativePath`); absolute or host-specific paths never enter an id
  * (R9.4). {@link buildFileId} enforces this at the boundary.
  *
+ * ## $ encoding (Fix 7 — Gap 5)
+ *
+ * `$` is both a legal Java identifier character and the nested-type separator
+ * used in class FQNs (mirroring the JVM binary-name convention). To make the
+ * encoding unambiguously decodable, literal `$` characters inside a segment are
+ * escaped to `$$` before the chain is joined with the single-`$` separator:
+ *
+ *   `class Outer$Inner` (one type, `$` in name) -> segment `Outer$$Inner`
+ *   `Outer.Inner` (nested, `$` is the separator) -> `Outer$Inner`
+ *
+ * The mapping is injective: a run of `$$` only ever arises from escaping,
+ * a single `$` only ever arises from the separator.
+ *
  * Canonical id string forms:
  *
  * | Kind     | Form                                                        | Example                                             |
  * |----------|-------------------------------------------------------------|-----------------------------------------------------|
- * | file     | `file:` + relativePath                                      | `file:src/com/example/UserService.java`             |
- * | class    | `class:` + FQN (packagePath + `$`-joined nested-type chain) | `class:com.example.Outer$Inner`                     |
- * | function | `func:` + enclosing-class FQN + `#name(` param types `)`    | `func:com.example.UserService#save(com.example.User)` |
+ * | file     | file: + relativePath                                        | file:src/com/example/UserService.java               |
+ * | class    | class: + FQN (packagePath + $-joined escaped type chain)    | class:com.example.Outer$Inner                       |
+ * | function | func: + enclosing-class FQN + #name( param types )          | func:com.example.UserService#save(com.example.User) |
  */
 
 import type { NodeId } from "@repohive/shared";
@@ -82,16 +95,35 @@ export function buildFileId(relativePath: string): NodeId {
 }
 
 /**
+ * Escape a single segment of the nested-type chain so literal `$` characters
+ * in a Java identifier cannot be confused with the `$` separator between chain
+ * segments (Fix 7 — Gap 5).
+ *
+ * Rule: every `$` in the segment is replaced with `$$`. The single-`$`
+ * separator therefore unambiguously denotes a nesting boundary, and `$$` always
+ * denotes a literal `$` in the identifier name.
+ */
+function escapeSegment(name: string): string {
+  // Replace each $ with $$ (each literal dollar sign doubles).
+  // The replacement string '$$$$' in JS String.replace is two literal dollar
+  // signs in the output (each $$ in the replacement string means one $).
+  return name.replace(/\$/g, "$$$$");
+}
+
+/**
  * Build the fully qualified name (FQN) of a class from its declared package and
  * its enclosing-type chain. The chain runs from the outermost declared type to
- * the type itself and is joined with `$` so nested / inner types are
- * unambiguous. The package (when present) is joined to the chain with `.`.
+ * the type itself. Each segment is escaped (literal `$` -> `$$`) before being
+ * joined with the single-`$` separator, so the encoding is unambiguously
+ * decodable (Fix 7 — Gap 5). The package (when present) is joined to the chain
+ * with `.`.
  *
- * @param packagePath declared dotted package, or `""` for the default package.
+ * @param packagePath declared dotted package, or "" for the default package.
  * @param nestedTypeNames enclosing-type chain, outermost first, at least one
  *   entry (the type's own simple name is the last element).
- * @returns the class FQN (e.g. `com.example.Outer$Inner`, or `Outer$Inner` in
- *   the default package).
+ * @returns the class FQN (e.g. "com.example.Outer$Inner", or "Outer$Inner" in
+ *   the default package). A top-level class named "Outer$Inner" would produce
+ *   "com.example.Outer$$Inner" — the $$ signals a literal $ in the name.
  * @throws {Error} when `nestedTypeNames` is empty.
  */
 export function buildClassFqn(
@@ -101,7 +133,7 @@ export function buildClassFqn(
   if (nestedTypeNames.length === 0) {
     throw new Error("a class FQN requires at least one type name");
   }
-  const typeChain = nestedTypeNames.join(NESTED_TYPE_SEPARATOR);
+  const typeChain = nestedTypeNames.map(escapeSegment).join(NESTED_TYPE_SEPARATOR);
   return packagePath.length === 0
     ? typeChain
     : packagePath + PACKAGE_SEPARATOR + typeChain;
