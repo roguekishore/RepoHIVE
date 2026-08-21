@@ -27,7 +27,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { DependencyEdge, GraphNode } from "@repohive/shared";
-import type { RawReference } from "./types.js";
+import type { CrossScopeAmbiguity, RawReference } from "./types.js";
 import { buildSymbolTable } from "./symbol-table.js";
 import { createStitcher, stitch } from "./stitcher.js";
 
@@ -508,4 +508,105 @@ test("same-package resolution is independent of reference processing order", () 
   assert.equal(xy!.sharedTypeCount, 2, "two type-use refs to Y must accumulate to 2");
   assert.ok(yx !== undefined, "expected Y→X edge");
   assert.equal(yx!.sharedTypeCount, 1);
+});
+
+// --- Fix 24 (Gap 2): source-root-scoped resolution ------------------------
+
+test("resolves a reference within the referring file's own source root first (Gap 2)", () => {
+  // The same FQN exists in two source roots; a reference from `core` must
+  // resolve to the `core` copy, matching Java classpath semantics.
+  const coreRef: GraphNode = {
+    id: "file:core/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+  };
+  const coreA: GraphNode = {
+    id: "class:core|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+    definedInFile: "file:core/com/example/A.java",
+  };
+  const integA: GraphNode = {
+    id: "class:integration|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "integration/com/example",
+    definedInFile: "file:integration/com/example/A.java",
+  };
+  const nodes = [coreRef, coreA, integA];
+  const refs: RawReference[] = [
+    { fromNodeId: coreRef.id, targetName: "com.example.A", kind: "import" },
+  ];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes));
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.target, "class:core|com.example.A");
+});
+
+test("a single cross-root match resolves as a genuine cross-module edge (Gap 2)", () => {
+  const appRef: GraphNode = {
+    id: "file:app/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "app/com/example",
+  };
+  const libOnly: GraphNode = {
+    id: "class:lib|com.example.Only",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "lib/com/example",
+    definedInFile: "file:lib/com/example/Only.java",
+  };
+  const nodes = [appRef, libOnly];
+  const refs: RawReference[] = [
+    { fromNodeId: appRef.id, targetName: "com.example.Only", kind: "import" },
+  ];
+  const ambiguities: CrossScopeAmbiguity[] = [];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes), (a) => ambiguities.push(a));
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0]!.target, "class:lib|com.example.Only");
+  assert.equal(ambiguities.length, 0, "a single cross-root match is not ambiguous");
+});
+
+test("an ambiguous cross-root FQN picks byte-first and records the ambiguity (Gap 2)", () => {
+  // The referrer's own root (`app`) has no `A`; two other roots do. The stitcher
+  // picks the byte-first candidate deterministically and records the ambiguity.
+  const appRef: GraphNode = {
+    id: "file:app/com/example/Ref.java",
+    kind: "file",
+    packagePath: "com.example",
+    directoryPath: "app/com/example",
+  };
+  const coreA: GraphNode = {
+    id: "class:core|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "core/com/example",
+    definedInFile: "file:core/com/example/A.java",
+  };
+  const integA: GraphNode = {
+    id: "class:integration|com.example.A",
+    kind: "class",
+    packagePath: "com.example",
+    directoryPath: "integration/com/example",
+    definedInFile: "file:integration/com/example/A.java",
+  };
+  const nodes = [appRef, coreA, integA];
+  const refs: RawReference[] = [
+    { fromNodeId: appRef.id, targetName: "com.example.A", kind: "import" },
+  ];
+  const ambiguities: CrossScopeAmbiguity[] = [];
+  const edges = stitch(nodes, refs, buildSymbolTable(nodes), (a) => ambiguities.push(a));
+  assert.equal(edges.length, 1);
+  // "class:core|..." sorts before "class:integration|..." byte-wise.
+  assert.equal(edges[0]!.target, "class:core|com.example.A");
+  assert.equal(ambiguities.length, 1);
+  assert.equal(ambiguities[0]!.targetFqn, "com.example.A");
+  assert.equal(ambiguities[0]!.chosenId, "class:core|com.example.A");
+  assert.deepEqual(ambiguities[0]!.candidateIds, [
+    "class:core|com.example.A",
+    "class:integration|com.example.A",
+  ]);
+  assert.equal(ambiguities[0]!.referringFile, "file:app/com/example/Ref.java");
 });
