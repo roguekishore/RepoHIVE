@@ -45,6 +45,23 @@ const ident = fc.constantFrom(
   "load",
 );
 
+/**
+ * Java-like identifiers including separator characters ($ and others) —
+ * widens the generator used for distinctness properties so that identifiers
+ * that look like separators cannot be confused with actual separators
+ * (Fix 7 — Gap 5: validates the $$ escaping).
+ */
+const identWithDollar = fc.constantFrom(
+  "a",
+  "Foo",
+  "Outer",
+  "Inner",
+  "Outer$Inner",   // top-level class whose name contains $
+  "A$B$C",         // multiple $ in name
+  "$Leading",
+  "Trailing$",
+);
+
 /** A dotted package path, or "" for the default package. */
 const packagePath = fc
   .array(ident, { minLength: 0, maxLength: 4 })
@@ -253,4 +270,71 @@ test("no-argument function id has empty parentheses", () => {
 
 test("class id carries the class prefix", () => {
   assert.ok(buildClassId("com.example", ["A"]).startsWith(CLASS_ID_PREFIX));
+});
+
+// ---------------------------------------------------------------------------
+// Gap 5 (Fix 7): $ escaping — a $ in an identifier segment is distinct from
+// the $ separator between nested type names.
+// ---------------------------------------------------------------------------
+
+test("top-level class named 'Outer$Inner' has a distinct id from nested Outer.Inner", () => {
+  // Single segment with $ in name -> escaped to $$
+  const flatId = buildClassId("com.example", ["Outer$Inner"]);
+  // Two segments Outer and Inner joined by $ separator
+  const nestedId = buildClassId("com.example", ["Outer", "Inner"]);
+  assert.notEqual(flatId, nestedId, "flat Outer$Inner must differ from nested Outer$Inner");
+  // The flat one uses $$ for the escaped $
+  assert.ok(flatId.includes("$$"), `flat id must contain $$ (escaped $): ${flatId}`);
+  // The nested one uses a single $ as separator
+  assert.equal(nestedId, "class:com.example.Outer$Inner");
+  assert.equal(flatId, "class:com.example.Outer$$Inner");
+});
+
+test("multiple $ in a segment name are each doubled", () => {
+  const id = buildClassId("p", ["A$B$C"]);
+  assert.equal(id, "class:p.A$$B$$C");
+});
+
+test("$ at the start and end of a segment name is escaped", () => {
+  const leading = buildClassId("p", ["$Leading"]);
+  const trailing = buildClassId("p", ["Trailing$"]);
+  assert.equal(leading, "class:p.$$Leading");
+  assert.equal(trailing, "class:p.Trailing$$");
+});
+
+test("default-package class with $ in name uses $$ (no leading dot regression)", () => {
+  const id = buildClassId("", ["Outer$Inner"]);
+  assert.equal(id, "class:Outer$$Inner");
+  assert.ok(!id.startsWith("class:."), "no leading dot for default package");
+});
+
+// Feature: dependency-graph-parser, Property (Gap 5): for any two structurally
+// distinct entities, their ids differ — even when segments contain $ characters.
+// This is the single most important test: it exercises the escaping correctness
+// across the separator character space.
+test("distinct declarations yield distinct ids even when segments contain $ (widened distinctness)", () => {
+  // Use identWithDollar to generate chains that include $ in segment names
+  const chainWithDollar = fc.array(identWithDollar, { minLength: 1, maxLength: 3 });
+  const classDescriptorWithDollar = fc.record({
+    pkg: fc.array(ident, { minLength: 0, maxLength: 3 }).map((s) => s.join(".")),
+    chain: chainWithDollar,
+  });
+  fc.assert(
+    fc.property(
+      fc.uniqueArray(classDescriptorWithDollar, {
+        minLength: 1,
+        maxLength: 20,
+        // Two descriptors are structurally distinct when their (pkg, chain) differ
+        selector: (d) => `${d.pkg}::${d.chain.join("|")}`,
+      }),
+      (descriptors) => {
+        const ids = descriptors.map((d) => buildClassId(d.pkg, d.chain));
+        assert.equal(
+          new Set(ids).size,
+          ids.length,
+          `All ids must be distinct even with $ in segment names: ${ids}`,
+        );
+      },
+    ),
+  );
 });

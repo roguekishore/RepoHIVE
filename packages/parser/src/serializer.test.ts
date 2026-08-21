@@ -301,3 +301,60 @@ test("zero-node / zero-edge boundary emits well-formed, reproducible JSON", asyn
     { numRuns: 50 },
   );
 });
+
+// ---------------------------------------------------------------------------
+// Gap 5 (Fix 7): global node-id uniqueness gate — duplicate ids return
+// duplicate-node-id error and write nothing.
+// ---------------------------------------------------------------------------
+
+test("duplicate node ids return duplicate-node-id and write nothing", async () => {
+  const dupId = "class:com.example.Dup";
+  const nodeA: GraphNode = {
+    id: dupId,
+    kind: "class",
+    directoryPath: "src/a",
+    definedInFile: "file:src/a/Dup.java",
+  };
+  const nodeB: GraphNode = {
+    id: dupId,
+    kind: "class",
+    directoryPath: "src/b",
+    definedInFile: "file:src/b/Dup.java",
+  };
+  const outPath = path.join(tmpRoot, "dup-test.json");
+
+  const result = await writeGraph([nodeA, nodeB], [], outPath);
+
+  assert.equal(result.ok, false, "should return an error result");
+  assert.ok(!result.ok);
+  assert.equal(result.errors.length, 1);
+  assert.equal(result.errors[0]!.reason, "duplicate-node-id");
+  assert.ok(
+    result.errors[0]!.message.includes(dupId),
+    `error message should name the duplicate id: ${result.errors[0]!.message}`,
+  );
+  // Both defining files should be named in the message
+  assert.ok(
+    result.errors[0]!.message.includes("src/a/Dup.java") ||
+    result.errors[0]!.message.includes("src/b/Dup.java"),
+    `error message should name a defining file: ${result.errors[0]!.message}`,
+  );
+
+  // Nothing written to disk
+  await assert.rejects(
+    () => nodeFs.access(outPath),
+    "no output file should be written on duplicate-node-id error",
+  );
+});
+
+test("unique node ids are accepted and written normally (duplicate gate does not over-reject)", async () => {
+  const nodes: GraphNode[] = [
+    { id: "file:src/A.java", kind: "file", directoryPath: "src" },
+    { id: "class:com.example.A", kind: "class", directoryPath: "src", definedInFile: "file:src/A.java" },
+    { id: "class:com.example.A$$B", kind: "class", directoryPath: "src", definedInFile: "file:src/A.java" }, // top-level A$B class (escaped)
+    { id: "class:com.example.A$B", kind: "class", directoryPath: "src", definedInFile: "file:src/A.java" }, // nested A.B class
+  ];
+  const outPath = path.join(tmpRoot, "no-dup-test.json");
+  const result = await writeGraph(nodes, [], outPath);
+  assert.equal(result.ok, true, `should succeed for unique ids: ${JSON.stringify(!result.ok && result.errors)}`);
+});
