@@ -12,6 +12,7 @@ import {
   BarChart3,
   BookOpen,
   Boxes,
+  ClipboardList,
   DollarSign,
   FolderTree,
   GitCommitHorizontal,
@@ -22,6 +23,7 @@ import {
   Lightbulb,
   Link2,
   MessageSquare,
+  Network,
   ScanSearch,
   Settings,
   ShieldCheck,
@@ -114,6 +116,9 @@ export function repoNavGroups(repoId: string): NavGroup[] {
     {
       items: [
         { label: "Knowledge Graph", href: `${base}/knowledge-graph`, icon: ScanSearch },
+        // Phase D — both read data RepoHIVE's engine produces (R9.3).
+        { label: "Flat baseline", href: `${base}/flat-baseline`, icon: Network },
+        { label: "Decision audit", href: `${base}/decision-audit`, icon: ClipboardList },
       ],
     },
   ];
