@@ -43,6 +43,20 @@ import { ZoomExportButton } from "@/components/zoom/zoom-export-button";
 const EMPTY_RELATIONS: ZoomRelation[] = [];
 const NO_RELATIONS: Map<string, ZoomRelation[]> = new Map();
 
+/**
+ * The reason behind a failed zoom-map load (spec R12.2). The zoom-map route
+ * returns `{ detail }` carrying the index parser's own message and the file
+ * involved; ApiClientError exposes it as `detail` (and folds it into `message`).
+ */
+function zoomMapErrorReason(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as { detail?: unknown; message?: unknown };
+    if (typeof e.detail === "string" && e.detail.length > 0) return e.detail;
+    if (typeof e.message === "string" && e.message.length > 0) return e.message;
+  }
+  return "The index could not be read.";
+}
+
 export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: repoId } = use(params);
 
@@ -105,12 +119,29 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
         </div>
       )}
       {error && !isLoading && (
-        <div className="flex h-[520px] items-center justify-center text-sm text-[var(--color-error)]">
-          Could not load the knowledge graph for this repository.
+        <div className="flex h-[520px] flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-sm font-medium text-[var(--color-error)]">
+            Could not load the knowledge graph for this repository.
+          </p>
+          {/* The parser's reported reason and the file involved (R12.2). */}
+          <p className="max-w-md text-xs text-[var(--color-text-secondary)]">
+            {zoomMapErrorReason(error)}
+          </p>
+          {/* How to produce an index when none is present (R12.1). */}
+          <p className="max-w-md text-xs text-[var(--color-text-tertiary)]">
+            Run the group stage over this repository to produce its index, then reload.
+          </p>
         </div>
       )}
       {zoomMap && !isLoading && (
         <>
+          {/* A repository that produced no groups still renders its root node,
+              with a plain statement of what happened (spec R12.4). */}
+          {zoomMap.nodes.length <= 1 && (
+            <div className="mb-3 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+              This repository produced no groups — only the repository node is shown.
+            </div>
+          )}
           {/* The one chrome row: where you are, and how to get somewhere. */}
           <div className="mb-3 flex items-start justify-between gap-3 border-b border-[var(--color-border-default)] pb-3">
             <ZoomBreadcrumb chain={chain} onCrumb={flyTo} />
@@ -167,6 +198,19 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
             onVerbChange={setRelationVerb}
             coChangeCount={coChangeCount}
           />
+
+          {/* Decision legend (spec R7.4): what a group card's Preserved /
+              Reconstructed note means, plus the honest caveat on reconstruct
+              sub-clusters (§7-a). The distinction is carried as text, so it
+              stays perceivable without colour (R7.6). */}
+          <p className="mt-3 border-t border-[var(--color-border-default)] pt-3 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+            Group cards say whether the algorithm{" "}
+            <span className="text-[var(--color-text-secondary)]">Preserved</span> a region — its package
+            kept as authored — or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
+            it — rebuilt by dependency clustering — with the structural-quality score behind that call.
+            Select a group to read it. Reconstruct sub-clusters share their region&rsquo;s decision
+            (approximate).
+          </p>
         </>
       )}
     </PageShell>

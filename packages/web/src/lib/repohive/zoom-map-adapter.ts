@@ -16,8 +16,8 @@
  */
 
 import type { ZoomMap, ZoomNode, ZoomRelation, ZoomKind } from "@repohive/ui/zoom";
-import type { Hierarchy, Metadata } from "@repohive/core";
-import { buildDisplayLabels } from "./zoom-labels";
+import type { Hierarchy, Metadata, RegionDecision } from "@repohive/core";
+import { buildDisplayLabels, buildGroupPackagePrefixes } from "./zoom-labels";
 
 /** Hierarchy node kinds that survive into the map (file is the leaf). */
 const EMITTED_KINDS = new Set(["repository", "group", "file"]);
@@ -48,9 +48,29 @@ function fileSourcePath(id: string): string {
   return id.startsWith("file:") ? id.slice("file:".length) : id;
 }
 
+/**
+ * Decision_Encoding (spec R7), carried on the `summary` channel so the
+ * unmodified canvas (large cards) and detail panel both surface it, and it
+ * stays perceivable without colour (R7.6). Read straight from the recorded
+ * per-Region decision — never recomputed (R7.2/R5.9). Score and confidence are
+ * shown to two places for a glance; the exact values live in the (deferred)
+ * Decision Audit view.
+ */
+function decisionSummary(decision: RegionDecision): string {
+  const verb = decision.action === "preserve" ? "Preserved" : "Reconstructed";
+  const gloss =
+    decision.action === "preserve"
+      ? "package kept as authored"
+      : "regrouped by dependency clustering";
+  const quality = decision.score.toFixed(2);
+  const confidence = decision.decisionConfidence.toFixed(2);
+  const overridden = decision.userOverridden ? " \u00b7 overridden by config" : "";
+  return `${verb} \u00b7 ${gloss} \u00b7 quality ${quality} \u00b7 confidence ${confidence}${overridden}`;
+}
+
 export function adaptIndexToZoomMap(
   hierarchy: Hierarchy,
-  _metadata: Metadata,
+  metadata: Metadata,
   rootName: string,
 ): ZoomMap {
   const { nodes, leafAttributes, leafEdges, crossGroupEdges } = hierarchy;
@@ -91,6 +111,25 @@ export function adaptIndexToZoomMap(
   // --- 3. Labels (single module, R6) ---------------------------------------
   const labels = buildDisplayLabels(hierarchy, rootName);
 
+  // --- 3b. Decision encoding: join each group to its Region decision (R7) ---
+  // Heuristic join (§7-a): a group's common package prefix -> the `pkg:<...>`
+  // region decision. Exact for a preserved package; approximate for reconstruct
+  // sub-clusters that share a package (they inherit the region's decision).
+  const groupPackages = buildGroupPackagePrefixes(hierarchy);
+  const decisionByPackage = new Map<string, RegionDecision>();
+  for (const decision of metadata.regionDecisions) {
+    const pkg = decision.regionId.startsWith("pkg:")
+      ? decision.regionId.slice("pkg:".length)
+      : decision.regionId;
+    decisionByPackage.set(pkg, decision);
+  }
+  const groupSummary = new Map<string, string>();
+  for (const [id, pkg] of groupPackages) {
+    if (!pkg) continue;
+    const decision = decisionByPackage.get(pkg);
+    if (decision) groupSummary.set(id, decisionSummary(decision));
+  }
+
   // --- 4. Nodes -------------------------------------------------------------
   const zoomNodes: ZoomNode[] = emitted.map((node) => {
     const kind = zoomKindOf(node.kind, node.level);
@@ -116,7 +155,7 @@ export function adaptIndexToZoomMap(
         on_flow_count: 0,
       },
       layout: null, // canvas computes deterministic placement (R8.3)
-      summary: "",
+      summary: groupSummary.get(node.id) ?? "",
       language: isFile && path.endsWith(".java") ? "java" : null,
       health_score: null,
       is_entry_point: false,

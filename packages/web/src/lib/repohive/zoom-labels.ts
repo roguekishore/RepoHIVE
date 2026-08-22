@@ -13,7 +13,9 @@
  *                        signal gets a positional label (R6.5).
  *
  * The raw `g_<hash>` / `file:<path>` identifiers are never used as the primary
- * name (R6.1).
+ * name (R6.1). The package-prefix logic also serves the decision-encoding join
+ * (R7), so it is exposed here as `buildGroupPackagePrefixes` and kept in this
+ * one module.
  */
 
 import type { Hierarchy } from "@repohive/core";
@@ -44,6 +46,48 @@ export function commonPackagePrefix(paths: readonly string[]): string {
 }
 
 /**
+ * Union of descendant leaf packagePaths per emitted node, computed bottom-up
+ * (children always sit at a deeper level than their parent).
+ */
+function descendantPackagePaths(hierarchy: Hierarchy): Map<string, Set<string>> {
+  const { nodes, leafAttributes } = hierarchy;
+  const emitted = [...nodes.values()].filter((n) => EMITTED_KINDS.has(n.kind));
+  const packagePaths = new Map<string, Set<string>>();
+  for (const node of [...emitted].sort((a, b) => b.level - a.level)) {
+    const set = new Set<string>();
+    const ownPkg = leafAttributes.get(node.id)?.packagePath;
+    if (ownPkg) set.add(ownPkg);
+    for (const childId of node.childIds) {
+      const childSet = packagePaths.get(childId);
+      if (childSet) {
+        for (const p of childSet) set.add(p);
+      } else {
+        // Non-emitted children (class/function leaves) contribute directly.
+        const childPkg = leafAttributes.get(childId)?.packagePath;
+        if (childPkg) set.add(childPkg);
+      }
+    }
+    packagePaths.set(node.id, set);
+  }
+  return packagePaths;
+}
+
+/**
+ * Raw common package prefix per group node (no ordinal, no positional
+ * fallback). Empty string when a group spans unrelated packages. Used both for
+ * labelling and for the decision-encoding join (R7, §7-a).
+ */
+export function buildGroupPackagePrefixes(hierarchy: Hierarchy): Map<string, string> {
+  const packagePaths = descendantPackagePaths(hierarchy);
+  const prefixes = new Map<string, string>();
+  for (const node of hierarchy.nodes.values()) {
+    if (node.kind !== "group") continue;
+    prefixes.set(node.id, commonPackagePrefix([...(packagePaths.get(node.id) ?? [])].sort()));
+  }
+  return prefixes;
+}
+
+/**
  * Compose a Display_Label for every emitted hierarchy node (repository, group,
  * file). Class/function nodes are folded away in the 4-level map and are not
  * labelled.
@@ -52,32 +96,11 @@ export function buildDisplayLabels(
   hierarchy: Hierarchy,
   rootName: string,
 ): Map<string, string> {
-  const { nodes, leafAttributes } = hierarchy;
+  const { nodes } = hierarchy;
   const labels = new Map<string, string>();
-
   const emitted = [...nodes.values()].filter((n) => EMITTED_KINDS.has(n.kind));
   const emittedIds = new Set(emitted.map((n) => n.id));
-
-  // Union of descendant leaf packagePaths per node, computed bottom-up
-  // (children always sit at a deeper level than their parent).
-  const packagePaths = new Map<string, Set<string>>();
-  for (const node of [...emitted].sort((a, b) => b.level - a.level)) {
-    const set = new Set<string>();
-    const ownPkg = leafAttributes.get(node.id)?.packagePath;
-    if (ownPkg) set.add(ownPkg);
-    for (const childId of node.childIds) {
-      // Emitted children carry their own rolled-up set; non-emitted children
-      // (class/function leaves) contribute their packagePath directly.
-      const childSet = packagePaths.get(childId);
-      if (childSet) {
-        for (const p of childSet) set.add(p);
-      } else {
-        const childPkg = leafAttributes.get(childId)?.packagePath;
-        if (childPkg) set.add(childPkg);
-      }
-    }
-    packagePaths.set(node.id, set);
-  }
+  const prefixes = buildGroupPackagePrefixes(hierarchy);
 
   // Repository + file labels are self-contained.
   for (const node of emitted) {
@@ -88,9 +111,9 @@ export function buildDisplayLabels(
     }
   }
 
-  // Group labels: common package prefix, with a positional fallback and a
-  // per-parent de-duplication ordinal. Processed per parent, in canonical
-  // child order, so ordinals are deterministic.
+  // Group labels: common package prefix, positional fallback, per-parent
+  // de-duplication ordinal. Processed per parent, in canonical child order, so
+  // ordinals are deterministic.
   for (const parent of emitted) {
     const groupChildren = parent.childIds
       .filter((id) => emittedIds.has(id))
@@ -100,10 +123,7 @@ export function buildDisplayLabels(
 
     const seen = new Map<string, number>();
     groupChildren.forEach((child, index) => {
-      const prefix = commonPackagePrefix(
-        [...(packagePaths.get(child.id) ?? [])].sort(),
-      );
-      // Positional fallback when a group spans unrelated packages (R6.5).
+      const prefix = prefixes.get(child.id) ?? "";
       const base = prefix.length > 0 ? prefix : `Group ${index + 1}`;
       const occurrence = (seen.get(base) ?? 0) + 1;
       seen.set(base, occurrence);
