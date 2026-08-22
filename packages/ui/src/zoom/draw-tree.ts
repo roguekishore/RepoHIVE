@@ -247,15 +247,39 @@ export function drawScene(
     const visible =
       kids.length > MAX_CHILDREN_DRAWN ? selectChildren(kids, MAX_CHILDREN_DRAWN) : kids;
 
-    // Screen rects of the children big enough to anchor an arrow to. Edges are
-    // drawn (behind the cards) only between boxes that are actually on screen,
-    // so an arrow can never point at a culled or density-capped sibling.
+    // Screen rects of the children we may anchor an arrow to. On-screen
+    // children of a usable size always qualify.
     const childRects = new Map<string, Rect>();
     for (const kid of visible) {
       const wr = scene.worldRects.get(kid.id);
       if (!wr) continue;
       const r = worldRectToScreen(cam, vp, wr);
       if (isOnScreen(r, vp) && r.w >= EDGE_MIN_BOX_PX) childRects.set(kid.id, r);
+    }
+    // Additionally anchor the focused node and its relation partners EVEN WHEN
+    // off-screen or density-capped, so a selected/hovered node's edges stay
+    // drawn — heading toward the off-screen partner (clipped at the canvas
+    // edge) — instead of vanishing the moment a partner is panned out of view.
+    // Only the focus node's edges are ever drawn, and they are capped, so this
+    // stays bounded. Resolved from the full sibling set (not just `visible`),
+    // so a density-capped partner is still reachable.
+    if (relationFocusId) {
+      const rels = scene.relationsByParent.get(node.id);
+      if (rels) {
+        const partners = new Set<string>();
+        for (const rel of rels) {
+          if (rel.source_id === relationFocusId) partners.add(rel.target_id);
+          else if (rel.target_id === relationFocusId) partners.add(rel.source_id);
+        }
+        if (partners.size > 0) {
+          partners.add(relationFocusId);
+          for (const partnerId of partners) {
+            if (childRects.has(partnerId)) continue;
+            const wr = scene.worldRects.get(partnerId);
+            if (wr) childRects.set(partnerId, worldRectToScreen(cam, vp, wr));
+          }
+        }
+      }
     }
     drawEdges(
       ctx,
