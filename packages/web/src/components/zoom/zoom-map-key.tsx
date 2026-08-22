@@ -25,8 +25,8 @@
  * the imports it shares a canvas with.
  */
 
-import { CO_CHANGES } from "@repowise-dev/ui/zoom";
-import { HEALTH_BAND_LABEL } from "@repowise-dev/types/health";
+import { CO_CHANGES } from "@repohive/ui/zoom";
+import { HEALTH_BAND_LABEL } from "@repohive/types/health";
 
 interface ZoomMapKeyProps {
   /** Null = every relation draws; CO_CHANGES = only co-change relations. */

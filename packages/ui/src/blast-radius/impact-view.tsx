@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Plus, Flame } from "lucide-react";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";

@@ -7,7 +7,7 @@ import type { DecisionDetailAdapter } from "../../src/decisions/decision-detail-
 import type {
   DecisionLineageEntry,
   DecisionRecord,
-} from "@repowise-dev/types/decisions";
+} from "@repohive/types/decisions";
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();

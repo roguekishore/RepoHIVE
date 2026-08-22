@@ -6,7 +6,7 @@
  * "collapse to repos" toggle. Side-effect free and cheap to test.
  */
 
-import type { SystemEdge, SystemEdgeMatchType, SystemGraph, SystemNode } from "@repowise-dev/types";
+import type { SystemEdge, SystemEdgeMatchType, SystemGraph, SystemNode } from "@repohive/types";
 
 /** Confidence ordering for picking the strongest match type when merging. */
 const MATCH_RANK: Record<SystemEdgeMatchType, number> = {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ChatMessage } from "../../src/chat/chat-message.js";
-import type { ChatUIMessage } from "@repowise-dev/types/chat";
+import type { ChatUIMessage } from "@repohive/types/chat";
 
 const USER: ChatUIMessage = {
   id: "u1",

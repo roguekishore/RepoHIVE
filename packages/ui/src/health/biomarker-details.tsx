@@ -1,8 +1,8 @@
 "use client";
 
 import { ArrowLeftRight } from "lucide-react";
-import { PERF_BOUNDARY_LABEL } from "@repowise-dev/types/health";
-import type { C4IoKind } from "@repowise-dev/types/external-systems";
+import { PERF_BOUNDARY_LABEL } from "@repohive/types/health";
+import type { C4IoKind } from "@repohive/types/external-systems";
 
 export type BiomarkerDetailsRecord = Record<string, unknown>;
 

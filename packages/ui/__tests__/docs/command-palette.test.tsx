@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import { DocsCommandPalette } from "../../src/docs/command-palette.js";
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import { commandPaletteShortcutIsClaimed } from "../../src/lib/command-palette-scope.js";
 
 afterEach(cleanup);

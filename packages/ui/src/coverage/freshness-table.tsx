@@ -15,7 +15,7 @@ import {
   formatRelativeTime,
 } from "../lib/format";
 import { getPageTypeIcon, getPageTypeLabel } from "../lib/page-types";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 type Filter = "all" | "fresh" | "stale" | "outdated";
 

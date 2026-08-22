@@ -6,8 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { BookOpen, PanelLeftClose, PanelLeft, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { usePages } from "@/lib/hooks/use-pages";
-import { DocsTree } from "@repowise-dev/ui/docs/docs-tree";
-import { DocsCommandPalette } from "@repowise-dev/ui/docs/command-palette";
+import { DocsTree } from "@repohive/ui/docs/docs-tree";
+import { DocsCommandPalette } from "@repohive/ui/docs/command-palette";
 import {
   PresentButton,
   PresentOverlay,
@@ -15,13 +15,13 @@ import {
   canPresent,
   loadPresentPages,
   type PresentMode,
-} from "@repowise-dev/ui/present";
+} from "@repohive/ui/present";
 import {
   DEFAULT_PERSONA,
   type ReaderPersona,
   isReaderPersona,
   personaFilteringApplies,
-} from "@repowise-dev/ui/docs/reader-persona";
+} from "@repohive/ui/docs/reader-persona";
 import { DocsHeader } from "./docs-header";
 import { DocsViewer } from "./docs-viewer";
 import {
@@ -31,12 +31,12 @@ import {
 } from "./docs-page-actions";
 import { PageGenerateButton } from "./page-generate-button";
 import { BulkGenerateButton } from "./bulk-generate-button";
-import { isModelWrittenType, isStubPage } from "@repowise-dev/ui/lib/page-types";
+import { isModelWrittenType, isStubPage } from "@repohive/ui/lib/page-types";
 import { search as searchPages } from "@/lib/api/search";
 import { getPageById, listAllPages } from "@/lib/api/pages";
 import { downloadTextFile } from "@/lib/utils/download";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import type { PageSummary } from "@/lib/api/types";
 
 interface DocsExplorerProps {

@@ -14,7 +14,7 @@
  * single neutral hue, thin, faded behind the cards.
  */
 
-import { ALERT_MAX, HEALTHY_MIN } from "@repowise-dev/types/health";
+import { ALERT_MAX, HEALTHY_MIN } from "@repohive/types/health";
 
 import type { Rect } from "./camera";
 import { hasRole } from "./node-signals";

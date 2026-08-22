@@ -6,7 +6,7 @@ import type {
   SystemEdge,
   SystemGraph,
   SystemNode,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 import { buildDsm } from "../../src/workspace/dsm/dsm";
 import { DsmMatrixView } from "../../src/workspace/dsm/dsm-matrix";
 import { SystemMapConformancePanel } from "../../src/workspace/system-map/system-map-conformance-panel";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { FileSignals } from "@repowise-dev/types/health";
+import type { FileSignals } from "@repohive/types/health";
 import { formatRelativeTimeOrNull } from "../lib/format";
 
 export interface FileSignalsPanelProps {

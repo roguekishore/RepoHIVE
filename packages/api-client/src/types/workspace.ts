@@ -127,7 +127,7 @@ export interface WorkspaceGraphResponse {
 
 // ---------------------------------------------------------------------------
 // System graph + extraction diagnostics — the canonical service-granular
-// shapes live in @repowise-dev/types; the wire responses match them 1:1, so we
+// shapes live in @repohive/types; the wire responses match them 1:1, so we
 // re-export rather than re-derive (the repo-wide consolidation convention).
 // ---------------------------------------------------------------------------
 
@@ -160,7 +160,7 @@ export type {
   NodeArchitectureRole,
   NodeRole,
   ArchitectureType,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 
 import type {
   SystemGraph,
@@ -168,7 +168,7 @@ import type {
   BreakingChangeReport,
   ConformanceReport,
   ArchitectureMetrics,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 
 /** `GET /api/workspace/system-graph` — the full service-granular system graph. */
 export type WorkspaceSystemGraphResponse = SystemGraph;

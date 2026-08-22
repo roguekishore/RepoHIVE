@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { StatsPunchCard } from "@repowise-dev/types/stats";
+import type { StatsPunchCard } from "@repohive/types/stats";
 import { describe, expect, it } from "vitest";
 import { PunchCard } from "../../src/stats/punch-card.js";
 import { weekendDaysFor, weekendShare } from "../../src/stats/weekend.js";

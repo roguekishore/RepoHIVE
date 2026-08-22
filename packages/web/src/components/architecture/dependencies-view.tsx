@@ -3,12 +3,12 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { Package } from "lucide-react";
-import { DependencyRegistry } from "@repowise-dev/ui/dependencies";
-import { ApiError } from "@repowise-dev/ui/shared/api-error";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { DependencyRegistry } from "@repohive/ui/dependencies";
+import { ApiError } from "@repohive/ui/shared/api-error";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import { getExternalSystems } from "@/lib/api/external-systems";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 export function DependenciesView({ repoId }: { repoId: string }) {
   const { data, error, isLoading, mutate } = useSWR(

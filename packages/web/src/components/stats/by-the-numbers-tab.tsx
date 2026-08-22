@@ -1,4 +1,4 @@
-import type { StatsHighlights } from "@repowise-dev/types/stats";
+import type { StatsHighlights } from "@repohive/types/stats";
 import {
   ChurnLedger,
   NLOC_HINT,
@@ -7,8 +7,8 @@ import {
   SizeClassHero,
   StatRibbon,
   type RibbonStat,
-} from "@repowise-dev/ui/stats";
-import { formatLOC, formatNumber } from "@repowise-dev/ui/lib/format";
+} from "@repohive/ui/stats";
+import { formatLOC, formatNumber } from "@repohive/ui/lib/format";
 
 /**
  * Tab 1 — what this repo *is*: scale, origin, lifetime churn, records.

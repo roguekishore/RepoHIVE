@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@repowise-dev/ui/ui/dialog";
-import { Button } from "@repowise-dev/ui/ui/button";
+} from "@repohive/ui/ui/dialog";
+import { Button } from "@repohive/ui/ui/button";
 import { toast } from "sonner";
 import { submitFeedback, type FeedbackCategory } from "@/lib/api/feedback";
 

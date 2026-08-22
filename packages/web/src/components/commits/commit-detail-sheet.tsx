@@ -3,15 +3,15 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useQueryState } from "nuqs";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@repowise-dev/ui/ui/sheet";
-import { CommitDetailCard } from "@repowise-dev/ui/commits/commit-detail-card";
-import { AiPromptButton, AiPromptModal, buildCommitAiPrompt } from "@repowise-dev/ui/health";
+} from "@repohive/ui/ui/sheet";
+import { CommitDetailCard } from "@repohive/ui/commits/commit-detail-card";
+import { AiPromptButton, AiPromptModal, buildCommitAiPrompt } from "@repohive/ui/health";
 import { getCommit } from "@/lib/api/git";
 
 /**

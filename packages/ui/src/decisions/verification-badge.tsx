@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
 import { cn } from "../lib/cn";
-import type { DecisionVerification } from "@repowise-dev/types/decisions";
+import type { DecisionVerification } from "@repohive/types/decisions";
 
 const VERIFICATION_CONFIG: Record<
   DecisionVerification,

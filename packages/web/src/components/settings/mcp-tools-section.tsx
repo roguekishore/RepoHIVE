@@ -1,24 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OverviewSection } from "@repowise-dev/ui/overview";
-import { Switch } from "@repowise-dev/ui/ui/switch";
+import { OverviewSection } from "@repohive/ui/overview";
+import { Switch } from "@repohive/ui/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repowise-dev/ui/ui/select";
+} from "@repohive/ui/ui/select";
 import {
   SaveIndicator,
   SettingsRow,
   SettingsRows,
   type SaveState,
-} from "@repowise-dev/ui/settings";
+} from "@repohive/ui/settings";
 import { listRepos } from "@/lib/api/repos";
 import { getMcpToolSurface, updateMcpTools } from "@/lib/api/mcp-tools";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 import type { McpToolSurface } from "@/lib/api/types";
 
 interface RepoOption {

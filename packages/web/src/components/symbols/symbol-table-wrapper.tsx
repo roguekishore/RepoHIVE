@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import useSWRInfinite from "swr/infinite";
-import { SymbolTable, type SymbolFilters } from "@repowise-dev/ui/symbols/symbol-table";
+import { SymbolTable, type SymbolFilters } from "@repohive/ui/symbols/symbol-table";
 import { SymbolDrawerWrapper } from "./symbol-drawer-wrapper";
 import { listSymbolsPage, type SymbolSortKey } from "@/lib/api/symbols";
 import { useDebounce } from "@/lib/hooks/use-debounce";

@@ -4,7 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Lora } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { TooltipProvider } from "@repowise-dev/ui/ui/tooltip";
+import { TooltipProvider } from "@repohive/ui/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { ThemedToaster } from "@/components/layout/themed-toaster";
 import { Sidebar } from "@/components/layout/sidebar";

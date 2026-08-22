@@ -4,7 +4,7 @@
  *
  * Adding a new transport (the plan's growing dimension) is a new entry here
  * plus the matching `SystemEdgeKind` union member in
- * `@repowise-dev/types/workspace` — never an edit to a rendering `if/else`.
+ * `@repohive/types/workspace` — never an edit to a rendering `if/else`.
  *
  * Two orthogonal axes drive an edge's appearance:
  *   - `kind`       → colour + glyph + structural/behavioral category (this file)
@@ -13,7 +13,7 @@
  */
 
 import { ArrowRight, Boxes, Database, Link2, Radio, Signal, Zap, type LucideIcon } from "lucide-react";
-import type { SystemEdgeKind, SystemEdgeMatchType } from "@repowise-dev/types";
+import type { SystemEdgeKind, SystemEdgeMatchType } from "@repohive/types";
 
 /** Whether an edge reflects a structural contract/dependency or behavioral co-change. */
 export type EdgeCategory = "structural" | "behavioral";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FolderGit2 } from "lucide-react";
-import { EmptyState } from "@repowise-dev/ui/shared/empty-state";
+import { EmptyState } from "@repohive/ui/shared/empty-state";
 import { AddRepoDialog } from "@/components/repos/add-repo-dialog";
 
 /**

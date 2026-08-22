@@ -1,6 +1,6 @@
 import { cn } from "../lib/cn";
 import { formatLOC } from "../lib/format";
-import type { RiskDriver } from "@repowise-dev/types/git";
+import type { RiskDriver } from "@repohive/types/git";
 
 export interface RiskDriverBreakdownProps {
   drivers: RiskDriver[];

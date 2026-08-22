@@ -19,7 +19,7 @@
  */
 
 import { AlertTriangle } from "lucide-react";
-import type { HealthTrendResponse } from "@repowise-dev/types/health";
+import type { HealthTrendResponse } from "@repohive/types/health";
 
 import { Skeleton } from "../ui/skeleton";
 import { StatRibbon, type RibbonStat } from "../stats/stat-ribbon";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { Commit, CommitStats } from "@repowise-dev/types/git";
+import type { Commit, CommitStats } from "@repohive/types/git";
 import { CommitRiskHistogram } from "./commit-risk-histogram";
 import { CommitRiskScatter } from "./commit-risk-scatter";
 

@@ -1,4 +1,4 @@
-import type { ExternalSystemsRegistry } from "@repowise-dev/types/external-systems";
+import type { ExternalSystemsRegistry } from "@repohive/types/external-systems";
 
 import { apiGet } from "./client";
 

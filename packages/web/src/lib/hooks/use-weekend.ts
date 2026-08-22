@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEFAULT_WEEKEND_PRESET, weekendDaysFor } from "@repowise-dev/ui/stats";
+import { DEFAULT_WEEKEND_PRESET, weekendDaysFor } from "@repohive/ui/stats";
 import { config } from "@/lib/config";
 
 /**

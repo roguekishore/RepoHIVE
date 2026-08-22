@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { StatsArrival } from "@repowise-dev/types/stats";
+import type { StatsArrival } from "@repohive/types/stats";
 import { formatDate, formatNumber } from "../lib/format";
 
 const INITIAL_SHOWN = 12;

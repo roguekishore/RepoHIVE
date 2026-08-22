@@ -6,17 +6,17 @@ import useSWR from "swr";
 import { ArrowRight, Flame, Bug } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { getGitMetadata } from "@/lib/api/git";
-import { summarizeFixHistory } from "@repowise-dev/ui/lib/fix-history";
-import { DocsReader } from "@repowise-dev/ui/docs/docs-reader";
-import { isModelWrittenType } from "@repowise-dev/ui/lib/page-types";
+import { summarizeFixHistory } from "@repohive/ui/lib/fix-history";
+import { DocsReader } from "@repohive/ui/docs/docs-reader";
+import { isModelWrittenType } from "@repohive/ui/lib/page-types";
 import { PageGenerateButton } from "./page-generate-button";
-import { Badge } from "@repowise-dev/ui/ui/badge";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { Badge } from "@repohive/ui/ui/badge";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 import { VersionHistoryWrapper } from "@/components/wiki/version-history";
 import { SecurityPanelWrapper } from "@/components/wiki/security-panel";
 import { useGraphMetrics, useCallersCallees } from "@/lib/hooks/use-graph";
-import type { ReaderPersona } from "@repowise-dev/ui/docs/reader-persona";
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { ReaderPersona } from "@repohive/ui/docs/reader-persona";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import type { PageResponse, PageSummary } from "@/lib/api/types";
 
 function PercentileBar({ value, label }: { value: number; label: string }) {

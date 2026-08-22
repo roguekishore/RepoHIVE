@@ -4,17 +4,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw, Zap, AlertTriangle, Download } from "lucide-react";
 import { syncRepo, fullResyncRepo } from "@/lib/api/repos";
-import { Button } from "@repowise-dev/ui/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
+import { Button } from "@repohive/ui/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@repowise-dev/ui/ui/dialog";
+} from "@repohive/ui/ui/dialog";
 import { GenerationProgressWrapper as GenerationProgress } from "@/components/jobs/generation-progress-wrapper";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 interface Props {
   repoId: string;

@@ -6,7 +6,7 @@ import { cn } from "../lib/cn";
 import { getPageTypeIcon, getPageTypeLabel } from "../lib/page-types";
 import { claimCommandPaletteShortcut } from "../lib/command-palette-scope";
 import { useDebounce } from "../hooks/use-debounce";
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 /** One server-side hit: the loaded page it maps to, plus its context line. */
 export interface PaletteSearchHit {

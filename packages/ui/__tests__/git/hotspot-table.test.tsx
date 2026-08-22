@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { HotspotTable } from "../../src/git/hotspot-table.js";
-import type { Hotspot } from "@repowise-dev/types/git";
+import type { Hotspot } from "@repohive/types/git";
 
 const hotspot = (overrides: Partial<Hotspot> = {}): Hotspot => ({
   file_path: "src/foo.ts",

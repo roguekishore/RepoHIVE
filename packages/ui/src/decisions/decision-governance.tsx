@@ -2,7 +2,7 @@ import * as React from "react";
 import type {
   DecisionGraph,
   DecisionGraphNode,
-} from "@repowise-dev/types/decisions";
+} from "@repohive/types/decisions";
 
 /**
  * What the decision graph actually knew, as lists.

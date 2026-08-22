@@ -13,7 +13,7 @@ import type {
   ConformanceReport,
   ConformanceViolation,
   DependencyCycle,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 
 export interface SystemMapConformancePanelProps {
   report: ConformanceReport | null;

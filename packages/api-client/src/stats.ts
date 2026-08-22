@@ -1,4 +1,4 @@
-import type { StatsHighlights } from "@repowise-dev/types/stats";
+import type { StatsHighlights } from "@repohive/types/stats";
 import { apiGet } from "./client";
 
 /** One-call payload for the repo Stats ("By the Numbers") page. */

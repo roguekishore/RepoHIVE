@@ -1,4 +1,4 @@
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 
 export default function FilePageLoading() {
   return (

@@ -11,10 +11,10 @@ import {
   ChevronRight,
   Circle,
 } from "lucide-react";
-import { Button } from "@repowise-dev/ui/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@repowise-dev/ui/ui/sheet";
-import { ScrollArea } from "@repowise-dev/ui/ui/scroll-area";
-import { Separator } from "@repowise-dev/ui/ui/separator";
+import { Button } from "@repohive/ui/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@repohive/ui/ui/sheet";
+import { ScrollArea } from "@repohive/ui/ui/scroll-area";
+import { Separator } from "@repohive/ui/ui/separator";
 import { AddRepoDialog } from "@/components/repos/add-repo-dialog";
 import { VersionFooter } from "./version-footer";
 import { FeedbackButton } from "./feedback-button";

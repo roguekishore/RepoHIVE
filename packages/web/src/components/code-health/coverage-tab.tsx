@@ -2,13 +2,13 @@
 
 /**
  * Coverage host — binds the shared {@link CoverageView} to web's `/api` client
- * and `/repos/:id` routing. The composition lives in `@repowise-dev/ui/health`;
+ * and `/repos/:id` routing. The composition lives in `@repohive/ui/health`;
  * this file only injects the app-specific data fetchers and navigation.
  */
 
 import { useRouter } from "next/navigation";
-import { CoverageView, type CodeHealthAdapter } from "@repowise-dev/ui/health";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { CoverageView, type CodeHealthAdapter } from "@repohive/ui/health";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import {
   getHealthCoverage,
   getHealthOverview,

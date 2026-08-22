@@ -4,18 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { config } from "@/lib/config";
 import { getHealth } from "@/lib/api/health";
-import { OverviewSection } from "@repowise-dev/ui/overview";
-import { Input } from "@repowise-dev/ui/ui/input";
-import { Button } from "@repowise-dev/ui/ui/button";
+import { OverviewSection } from "@repohive/ui/overview";
+import { Input } from "@repohive/ui/ui/input";
+import { Button } from "@repohive/ui/ui/button";
 import {
   SettingsRow,
   SettingsRows,
   SaveIndicator,
   StatusLine,
   type SaveState,
-} from "@repowise-dev/ui/settings";
+} from "@repohive/ui/settings";
 import type { HealthResponse } from "@/lib/api/types";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 /**
  * Server connection, and the page's only connection test.

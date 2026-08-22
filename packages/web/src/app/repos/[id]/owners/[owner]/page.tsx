@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Users } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { OwnerAvatar } from "@repowise-dev/ui/owners/owner-avatar";
-import { OwnerProfileView } from "@repowise-dev/ui/owners/owner-profile";
-import { EmptyState } from "@repowise-dev/ui/shared/empty-state";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
-import { formatDate, formatRelativeTimeOrNull } from "@repowise-dev/ui/lib/format";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { OwnerAvatar } from "@repohive/ui/owners/owner-avatar";
+import { OwnerProfileView } from "@repohive/ui/owners/owner-profile";
+import { EmptyState } from "@repohive/ui/shared/empty-state";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
+import { formatDate, formatRelativeTimeOrNull } from "@repohive/ui/lib/format";
 import { getOwnerProfile } from "@/lib/api/owners";
 
 export const metadata: Metadata = { title: "Contributor" };

@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { OwnerListEntry } from "@repowise-dev/types/owners";
+import type { OwnerListEntry } from "@repohive/types/owners";
 import { RAMP_TAIL, rampStep } from "../lib/ramp";
 
 interface OwnershipDistributionBarProps {

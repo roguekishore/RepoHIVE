@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { OwnerListEntry } from "@repowise-dev/types/owners";
+import type { OwnerListEntry } from "@repohive/types/owners";
 import { formatRelativeTimeOrNull } from "../lib/format";
 import { OwnerAvatar } from "./owner-avatar";
 

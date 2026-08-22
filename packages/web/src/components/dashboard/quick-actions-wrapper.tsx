@@ -7,12 +7,12 @@ import {
   QuickActions as QuickActionsShell,
   DEFAULT_QUICK_ACTIONS,
   type QuickActionKey,
-} from "@repowise-dev/ui/dashboard/quick-actions";
+} from "@repohive/ui/dashboard/quick-actions";
 import { syncRepo, fullResyncRepo } from "@/lib/api/repos";
 import { listJobs } from "@/lib/api/jobs";
 import { analyzeDeadCode } from "@/lib/api/dead-code";
 import { GenerationProgressWrapper } from "@/components/jobs/generation-progress-wrapper";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 interface Props {
   repoId: string;

@@ -1,9 +1,9 @@
 "use client";
 
-import { GraphDocPanel as GraphDocPanelShell } from "@repowise-dev/ui/graph/graph-doc-panel";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { GraphDocPanel as GraphDocPanelShell } from "@repohive/ui/graph/graph-doc-panel";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import { usePage } from "@/lib/hooks/use-page";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 interface GraphDocPanelWrapperProps {
   repoId: string;

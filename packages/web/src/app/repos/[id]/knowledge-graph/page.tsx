@@ -20,17 +20,17 @@
  *
  * This replaced the earlier node-link / layered-C4 Knowledge Graph. The reusable
  * C4 machinery it used to render still lives on (backend `c4_builder`, the zoom
- * map's own `/zoom-map` endpoint, and `@repowise-dev/ui/c4` for the VS Code
+ * map's own `/zoom-map` endpoint, and `@repohive/ui/c4` for the VS Code
  * webview); only the old web surface for it was retired.
  */
 
 import { use, useCallback, useMemo, useRef, useState } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { ZoomCanvas } from "@repowise-dev/ui/zoom";
-import { CO_CHANGES, indexRelationsByNode } from "@repowise-dev/ui/zoom";
-import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repowise-dev/ui/zoom";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { ZoomCanvas } from "@repohive/ui/zoom";
+import { CO_CHANGES, indexRelationsByNode } from "@repohive/ui/zoom";
+import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
 import { useZoomMap } from "@/lib/hooks/use-graph";
 import { ZoomBreadcrumb } from "@/components/zoom/zoom-breadcrumb";
 import { ZoomSearch } from "@/components/zoom/zoom-search";

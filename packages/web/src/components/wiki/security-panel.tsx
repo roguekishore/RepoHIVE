@@ -1,8 +1,8 @@
 "use client";
 
 import useSWR from "swr";
-import type { SecurityFinding } from "@repowise-dev/types";
-import { SecurityPanel as SecurityPanelShell } from "@repowise-dev/ui/wiki/security-panel";
+import type { SecurityFinding } from "@repohive/types";
+import { SecurityPanel as SecurityPanelShell } from "@repohive/ui/wiki/security-panel";
 import { listSecurityFindings } from "@/lib/api/security";
 
 interface Props {

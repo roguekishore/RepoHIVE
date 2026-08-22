@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import {
   GraphFlow as GraphFlowShell,
   type GraphFlowProps as GraphFlowShellProps,
-} from "@repowise-dev/ui/graph/graph-flow";
+} from "@repohive/ui/graph/graph-flow";
 import {
   useGraph,
   useArchitectureGraph,
@@ -26,7 +26,7 @@ import type {
   CommunitySummaryItem,
   ArchitectureGraph,
   CommunitySlice,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 
 type ViewMode = "full" | "architecture" | "dead" | "hotfiles" | "unified";
 

@@ -5,7 +5,7 @@ import * as d3 from "d3-hierarchy";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Users } from "lucide-react";
-import type { OwnershipEntry } from "@repowise-dev/types/git";
+import type { OwnershipEntry } from "@repohive/types/git";
 
 const OWNER_COLORS = [
   "var(--color-accent-fill)", "var(--color-accent-secondary)", "var(--color-success)", "var(--color-warning)", "var(--color-info)",

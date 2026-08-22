@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 // Value imports must come from the package root, not the `/health` subpath:
 // the vite/rollup base alias clobbers subpath value resolution. Type-only
 // subpath imports are fine (erased before resolution).
-import { bandForScore } from "@repowise-dev/types";
-import type { ChurnComplexityPoint, HealthBand } from "@repowise-dev/types/health";
+import { bandForScore } from "@repohive/types";
+import type { ChurnComplexityPoint, HealthBand } from "@repohive/types/health";
 
 export interface ChurnComplexityQuadrantProps {
   points: ChurnComplexityPoint[];

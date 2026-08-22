@@ -18,7 +18,7 @@ import {
 import { scoreBadgeClass, type Severity } from "../health/tokens";
 import { FileTrendChart } from "../health/file-trend-chart";
 import { FileSignalsPanel } from "../health/file-signals-panel";
-import type { FileDetailHealth, FunctionBlameRow } from "@repowise-dev/types/files";
+import type { FileDetailHealth, FunctionBlameRow } from "@repohive/types/files";
 import { SeverityMark } from "../health/severity-mark";
 
 export type FindingStatus = "open" | "acknowledged" | "resolved" | "false_positive";

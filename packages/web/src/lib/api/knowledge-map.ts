@@ -1,3 +1,3 @@
 import "./client";
 
-export * from "@repowise-dev/api-client/knowledge-map";
+export * from "@repohive/api-client/knowledge-map";

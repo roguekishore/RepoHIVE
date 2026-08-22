@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSymbolDetail } from "@/lib/api/symbols";
-import { SymbolPage } from "@repowise-dev/ui/symbols";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
-import type { SymbolDetailResponse } from "@repowise-dev/types/symbols";
+import { SymbolPage } from "@repohive/ui/symbols";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
+import type { SymbolDetailResponse } from "@repohive/types/symbols";
 
 interface Props {
   params: Promise<{ id: string; symbolId: string }>;

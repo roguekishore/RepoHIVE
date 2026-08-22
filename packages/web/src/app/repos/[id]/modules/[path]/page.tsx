@@ -7,10 +7,10 @@ import { Folder } from "lucide-react";
 import {
   ModuleHealthDetailView,
   ModuleDetailShell,
-} from "@repowise-dev/ui/modules";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { EmptyState } from "@repowise-dev/ui/shared/empty-state";
+} from "@repohive/ui/modules";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { EmptyState } from "@repohive/ui/shared/empty-state";
 import { getModuleHealth } from "@/lib/api/modules";
 import type { ModuleHealthDetail } from "@/lib/api/types";
 

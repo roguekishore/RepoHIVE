@@ -2,10 +2,10 @@
  * Node-kind registry — maps each `SystemNode.kind` to a categorical tone (from
  * the shared graph-primitives palette) and a display label. The single source
  * of truth for how a service node looks; adding a kind is one entry here plus
- * the union member in `@repowise-dev/types/workspace`.
+ * the union member in `@repohive/types/workspace`.
  */
 
-import type { SystemNode } from "@repowise-dev/types";
+import type { SystemNode } from "@repohive/types";
 
 type SystemNodeKind = SystemNode["kind"];
 

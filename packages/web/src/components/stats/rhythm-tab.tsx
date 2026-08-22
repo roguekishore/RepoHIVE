@@ -1,9 +1,9 @@
 "use client";
 
 import { CalendarDays, Flame, Snowflake, TrendingDown, TrendingUp } from "lucide-react";
-import type { StatsHighlights } from "@repowise-dev/types/stats";
-import { PunchCard, StatCallout } from "@repowise-dev/ui/stats";
-import { formatDate, formatNumber } from "@repowise-dev/ui/lib/format";
+import type { StatsHighlights } from "@repohive/types/stats";
+import { PunchCard, StatCallout } from "@repohive/ui/stats";
+import { formatDate, formatNumber } from "@repohive/ui/lib/format";
 import { useWeekendDays } from "@/lib/hooks/use-weekend";
 
 function monthLabel(key: string): string {

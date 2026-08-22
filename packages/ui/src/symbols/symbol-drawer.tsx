@@ -11,7 +11,7 @@ import {
 import { Badge } from "../ui/badge";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
-import type { SymbolDetailData } from "@repowise-dev/types/symbols";
+import type { SymbolDetailData } from "@repohive/types/symbols";
 import { FixHistoryBadge, SYMBOL_FIX_TITLE } from "../git/fix-history-badge";
 import { SymbolDetailBody } from "./symbol-detail-body";
 

@@ -3,7 +3,7 @@
 /**
  * Per-type chat artifact renderers. Dispatched by `ArtifactPanel` based on
  * `artifact.type`. Variant shapes are declared in
- * `@repowise-dev/types/chat`. Each renderer is intentionally small and
+ * `@repohive/types/chat`. Each renderer is intentionally small and
  * presentation-only — heavier visualisations (full graph canvases, tables,
  * etc.) belong in their own subpackages and are linked to from here.
  */
@@ -30,7 +30,7 @@ import type {
   OverviewArtifactData,
   RiskReportArtifactData,
   SearchResultsArtifactData,
-} from "@repowise-dev/types/chat";
+} from "@repohive/types/chat";
 import { Markdown } from "../shared/markdown";
 import { MermaidDiagram } from "../wiki/mermaid-diagram";
 import { getPageTypeLabel } from "../lib/page-types";

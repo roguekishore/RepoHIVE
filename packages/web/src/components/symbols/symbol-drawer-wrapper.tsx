@@ -3,16 +3,16 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { SymbolDrawer } from "@repowise-dev/ui/symbols/symbol-drawer";
+import { SymbolDrawer } from "@repohive/ui/symbols/symbol-drawer";
 import {
   fileEntityPath,
   symbolEntityPath,
-} from "@repowise-dev/ui/shared/entity";
+} from "@repohive/ui/shared/entity";
 import { useGraphMetrics, useCallersCallees } from "@/lib/hooks/use-graph";
 import { getCoChanges, getGitMetadata } from "@/lib/api/git";
 import { listDeadCode } from "@/lib/api/dead-code";
 import type { SymbolResponse } from "@/lib/api/types";
-import type { SymbolDetailData } from "@repowise-dev/types/symbols";
+import type { SymbolDetailData } from "@repohive/types/symbols";
 
 interface Props {
   symbol: SymbolResponse | null;

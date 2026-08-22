@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 
 interface ImpactGraphProps {
   result: BlastRadiusResponse;

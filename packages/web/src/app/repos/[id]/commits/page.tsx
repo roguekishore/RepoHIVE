@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GitCommitHorizontal } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { OverviewSection, SectionLink } from "@repowise-dev/ui/overview";
-import { CommitsLede } from "@repowise-dev/ui/commits/commits-lede";
-import { CodeEvolutionChart } from "@repowise-dev/ui/commits/code-evolution-chart";
-import { AgentTrendStrip } from "@repowise-dev/ui/commits/agent-trend-strip";
-import { CredibilityInfoButton } from "@repowise-dev/ui/commits/credibility-strip";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { OverviewSection, SectionLink } from "@repohive/ui/overview";
+import { CommitsLede } from "@repohive/ui/commits/commits-lede";
+import { CodeEvolutionChart } from "@repohive/ui/commits/code-evolution-chart";
+import { AgentTrendStrip } from "@repohive/ui/commits/agent-trend-strip";
+import { CredibilityInfoButton } from "@repohive/ui/commits/credibility-strip";
 import { CommitQueue } from "@/components/commits/commit-queue";
 import { CommitDetailSheet } from "@/components/commits/commit-detail-sheet";
 import { CommitDistribution } from "@/components/commits/commit-distribution";

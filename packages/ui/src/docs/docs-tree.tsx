@@ -25,7 +25,7 @@ import { RAW_GRAPH_ID, displayLabel, treeLabel } from "./page-labels";
 import { groupPagesByLayer, readLayerOrder } from "../lib/layers";
 import { cn } from "../lib/cn";
 import { statusBadgeClasses, type FreshnessStatus } from "../lib/confidence";
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 // Synthetic path used as the Onboarding folder's tree key. Distinct from any
 // real target_path (which never starts with "@") so directory lookups don't

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { CouplingEdge } from "@repowise-dev/types/coupling";
+import type { CouplingEdge } from "@repohive/types/coupling";
 import { CouplingTable } from "../../src/coupling/coupling-table.js";
 
 function edge(

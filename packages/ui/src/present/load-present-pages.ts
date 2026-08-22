@@ -9,7 +9,7 @@
 // The selection rules live here rather than being re-derived from the builder's
 // caps: same constants, same ordering functions, one definition each.
 
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import {
   MAX_LAYER_SLIDES,
   MAX_MODULE_SLIDES,

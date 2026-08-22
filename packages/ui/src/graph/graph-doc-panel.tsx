@@ -15,7 +15,7 @@ import { Badge } from "../ui/badge";
 import { Markdown } from "../shared/markdown";
 import { ConfidenceBadge } from "../wiki/confidence-badge";
 import { formatRelativeTime } from "../lib/format";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 export interface GraphDocPanelProps {
   /** Node id whose docs are being shown. Used in the header subtitle. */

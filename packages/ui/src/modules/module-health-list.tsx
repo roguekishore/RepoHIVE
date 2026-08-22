@@ -1,7 +1,7 @@
 "use client";
 
 import { Folder } from "lucide-react";
-import type { ModuleHealthSummary } from "@repowise-dev/types/modules";
+import type { ModuleHealthSummary } from "@repohive/types/modules";
 import { EmptyState } from "../shared/empty-state";
 import { Skeleton } from "../ui/skeleton";
 import { ResultsFooter } from "../shared/results-footer";

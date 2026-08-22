@@ -9,8 +9,8 @@ import { Users } from "lucide-react";
 import {
   OwnerDirectory,
   type OwnerDirectoryFilters,
-} from "@repowise-dev/ui/owners/owner-directory";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
+} from "@repohive/ui/owners/owner-directory";
+import { PageShell } from "@repohive/ui/shared/page-shell";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { listAllOwners, listOwnersPage } from "@/lib/api/owners";
 import type { OwnerListEntry, Paginated } from "@/lib/api/types";

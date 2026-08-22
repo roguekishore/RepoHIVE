@@ -7,7 +7,7 @@
  * Phase 3 attach point promised by the Phase 2 overlay API.
  */
 
-import type { CrossRepoBlastRadius, SystemGraph } from "@repowise-dev/types";
+import type { CrossRepoBlastRadius, SystemGraph } from "@repohive/types";
 import type { BadgeTone, SystemMapBadge, SystemMapOverlay } from "./types";
 
 /**

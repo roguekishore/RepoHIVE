@@ -15,7 +15,7 @@ import type {
   DecisionStatus,
   DecisionSource,
   DecisionScope,
-} from "@repowise-dev/types/decisions";
+} from "@repohive/types/decisions";
 
 // The engine emits more sources than the four the type union names — a live
 // index carries comment / pr / adr / changelog / session as well. Unmapped

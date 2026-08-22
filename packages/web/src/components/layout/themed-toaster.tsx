@@ -8,7 +8,7 @@
  */
 
 import { useTheme } from "next-themes";
-import { Toaster } from "@repowise-dev/ui/shared";
+import { Toaster } from "@repohive/ui/shared";
 
 export function ThemedToaster() {
   const { resolvedTheme } = useTheme();

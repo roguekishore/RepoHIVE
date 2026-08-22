@@ -4,7 +4,7 @@ import type {
   CouplingEdge,
   CouplingNode,
   CouplingGraphResponse,
-} from "@repowise-dev/types/coupling";
+} from "@repohive/types/coupling";
 import { CouplingExplorer } from "../../src/coupling/coupling-explorer.js";
 
 function node(path: string): CouplingNode {

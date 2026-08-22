@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { SystemEdge, SystemGraph, SystemNode } from "@repowise-dev/types";
+import type { SystemEdge, SystemGraph, SystemNode } from "@repohive/types";
 import { collapseToRepos } from "../../src/workspace/system-map/collapse";
 import { applyView } from "../../src/workspace/system-map/layout";
 import {
@@ -22,7 +22,7 @@ import type {
   BreakingChangeReport,
   ConformanceReport,
   CrossRepoBlastRadius,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 
 function node(id: string, repo: string, over: Partial<SystemNode> = {}): SystemNode {
   return {

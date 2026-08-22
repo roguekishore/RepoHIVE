@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ChatInterface as ChatInterfaceShell } from "@repowise-dev/ui/chat/chat-interface";
+import { ChatInterface as ChatInterfaceShell } from "@repohive/ui/chat/chat-interface";
 import { useChat } from "@/lib/hooks/use-chat";
 import { pageHref } from "@/lib/utils/page-href";
 import { listConversations } from "@/lib/api/chat";

@@ -1,7 +1,7 @@
 import { beforeAll, describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { FilesIndex } from "../../src/files/files-index.js";
-import type { FileLanguageCount, FileRow } from "@repowise-dev/types/files";
+import type { FileLanguageCount, FileRow } from "@repohive/types/files";
 
 // jsdom has no layout engine → stub ResizeObserver so the treemap can size
 // itself. Same shape as the code-health map's stub.

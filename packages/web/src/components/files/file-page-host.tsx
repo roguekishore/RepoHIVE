@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FilePage, type FilePageTab, type FindingStatus } from "@repowise-dev/ui/files";
+import { FilePage, type FilePageTab, type FindingStatus } from "@repohive/ui/files";
 import { updateFindingStatus } from "@/lib/api/code-health";
-import type { FileDetailResponse } from "@repowise-dev/types/files";
+import type { FileDetailResponse } from "@repohive/types/files";
 
 interface FilePageHostProps {
   repoId: string;

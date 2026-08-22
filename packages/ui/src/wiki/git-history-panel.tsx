@@ -5,7 +5,7 @@ import { CoChangeList } from "../git/co-change-list";
 import { ChangeHistoryCard } from "../git/change-history-card";
 import { FixHistoryBadge } from "../git/fix-history-badge";
 import { formatRelativeTime, formatDate, formatAgeDays } from "../lib/format";
-import type { FileAuthor, GitMetadata } from "@repowise-dev/types/git";
+import type { FileAuthor, GitMetadata } from "@repohive/types/git";
 
 interface GitHistoryPanelProps {
   git: GitMetadata;

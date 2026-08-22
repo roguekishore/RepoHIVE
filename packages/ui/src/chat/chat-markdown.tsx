@@ -6,7 +6,7 @@
  * invited a fourth copy for the next surface that wanted themed markdown.
  *
  * This path stays because the hosted frontend imports
- * `@repowise-dev/ui/chat/chat-markdown` directly.
+ * `@repohive/ui/chat/chat-markdown` directly.
  */
 
 export {

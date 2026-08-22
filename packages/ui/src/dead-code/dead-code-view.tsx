@@ -28,7 +28,7 @@ import type {
   DeadCodeFinding,
   DeadCodeStatus,
   DeadCodeSummary,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 
 import { Trash2 } from "lucide-react";
 

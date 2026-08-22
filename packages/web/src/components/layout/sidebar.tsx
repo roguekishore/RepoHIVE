@@ -19,10 +19,10 @@ import {
   isNavItemActive,
   type NavItem,
 } from "./nav-items";
-import { ScrollArea } from "@repowise-dev/ui/ui/scroll-area";
-import { Separator } from "@repowise-dev/ui/ui/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@repowise-dev/ui/ui/tooltip";
-import { ThemeToggle } from "@repowise-dev/ui/shared/theme-toggle";
+import { ScrollArea } from "@repohive/ui/ui/scroll-area";
+import { Separator } from "@repohive/ui/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repohive/ui/ui/tooltip";
+import { ThemeToggle } from "@repohive/ui/shared/theme-toggle";
 import { AddRepoDialog } from "@/components/repos/add-repo-dialog";
 import { VersionFooter } from "./version-footer";
 import { FeedbackButton } from "./feedback-button";

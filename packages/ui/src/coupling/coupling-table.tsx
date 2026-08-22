@@ -8,7 +8,7 @@ import { VirtualizedTable } from "../shared/virtualized-table";
 import { clickableRowProps, CLICKABLE_ROW_CLS } from "../shared/responsive-table";
 import { AiPromptButton } from "../health/ai-prompt-button";
 import { cn } from "../lib/cn";
-import type { CouplingEdge } from "@repowise-dev/types/coupling";
+import type { CouplingEdge } from "@repohive/types/coupling";
 
 /**
  * Injected link component (e.g. Next's Link); defaults to a plain anchor. Kept

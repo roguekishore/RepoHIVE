@@ -1,5 +1,5 @@
 /**
- * Configures the shared @repowise-dev/api-client package with this app's
+ * Configures the shared @repohive/api-client package with this app's
  * base URL and auth token resolution, then re-exports what the rest of the
  * app still imports from "@/lib/api/client" (ApiClientError).
  *
@@ -14,7 +14,7 @@
  * and from REPOWISE_API_KEY / NEXT_PUBLIC_REPOWISE_API_KEY on the server.
  */
 
-import { configureApiClient } from "@repowise-dev/api-client";
+import { configureApiClient } from "@repohive/api-client";
 
 // Client-side: empty string → relative requests proxied via Next.js rewrites.
 // Server-side: use REPOWISE_API_URL (the backend) since server `fetch` bypasses rewrites.
@@ -34,4 +34,4 @@ function getApiKey(): string | null {
 
 configureApiClient({ baseUrl: BASE_URL, token: getApiKey });
 
-export { ApiClientError } from "@repowise-dev/api-client";
+export { ApiClientError } from "@repohive/api-client";

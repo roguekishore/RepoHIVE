@@ -1,3 +1,3 @@
 import "./client";
 
-export * from "@repowise-dev/api-client/mcp-tools";
+export * from "@repohive/api-client/mcp-tools";

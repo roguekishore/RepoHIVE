@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { HealthDistribution } from "@repowise-dev/types/health";
+import type { HealthDistribution } from "@repohive/types/health";
 import { HealthDistributionBar } from "../../src/health/health-distribution-bar.js";
 import { HealthBadge } from "../../src/health/health-badge.js";
 

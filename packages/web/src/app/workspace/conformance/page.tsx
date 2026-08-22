@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, ShieldAlert, RefreshCw, Waypoints, ListChecks, Gauge } from "lucide-react";
-import { buildDsm, DsmMatrixView } from "@repowise-dev/ui/workspace/dsm";
-import { AiPromptButton, AiPromptModal, buildConformanceAiPrompt } from "@repowise-dev/ui/health";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { buildDsm, DsmMatrixView } from "@repohive/ui/workspace/dsm";
+import { AiPromptButton, AiPromptModal, buildConformanceAiPrompt } from "@repohive/ui/health";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 import {
   useWorkspaceSystemGraph,
   useWorkspaceConformance,

@@ -1,6 +1,6 @@
 "use client";
 
-import { GenerateConfirmDialog } from "@repowise-dev/ui/wiki/regenerate-button";
+import { GenerateConfirmDialog } from "@repohive/ui/wiki/regenerate-button";
 import { formatEstimateCost } from "@/lib/generate-format";
 import { type useBulkGenerate } from "@/lib/hooks/use-bulk-generate";
 

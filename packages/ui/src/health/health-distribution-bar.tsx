@@ -1,4 +1,4 @@
-import type { HealthBand, HealthDistribution } from "@repowise-dev/types/health";
+import type { HealthBand, HealthDistribution } from "@repohive/types/health";
 
 /** Worst-first, matching how the surface lists files. */
 const ORDER: HealthBand[] = ["alert", "warning", "healthy"];

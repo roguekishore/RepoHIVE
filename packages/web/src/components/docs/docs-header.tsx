@@ -5,7 +5,7 @@ import { useParams, usePathname } from "next/navigation";
 import {
   DocsHeader as DocsHeaderShell,
   type DocsHeaderTab,
-} from "@repowise-dev/ui/docs/docs-header";
+} from "@repohive/ui/docs/docs-header";
 
 // "Doc freshness", not "Coverage" — coverage means test coverage everywhere
 // else in the app; this tab is about documentation staleness.

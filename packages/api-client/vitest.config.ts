@@ -7,7 +7,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@repowise-dev/ui": path.resolve(__dirname, "../ui/src/index.ts"),
+      "@repohive/ui": path.resolve(__dirname, "../ui/src/index.ts"),
     },
   },
 });

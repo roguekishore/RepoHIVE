@@ -25,13 +25,13 @@ import {
   type ExploreEntry,
   type ReadItem,
   type RepoIdentityMeta,
-} from "@repowise-dev/ui/overview";
-import { getDefaultHref } from "@repowise-dev/ui/dashboard/attention-href";
+} from "@repohive/ui/overview";
+import { getDefaultHref } from "@repohive/ui/dashboard/attention-href";
 // Direct path, not the `ui/stats` barrel: that barrel re-exports two
 // "use client" modules, which would ship them to the browser for a page that
 // renders entirely on the server.
-import { StatRibbon, type RibbonStat } from "@repowise-dev/ui/stats/stat-ribbon";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { StatRibbon, type RibbonStat } from "@repohive/ui/stats/stat-ribbon";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import {
   formatBytes,
   formatCost,
@@ -39,7 +39,7 @@ import {
   formatNumber,
   formatRelativeTime,
   formatTokens,
-} from "@repowise-dev/ui/lib/format";
+} from "@repohive/ui/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
 

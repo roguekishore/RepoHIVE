@@ -2,22 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { config } from "@/lib/config";
-import { OverviewSection } from "@repowise-dev/ui/overview";
-import { Input } from "@repowise-dev/ui/ui/input";
+import { OverviewSection } from "@repohive/ui/overview";
+import { Input } from "@repohive/ui/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repowise-dev/ui/ui/select";
+} from "@repohive/ui/ui/select";
 import {
   SettingsRow,
   SettingsRows,
   SaveIndicator,
   EnvVarLine,
   type SaveState,
-} from "@repowise-dev/ui/settings";
+} from "@repohive/ui/settings";
 
 const PROVIDERS = ["gemini", "openai", "anthropic", "deepseek", "kimi", "opencode", "ollama", "litellm", "mock"] as const;
 const EMBEDDERS = ["mock", "gemini", "openai", "openrouter", "ollama"] as const;

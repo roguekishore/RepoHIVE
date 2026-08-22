@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { DsmCell, DsmMatrix } from "@repowise-dev/types";
+import type { DsmCell, DsmMatrix } from "@repohive/types";
 import { DsmMatrixView } from "../../src/workspace/dsm/dsm-matrix";
 
 // Must mirror the named constant in dsm-matrix.tsx.

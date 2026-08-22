@@ -1,7 +1,7 @@
 "use client";
 
 import { TrendingDown } from "lucide-react";
-import type { FileHealthTrend } from "@repowise-dev/types/health";
+import type { FileHealthTrend } from "@repohive/types/health";
 import { deltaColor, formatDelta, scoreTextColor } from "./tokens";
 
 export interface FileTrendChartProps {

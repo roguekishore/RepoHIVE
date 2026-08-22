@@ -32,7 +32,7 @@ import { cn } from "../lib/cn";
 import { BrandMark } from "../shared/brand-mark";
 import { ChatMessage } from "./chat-message";
 import { ArtifactPanel, type Artifact } from "./artifact-panel";
-import type { ChatUIMessage } from "@repowise-dev/types/chat";
+import type { ChatUIMessage } from "@repohive/types/chat";
 import type { SourceReference } from "./source-citations";
 
 const DEFAULT_SUGGESTIONS = [

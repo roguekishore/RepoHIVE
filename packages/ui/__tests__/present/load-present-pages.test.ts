@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { loadPresentPages } from "../../src/present/load-present-pages.js";
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 
 function summary(overrides: Partial<DocPageSummary> = {}): DocPageSummary {
   return {

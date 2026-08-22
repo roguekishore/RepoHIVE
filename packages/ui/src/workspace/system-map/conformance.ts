@@ -8,7 +8,7 @@
  * The Phase 5 attach point promised by the Phase 2 overlay API.
  */
 
-import type { ConformanceReport, SystemGraph } from "@repowise-dev/types";
+import type { ConformanceReport, SystemGraph } from "@repohive/types";
 import type { SystemMapBadge, SystemMapOverlay } from "./types";
 
 /**

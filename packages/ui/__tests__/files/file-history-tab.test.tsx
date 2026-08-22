@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { FileHistoryTab } from "../../src/files/file-history-tab.js";
-import type { FileDetailGit } from "@repowise-dev/types/files";
+import type { FileDetailGit } from "@repohive/types/files";
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 

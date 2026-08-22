@@ -10,7 +10,7 @@ import {
   validateProviderKey,
 } from "@/lib/api/providers";
 import type { ProvidersResponse } from "@/lib/api/types";
-import type { ProviderValidationState } from "@repowise-dev/ui/settings/provider-settings";
+import type { ProviderValidationState } from "@repohive/ui/settings/provider-settings";
 
 export function useProviders(repoId?: string) {
   const { data, mutate, isLoading } = useSWR<ProvidersResponse>(

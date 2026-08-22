@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import type { SymbolBodyCall } from "@repowise-dev/types/symbols";
+import type { SymbolBodyCall } from "@repohive/types/symbols";
 import { truncatePath } from "../lib/format";
 import { cn } from "../lib/cn";
 

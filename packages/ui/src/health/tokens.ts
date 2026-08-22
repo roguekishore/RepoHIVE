@@ -7,7 +7,7 @@
  * caution/success) so the surface themes correctly in both modes.
  */
 
-import { bandForScore, type HealthBand } from "@repowise-dev/types/health";
+import { bandForScore, type HealthBand } from "@repohive/types/health";
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
@@ -29,7 +29,7 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
  * @deprecated Use `SeverityMark`. This paints a tinted ground, a border and
  * coloured text for one token that repeats several times per row, and in a
  * findings list the grounds tile into stripes that outweigh the marker names
- * beside them. Kept exported because `@repowise-dev/ui` is consumed outside
+ * beside them. Kept exported because `@repohive/ui` is consumed outside
  * this repo; nothing in here should reach for it.
  */
 export const SEVERITY_CHIP: Record<Severity, string> = {
@@ -52,7 +52,7 @@ export const SEVERITY_BAR: Record<Severity, string> = {
  * Internal 4-step COLOR RAMP for score pills. This is presentation granularity
  * only — NOT a labeling scheme. The canonical, defect-backed health *buckets*
  * are the 3 `HealthBand` values (Healthy/Warning/Alert) defined once in
- * `@repowise-dev/types/health` (mirroring core `grading.py`); use those for any
+ * `@repohive/types/health` (mirroring core `grading.py`); use those for any
  * surfaced band label or count. `scoreBand` keeps an extra step (poor vs fair
  * inside the Warning band) purely so the file-table pills read on a finer ramp.
  */

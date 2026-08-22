@@ -1,6 +1,6 @@
 "use client";
 
-import type { CochangeWarning } from "@repowise-dev/types/blast-radius";
+import type { CochangeWarning } from "@repohive/types/blast-radius";
 import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-table";
 
 interface CochangeTableProps {

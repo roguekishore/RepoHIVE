@@ -3,7 +3,7 @@ import { BookOpen } from "lucide-react";
 import { EmptyState } from "../shared/empty-state";
 import { Badge } from "../ui/badge";
 import { formatRelativeTime } from "../lib/format";
-import type { FileWikiPageRef } from "@repowise-dev/types/files";
+import type { FileWikiPageRef } from "@repohive/types/files";
 
 interface FileDocTabProps {
   wikiPage: FileWikiPageRef | null;

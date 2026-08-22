@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { WorkspaceCoChangeEntry } from "@repowise-dev/types/workspace";
+import type { WorkspaceCoChangeEntry } from "@repohive/types/workspace";
 import { CoChangeTable } from "../../src/workspace/co-change-table.js";
 
 function cc(

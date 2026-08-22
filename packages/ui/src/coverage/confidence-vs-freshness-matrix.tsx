@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 const CONFIDENCE_BUCKETS = [
   { key: "high", label: "High (≥0.8)", min: 0.8 },

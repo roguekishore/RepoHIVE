@@ -1,6 +1,6 @@
 "use client";
 
-import { PathFinderPanel as PathFinderPanelShell } from "@repowise-dev/ui/graph/path-finder-panel";
+import { PathFinderPanel as PathFinderPanelShell } from "@repohive/ui/graph/path-finder-panel";
 import { getGraphPath, searchNodes } from "@/lib/api/graph";
 
 interface PathFinderPanelWrapperProps {

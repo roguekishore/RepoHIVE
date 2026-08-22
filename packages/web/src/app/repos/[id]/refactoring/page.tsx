@@ -16,18 +16,18 @@ import { use, useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { Wrench, RotateCw } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { ViewTabs } from "@repowise-dev/ui/shared/view-tabs";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { ViewTabs } from "@repohive/ui/shared/view-tabs";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import {
   RefactoringBoard,
   RefactoringDrawer,
   STRUCTURAL_TYPES,
   TYPE_ORDER,
   typeMeta,
-} from "@repowise-dev/ui/refactoring";
-import type { RefactoringPlan, RefactoringTargets } from "@repowise-dev/ui/refactoring";
-import { AiPromptModal, buildRefactoringPlanPrompt } from "@repowise-dev/ui/health";
+} from "@repohive/ui/refactoring";
+import type { RefactoringPlan, RefactoringTargets } from "@repohive/ui/refactoring";
+import { AiPromptModal, buildRefactoringPlanPrompt } from "@repohive/ui/health";
 import {
   generateRefactoringCode,
   getRefactoringSettings,

@@ -4,7 +4,7 @@ import {
   SourceCitations,
   extractSources,
 } from "../../src/chat/source-citations.js";
-import type { ChatUIToolCall } from "@repowise-dev/types/chat";
+import type { ChatUIToolCall } from "@repohive/types/chat";
 
 function searchCall(results: Array<Record<string, unknown>>): ChatUIToolCall {
   return {

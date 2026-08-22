@@ -8,7 +8,7 @@
  * shows in the inspector. Additive (no dimming): the map stays legible.
  */
 
-import type { ArchitectureMetrics, NodeRole, SystemGraph } from "@repowise-dev/types";
+import type { ArchitectureMetrics, NodeRole, SystemGraph } from "@repohive/types";
 import type { SystemMapBadge, SystemMapOverlay } from "./types";
 
 export interface RoleStyle {

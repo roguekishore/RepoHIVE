@@ -5,7 +5,7 @@
  * conformance violations) layer on top without touching this component.
  */
 
-import type { SystemEdge, SystemNode } from "@repowise-dev/types";
+import type { SystemEdge, SystemNode } from "@repohive/types";
 
 /** Repo-level health, joined client-side onto service nodes by repo alias. */
 export interface RepoHealth {

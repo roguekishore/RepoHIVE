@@ -4,7 +4,7 @@ import type {
   OwnerFileEntry,
   OwnerModuleRollup,
   OwnerCoAuthor,
-} from "@repowise-dev/types/owners";
+} from "@repohive/types/owners";
 import { PageLede } from "../shared/page-lede";
 import { OverviewSection, SectionLink } from "../overview/section";
 import { ReadsColumn, type ReadItem } from "../overview/reads-column";

@@ -4,7 +4,7 @@
  * Decision detail host — binds the shared {@link SharedDecisionDetail} to web's
  * `/api` client, `/repos/:id` routing, and `next/link`. The composition
  * (markdown body, lineage, module-link editor, evidence drawer, AI prompt,
- * confirm/undo status actions) lives in `@repowise-dev/ui/decisions`; this file
+ * confirm/undo status actions) lives in `@repohive/ui/decisions`; this file
  * only injects the app-specific pieces so web and hosted render the same view.
  */
 
@@ -12,7 +12,7 @@ import Link from "next/link";
 import {
   DecisionDetail as SharedDecisionDetail,
   type DecisionDetailAdapter,
-} from "@repowise-dev/ui/decisions";
+} from "@repohive/ui/decisions";
 import {
   getDecisionEvidence,
   getDecisionLineage,

@@ -8,7 +8,7 @@
  * by the Phase 2 overlay API.
  */
 
-import type { BreakingChangeReport, SystemGraph } from "@repowise-dev/types";
+import type { BreakingChangeReport, SystemGraph } from "@repohive/types";
 import type { BadgeTone, SystemMapBadge, SystemMapOverlay } from "./types";
 
 /** A provider with at least one `breaking` change reads danger; warnings read warning. */

@@ -11,7 +11,7 @@
 // (`doc-nav.ts`, framework-neutral) needs the same labels and must not pull in
 // React to get them.
 
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 export const RAW_GRAPH_ID = /^(?:community|scc)[-_\s]?\d+$/i;
 

@@ -6,9 +6,9 @@ import {
   RegenerateButton,
   GenerateConfirmDialog,
   type RegenerateCascade,
-} from "@repowise-dev/ui/wiki/regenerate-button";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
-import { isStubPage } from "@repowise-dev/ui/lib/page-types";
+} from "@repohive/ui/wiki/regenerate-button";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
+import { isStubPage } from "@repohive/ui/lib/page-types";
 import { GenerationProgressWrapper } from "@/components/jobs/generation-progress-wrapper";
 import { regeneratePage } from "@/lib/api/pages";
 import { generateEstimate } from "@/lib/api/repos";

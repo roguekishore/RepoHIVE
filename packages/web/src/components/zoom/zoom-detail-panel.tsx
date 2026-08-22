@@ -19,16 +19,16 @@
 
 import Link from "next/link";
 import { FileCode, ScanSearch, X } from "lucide-react";
-import type { ZoomNode, ZoomRelation } from "@repowise-dev/ui/zoom";
+import type { ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
 import {
   describeCap,
   describeRelations,
   healthBandLabel,
   nodeRoles,
   summarizeRelations,
-} from "@repowise-dev/ui/zoom";
-import { bandForScore } from "@repowise-dev/types/health";
-import { healthBandTextColor } from "@repowise-dev/ui/health";
+} from "@repohive/ui/zoom";
+import { bandForScore } from "@repohive/types/health";
+import { healthBandTextColor } from "@repohive/ui/health";
 
 interface ZoomDetailPanelProps {
   node: ZoomNode;

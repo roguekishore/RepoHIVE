@@ -7,7 +7,7 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 import { DocsTree } from "../../src/docs/docs-tree.js";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 function makePage(overrides: Partial<DocPage> = {}): DocPage {
   return {

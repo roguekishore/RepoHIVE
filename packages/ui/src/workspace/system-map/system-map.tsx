@@ -22,7 +22,7 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { NodeArchitectureRole, SystemEdgeKind, SystemGraph } from "@repowise-dev/types";
+import type { NodeArchitectureRole, SystemEdgeKind, SystemGraph } from "@repohive/types";
 import { EmptyState } from "../../shared/empty-state";
 import { systemMapNodeTypes } from "./system-map-node";
 import { systemMapEdgeTypes } from "./system-map-edge";

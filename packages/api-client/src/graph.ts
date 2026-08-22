@@ -1,4 +1,4 @@
-import type { ZoomMap } from "@repowise-dev/ui/zoom";
+import type { ZoomMap } from "@repohive/ui/zoom";
 import { apiGet } from "./client";
 import type {
   ArchitectureGraphResponse,

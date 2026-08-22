@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { GitHistoryPanel } from "../../src/wiki/git-history-panel.js";
-import type { GitMetadata } from "@repowise-dev/types/git";
+import type { GitMetadata } from "@repohive/types/git";
 
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString();

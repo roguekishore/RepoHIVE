@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { DocsHeader } from "@/components/docs/docs-header";
-import { CoverageDonut } from "@repowise-dev/ui/coverage/coverage-donut";
-import { DriftBanner } from "@repowise-dev/ui/coverage/drift-banner";
-import { ConfidenceVsFreshnessMatrix } from "@repowise-dev/ui/coverage/confidence-vs-freshness-matrix";
+import { CoverageDonut } from "@repohive/ui/coverage/coverage-donut";
+import { DriftBanner } from "@repohive/ui/coverage/drift-banner";
+import { ConfidenceVsFreshnessMatrix } from "@repohive/ui/coverage/confidence-vs-freshness-matrix";
 import { FreshnessTableWithRegenerate } from "@/components/coverage/freshness-table-wrapper";
-import type { DocPage } from "@repowise-dev/types/docs";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
+import type { DocPage } from "@repohive/types/docs";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
 import { listAllPages } from "@/lib/api/pages";
-import { formatNumber } from "@repowise-dev/ui/lib/format";
+import { formatNumber } from "@repohive/ui/lib/format";
 
 export const metadata: Metadata = { title: "Doc freshness" };
 

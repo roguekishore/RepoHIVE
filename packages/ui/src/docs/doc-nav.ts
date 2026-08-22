@@ -14,7 +14,7 @@
 // The host app turns the returned ``pageId`` values into hrefs (route shape
 // differs between the CLI web app and hosted frontend).
 
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 import { treeLabel } from "./page-labels";
 
 export interface DocNavSegment {

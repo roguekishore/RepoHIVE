@@ -25,7 +25,7 @@ import type {
   OverviewArtifactData,
   RiskReportArtifactData,
   SearchResultsArtifactData,
-} from "@repowise-dev/types/chat";
+} from "@repohive/types/chat";
 
 export interface Artifact {
   type: string;

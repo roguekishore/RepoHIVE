@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { codeToHtml } from "shiki";
 import { getFileContent, getFileDetail } from "@/lib/api/files";
-import { WikiMarkdown } from "@repowise-dev/ui/wiki/wiki-markdown";
+import { WikiMarkdown } from "@repohive/ui/wiki/wiki-markdown";
 import { FilePageHost } from "@/components/files/file-page-host";
-import { FILE_PAGE_TABS, type FilePageTab } from "@repowise-dev/ui/files";
-import type { FileDetailResponse } from "@repowise-dev/types/files";
+import { FILE_PAGE_TABS, type FilePageTab } from "@repohive/ui/files";
+import type { FileDetailResponse } from "@repohive/types/files";
 
 interface Props {
   params: Promise<{ id: string; path: string[] }>;

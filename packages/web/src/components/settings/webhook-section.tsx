@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OverviewSection } from "@repowise-dev/ui/overview";
-import { CopyLine, SettingsRow, SettingsRows } from "@repowise-dev/ui/settings";
+import { OverviewSection } from "@repohive/ui/overview";
+import { CopyLine, SettingsRow, SettingsRows } from "@repohive/ui/settings";
 
 /**
  * Best-effort server URL for webhook registration: the configured API URL

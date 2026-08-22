@@ -9,7 +9,7 @@
  */
 
 import { AlertTriangle, X } from "lucide-react";
-import type { BreakingChange, BreakingChangeReport } from "@repowise-dev/types";
+import type { BreakingChange, BreakingChangeReport } from "@repohive/types";
 
 export interface SystemMapBreakingPanelProps {
   report: BreakingChangeReport | null;

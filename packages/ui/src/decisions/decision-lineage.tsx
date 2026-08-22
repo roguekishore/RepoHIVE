@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ArrowDown } from "lucide-react";
 import { Badge } from "../ui/badge";
-import type { DecisionLineageEntry } from "@repowise-dev/types/decisions";
+import type { DecisionLineageEntry } from "@repohive/types/decisions";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-[var(--color-success)]",

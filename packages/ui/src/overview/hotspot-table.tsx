@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { Hotspot } from "@repowise-dev/types/git";
+import type { Hotspot } from "@repohive/types/git";
 
 function fileName(path: string): string {
   const i = path.lastIndexOf("/");

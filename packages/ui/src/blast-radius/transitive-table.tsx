@@ -1,6 +1,6 @@
 "use client";
 
-import type { TransitiveEntry } from "@repowise-dev/types/blast-radius";
+import type { TransitiveEntry } from "@repohive/types/blast-radius";
 import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-table";
 
 interface TransitiveTableProps {

@@ -6,7 +6,7 @@ import type { BreadcrumbSegment } from "../shared/breadcrumb";
 import type {
   SymbolDetailData,
   SymbolDetailResponse,
-} from "@repowise-dev/types/symbols";
+} from "@repohive/types/symbols";
 import { FixHistoryBadge, SYMBOL_FIX_TITLE } from "../git/fix-history-badge";
 import { SymbolDetailBody } from "./symbol-detail-body";
 

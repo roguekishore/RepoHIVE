@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Folder } from "lucide-react";
-import type { HealthBand } from "@repowise-dev/types/health";
+import type { HealthBand } from "@repohive/types/health";
 import { cn } from "../lib/cn";
 import { healthBand100 } from "../health/tokens";
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Users, Search } from "lucide-react";
-import type { OwnerListEntry } from "@repowise-dev/types/owners";
+import type { OwnerListEntry } from "@repohive/types/owners";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
 import { EmptyState } from "../shared/empty-state";

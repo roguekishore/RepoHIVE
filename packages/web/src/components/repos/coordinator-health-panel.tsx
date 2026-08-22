@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { Button } from "@repowise-dev/ui/ui/button";
+import { Button } from "@repohive/ui/ui/button";
 import { getCoordinatorHealth, type CoordinatorHealth } from "@/lib/api/health";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 interface Props {
   repoId: string;

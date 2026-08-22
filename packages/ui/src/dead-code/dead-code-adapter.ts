@@ -3,7 +3,7 @@ import type {
   DeadCodePatchInput,
   DeadCodeStatus,
   DeadCodeSummary,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 
 /**
  * App-injected data + navigation for the shared {@link DeadCodeView}.

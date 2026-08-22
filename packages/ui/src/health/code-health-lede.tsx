@@ -22,7 +22,7 @@ import type {
   DefectAccuracy,
   HealthDistribution,
   HealthOverviewSummary,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 import { PageLede } from "../shared/page-lede";
 import { StatRibbon, type RibbonStat } from "../stats/stat-ribbon";
 // Bands come from the one shared function on purpose. Two surfaces disagreeing

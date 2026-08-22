@@ -1,3 +1,3 @@
 import "./client";
 
-export * from "@repowise-dev/api-client/blast-radius";
+export * from "@repohive/api-client/blast-radius";

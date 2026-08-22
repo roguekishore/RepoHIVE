@@ -11,7 +11,7 @@ import type {
   ArchitectureNode,
   CommunitySlice,
   CommunitySliceNode,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 
 function makeArchNode(
   overrides: Partial<ArchitectureNode> & { community_id: number },

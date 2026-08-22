@@ -2,7 +2,7 @@
 // Dead Code
 // ---------------------------------------------------------------------------
 
-import type { DeadCodeStatus } from "@repowise-dev/types/dead-code";
+import type { DeadCodeStatus } from "@repohive/types/dead-code";
 
 export interface DeadCodeFindingResponse {
   id: string;

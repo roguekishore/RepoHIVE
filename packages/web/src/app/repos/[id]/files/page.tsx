@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Files } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
+import { PageShell } from "@repohive/ui/shared/page-shell";
 import { FilesExplorer } from "@/components/files/files-explorer";
 
 export const metadata: Metadata = { title: "Files" };

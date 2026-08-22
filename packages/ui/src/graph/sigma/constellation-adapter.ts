@@ -14,7 +14,7 @@ import type {
   ArchitectureGraph,
   ArchitectureNode,
   CommunitySlice,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 import type { SigmaNodeAttributes, SigmaEdgeAttributes } from "./types";
 import { EDGE_COLORS } from "./constants";
 import { computeRadialLayout, hubSizeFromMembers } from "./radial-layout";

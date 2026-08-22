@@ -3,8 +3,8 @@ import { EmptyState } from "../shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { StatGrid, StatTile } from "../shared/stat-grid";
 import { truncatePath } from "../lib/format";
-import type { FileDetailGraph, FileGraphNeighbor } from "@repowise-dev/types/files";
-import { isExternal, nodeKind } from "@repowise-dev/types";
+import type { FileDetailGraph, FileGraphNeighbor } from "@repohive/types/files";
+import { isExternal, nodeKind } from "@repohive/types";
 
 interface FileGraphTabProps {
   graph: FileDetailGraph | null;

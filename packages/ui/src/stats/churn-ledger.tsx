@@ -1,4 +1,4 @@
-import type { StatsChurn } from "@repowise-dev/types/stats";
+import type { StatsChurn } from "@repohive/types/stats";
 import { formatNumber } from "../lib/format";
 
 /**

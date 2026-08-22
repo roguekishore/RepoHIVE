@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { StatsPunchCard } from "@repowise-dev/types/stats";
+import type { StatsPunchCard } from "@repohive/types/stats";
 import { DEFAULT_WEEKEND_PRESET, weekendShare } from "./weekend";
 import { repoArchetype } from "./archetype";
 

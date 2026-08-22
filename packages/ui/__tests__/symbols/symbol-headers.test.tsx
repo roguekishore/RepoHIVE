@@ -5,7 +5,7 @@ import { SymbolDrawer } from "../../src/symbols/symbol-drawer.js";
 import type {
   SymbolDetailData,
   SymbolDetailResponse,
-} from "@repowise-dev/types/symbols";
+} from "@repohive/types/symbols";
 
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString();

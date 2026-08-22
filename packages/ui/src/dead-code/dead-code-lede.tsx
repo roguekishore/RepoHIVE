@@ -14,7 +14,7 @@
  */
 
 import type { ReactNode } from "react";
-import type { DeadCodeSummary } from "@repowise-dev/types/dead-code";
+import type { DeadCodeSummary } from "@repohive/types/dead-code";
 
 import { PageLede } from "../shared/page-lede";
 import { StatRibbon, type RibbonStat } from "../stats/stat-ribbon";

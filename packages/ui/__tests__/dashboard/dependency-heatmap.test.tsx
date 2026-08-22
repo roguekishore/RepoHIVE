@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import type { ModuleGraph } from "@repowise-dev/types/graph";
+import type { ModuleGraph } from "@repohive/types/graph";
 import { DependencyHeatmap } from "../../src/dashboard/dependency-heatmap";
 
 function graphOf(moduleIds: string[]): ModuleGraph {

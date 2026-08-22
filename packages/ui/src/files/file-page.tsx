@@ -15,7 +15,7 @@ import { FileHistoryTab } from "./file-history-tab";
 import { FileDecisionsTab } from "./file-decisions-tab";
 import { FileCoverageTab } from "./file-coverage-tab";
 import { FileGraphTab } from "./file-graph-tab";
-import type { FileDetailResponse } from "@repowise-dev/types/files";
+import type { FileDetailResponse } from "@repohive/types/files";
 import { FILE_PAGE_TABS, type FilePageTab } from "./file-page-tabs";
 
 export interface FilePageProps {

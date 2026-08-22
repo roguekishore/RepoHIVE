@@ -14,7 +14,7 @@ import { GitBranch, Info } from "lucide-react";
 import type {
   CommitCategory,
   CommitEvolution,
-} from "@repowise-dev/types/git";
+} from "@repohive/types/git";
 import {
   Tooltip as UiTooltip,
   TooltipContent,

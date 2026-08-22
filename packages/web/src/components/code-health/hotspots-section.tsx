@@ -25,12 +25,12 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { OverviewSection, SectionLink } from "@repowise-dev/ui/overview";
-import { HotspotTable } from "@repowise-dev/ui/git/hotspot-table";
-import { AiPromptModal, buildHotspotAiPrompt } from "@repowise-dev/ui/health";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { hotspotToFileCard } from "@repowise-dev/ui/shared/file-card";
-import type { Hotspot } from "@repowise-dev/types/git";
+import { OverviewSection, SectionLink } from "@repohive/ui/overview";
+import { HotspotTable } from "@repohive/ui/git/hotspot-table";
+import { AiPromptModal, buildHotspotAiPrompt } from "@repohive/ui/health";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { hotspotToFileCard } from "@repohive/ui/shared/file-card";
+import type { Hotspot } from "@repohive/types/git";
 import Link from "next/link";
 import { useFileCardHost } from "@/components/shared/file-card-host";
 import { HotspotTopSymbolsHost } from "@/components/symbols/hotspot-top-symbols-host";

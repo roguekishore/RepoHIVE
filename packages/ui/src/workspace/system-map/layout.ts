@@ -7,7 +7,7 @@
  */
 
 import { computeC4Layout, type C4LayoutPosition } from "../../c4/layout/elk-c4-layout";
-import type { SystemEdgeKind, SystemGraph } from "@repowise-dev/types";
+import type { SystemEdgeKind, SystemGraph } from "@repohive/types";
 import { collapseToRepos } from "./collapse";
 
 /** Uniform service-node footprint on the map. */

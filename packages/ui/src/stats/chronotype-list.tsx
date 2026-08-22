@@ -1,5 +1,5 @@
 import { Briefcase, CalendarHeart, Clock, Moon, Sun, Sunrise, Sunset } from "lucide-react";
-import type { StatsChronotype } from "@repowise-dev/types/stats";
+import type { StatsChronotype } from "@repohive/types/stats";
 import { formatNumber } from "../lib/format";
 import { DEFAULT_WEEKEND_PRESET } from "./weekend";
 import { contributorArchetype, NAME_MIN_COMMITS } from "./archetype";

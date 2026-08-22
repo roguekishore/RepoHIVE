@@ -5,7 +5,7 @@ import type {
   FileDetailHealth,
   FileHealthFinding,
   FunctionBlameRow,
-} from "@repowise-dev/types/files";
+} from "@repohive/types/files";
 
 function makeFinding(i: number): FileHealthFinding {
   return {

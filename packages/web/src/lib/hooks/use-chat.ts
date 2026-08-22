@@ -6,8 +6,8 @@ import type { ChatSSEEvent } from "@/lib/api/types";
 import type {
   ChatUIToolCall as ChatToolCall,
   ChatUIMessage as ChatMessage,
-} from "@repowise-dev/types/chat";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+} from "@repohive/types/chat";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 export type { ChatToolCall, ChatMessage };
 

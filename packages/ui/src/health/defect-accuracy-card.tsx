@@ -6,11 +6,11 @@ import type {
   DefectAccuracy,
   DefectAccuracyFile,
   DefectAccuracyPoint,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 import { Card } from "../ui/card";
 
-// Canonical definitions now live in @repowise-dev/types; re-exported here so
-// existing `@repowise-dev/ui/health` consumers keep working unchanged.
+// Canonical definitions now live in @repohive/types; re-exported here so
+// existing `@repohive/ui/health` consumers keep working unchanged.
 export type { DefectAccuracy, DefectAccuracyFile, DefectAccuracyPoint };
 
 /**

@@ -1,6 +1,6 @@
 /**
  * Code-health API client. The response/query *types* now live in the shared
- * `@repowise-dev/types/health` contract (migrated out of this web-local file so
+ * `@repohive/types/health` contract (migrated out of this web-local file so
  * the hosted frontend and the bot read the same shapes); this module re-exports
  * them for back-compat and keeps only the fetch functions.
  */
@@ -15,7 +15,7 @@ import type {
   HealthTrendResponse,
   RefactoringQuery,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 import { apiGet, apiPatch } from "./client";
 
 export type {
@@ -42,7 +42,7 @@ export type {
   RefactoringQuery,
   RefactoringTarget,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 
 export async function getHealthOverview(
   repoId: string,
