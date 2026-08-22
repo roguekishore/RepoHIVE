@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { FileSignals } from "@repowise-dev/types/health";
+import type { FileSignals } from "@repohive/types/health";
 import { FileSignalsPanel } from "../../src/health/file-signals-panel.js";
 
 function sig(partial: Partial<FileSignals>): FileSignals {

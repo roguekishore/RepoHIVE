@@ -14,7 +14,7 @@
  * so a box that was both an entry point and a hotspot reported only "entry".
  */
 
-import { bandForScore, HEALTH_BAND_LABEL } from "@repowise-dev/types/health";
+import { bandForScore, HEALTH_BAND_LABEL } from "@repohive/types/health";
 import type { ZoomNode } from "./types";
 
 /**
@@ -40,7 +40,7 @@ export function hasRole(node: ZoomNode): boolean {
 
 /**
  * The health dot's band as a word, from the canonical 3-band scale in
- * `@repowise-dev/types/health` — the same `bandForScore` the dot itself paints
+ * `@repohive/types/health` — the same `bandForScore` the dot itself paints
  * on. Not the 5-step Excellent/Good/Fair ladder the scan surfaces use: a 6.9
  * reads "Good" there and paints amber here, and a label that contradicts the
  * dot it sits beside is worse than no label.

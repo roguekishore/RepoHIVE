@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { EmptyState } from "../shared/empty-state";
 import { truncatePath } from "../lib/format";
 import { fileEntityPath } from "../shared/entity/routes";
-import type { Hotspot } from "@repowise-dev/types/git";
+import type { Hotspot } from "@repohive/types/git";
 
 interface HotspotsMiniProps {
   hotspots: Hotspot[];

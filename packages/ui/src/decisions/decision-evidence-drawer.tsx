@@ -5,7 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, FileText, GitCommit } from "lucide-react";
 import { cn } from "../lib/cn";
 import { VerificationBadge } from "./verification-badge";
-import type { DecisionEvidence } from "@repowise-dev/types/decisions";
+import type { DecisionEvidence } from "@repohive/types/decisions";
 
 const SOURCE_LABEL: Record<string, string> = {
   inline_marker: "Inline marker",

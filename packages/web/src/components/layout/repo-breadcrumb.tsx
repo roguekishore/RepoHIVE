@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Breadcrumb } from "@repowise-dev/ui/shared/breadcrumb";
-import type { BreadcrumbSegment } from "@repowise-dev/ui/shared/breadcrumb";
-import { DocsModeBadge, type DocsMode } from "@repowise-dev/ui/docs/docs-mode-badge";
+import { Breadcrumb } from "@repohive/ui/shared/breadcrumb";
+import type { BreadcrumbSegment } from "@repohive/ui/shared/breadcrumb";
+import { DocsModeBadge, type DocsMode } from "@repohive/ui/docs/docs-mode-badge";
 import { getRepoBreadcrumbSegmentLabel } from "./repo-breadcrumb-label";
 import { showsRouteBreadcrumb } from "./repo-breadcrumb-route";
 

@@ -15,7 +15,7 @@ import {
   deadCodeConfidenceTier,
   type DeadCodeFinding,
   type DeadCodeStatus,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 
 /**
  * The cell renderers behind the findings table's columns. They live apart from

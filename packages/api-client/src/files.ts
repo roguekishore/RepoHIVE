@@ -1,4 +1,4 @@
-import type { FileDetailResponse, FilesIndexResponse } from "@repowise-dev/types/files";
+import type { FileDetailResponse, FilesIndexResponse } from "@repohive/types/files";
 import { apiGet, BASE_URL, buildHeaders } from "./client";
 
 /** Slim per-file rows for the browsable Files index + treemap. */

@@ -6,9 +6,9 @@ import { curveBundle, lineRadial } from "d3-shape";
 // Value imports must come from the package root, not the `/coupling` subpath:
 // the vite/rollup base alias clobbers subpath value resolution. Type-only
 // subpath imports are fine (erased before resolution).
-import { bandForScore } from "@repowise-dev/types";
-import type { CouplingEdge, CouplingNode } from "@repowise-dev/types/coupling";
-import type { HealthBand } from "@repowise-dev/types/health";
+import { bandForScore } from "@repohive/types";
+import type { CouplingEdge, CouplingNode } from "@repohive/types/coupling";
+import type { HealthBand } from "@repohive/types/health";
 
 export interface CouplingGraphProps {
   nodes: CouplingNode[];

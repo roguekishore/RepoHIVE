@@ -17,10 +17,10 @@
     "noEmit": true,
     "types": ["vitest/globals", "node"],
     "paths": {
-      "@repowise-dev/types": ["../types/src/index.ts"],
-      "@repowise-dev/types/*": ["../types/src/*"],
-      "@repowise-dev/ui": ["../ui/src/index.ts"],
-      "@repowise-dev/ui/*": ["../ui/src/*"]
+      "@repohive/types": ["../types/src/index.ts"],
+      "@repohive/types/*": ["../types/src/*"],
+      "@repohive/ui": ["../ui/src/index.ts"],
+      "@repohive/ui/*": ["../ui/src/*"]
     }
   },
   "include": ["src/**/*.ts", "__tests__/**/*.ts"]

@@ -1,7 +1,7 @@
 "use client";
 
 import { FileCode } from "lucide-react";
-import type { ChatCitation } from "@repowise-dev/types/chat";
+import type { ChatCitation } from "@repohive/types/chat";
 
 /**
  * Singular citation chip for the typed `ChatCitation` shape (file path +

@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { CommitStats } from "@repowise-dev/types/git";
+import type { CommitStats } from "@repohive/types/git";
 import { PageLede } from "../shared/page-lede";
 import { ReadsColumn, type ReadItem } from "../overview/reads-column";
 

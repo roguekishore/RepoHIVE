@@ -11,7 +11,7 @@
  */
 
 import { useMemo, useState } from "react";
-import type { ArchitectureMetrics, DsmCell, DsmMatrix, NodeRole } from "@repowise-dev/types";
+import type { ArchitectureMetrics, DsmCell, DsmMatrix, NodeRole } from "@repohive/types";
 import { EmptyState } from "../../shared/empty-state";
 import { edgeKindStyle } from "../system-map/edge-kinds";
 import { roleStyle } from "../system-map/architecture";

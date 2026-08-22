@@ -6,7 +6,7 @@ import type Graph from "graphology";
 import type {
   GraphNode as GraphNodeResponse,
   GraphLink as GraphEdgeResponse,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 import type { SigmaNodeAttributes, SigmaEdgeAttributes } from "./types";
 import { computeElkFilePositions } from "../elk-layout";
 

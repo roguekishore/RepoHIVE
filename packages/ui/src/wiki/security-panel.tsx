@@ -1,6 +1,6 @@
 "use client";
 
-import type { SecurityFinding, SecuritySeverity } from "@repowise-dev/types";
+import type { SecurityFinding, SecuritySeverity } from "@repohive/types";
 import { Badge } from "../ui/badge";
 import { CardSkeleton } from "../shared/loading-skeletons";
 

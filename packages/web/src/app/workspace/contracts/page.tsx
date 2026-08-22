@@ -4,16 +4,16 @@ import { useState } from "react";
 import { Link2, Filter } from "lucide-react";
 import { useWorkspaceContracts } from "@/lib/hooks/use-workspace";
 import { useWorkspace } from "@/lib/hooks/use-workspace";
-import { ContractLinksTable } from "@repowise-dev/ui/workspace/contract-links-table";
-import { ContractTypeBadge, RoleBadge } from "@repowise-dev/ui/workspace/contract-type-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
+import { ContractLinksTable } from "@repohive/ui/workspace/contract-links-table";
+import { ContractTypeBadge, RoleBadge } from "@repohive/ui/workspace/contract-type-badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
 import {
   EmptyState,
   ResponsiveTable,
   TableSkeleton,
   type ResponsiveColumn,
-} from "@repowise-dev/ui/shared";
+} from "@repohive/ui/shared";
 import type { WorkspaceContractEntry } from "@/lib/api/types";
 
 const TYPE_OPTIONS = [

@@ -25,8 +25,8 @@
  * the imports it shares a canvas with.
  */
 
-import { CO_CHANGES } from "@repowise-dev/ui/zoom";
-import { HEALTH_BAND_LABEL } from "@repowise-dev/types/health";
+import { CO_CHANGES } from "@repohive/ui/zoom";
+import { HEALTH_BAND_LABEL } from "@repohive/types/health";
 
 interface ZoomMapKeyProps {
   /** Null = every relation draws; CO_CHANGES = only co-change relations. */
@@ -97,6 +97,17 @@ export function ZoomMapKey({ verb, onVerbChange, coChangeCount }: ZoomMapKeyProp
             Code health: {HEALTH_BAND_LABEL.healthy} 8+, {HEALTH_BAND_LABEL.warning} 4 to 8,{" "}
             {HEALTH_BAND_LABEL.alert} under 4.
           </dd>
+        </div>
+        {/* RepoHIVE additive (Phase E, E3): the group decision badge. */}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-success)] text-[9px] font-bold text-[var(--color-success)]">
+            P
+          </span>
+          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-warning)] text-[9px] font-bold text-[var(--color-warning)]">
+            R
+          </span>
+          <dt className="sr-only">Group decision badge</dt>
+          <dd>Group: Preserved (kept as authored) or Reconstructed (rebuilt by clustering).</dd>
         </div>
       </dl>
     </div>

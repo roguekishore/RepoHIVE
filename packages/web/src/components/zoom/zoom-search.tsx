@@ -9,7 +9,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
-import type { ZoomNode } from "@repowise-dev/ui/zoom";
+import type { ZoomNode } from "@repohive/ui/zoom";
 
 interface ZoomSearchProps {
   nodes: ZoomNode[];

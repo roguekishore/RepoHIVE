@@ -3,7 +3,7 @@
 // guarded so missing page types (e.g. no architecture diagram, index-only repos)
 // degrade to a shorter deck instead of erroring.
 
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import { filterMarkdownByPersona } from "../docs/reader-persona";
 import {
   splitOnH2,

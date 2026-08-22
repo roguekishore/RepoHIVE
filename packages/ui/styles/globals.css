@@ -7,7 +7,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * @repowise-dev/ui — canonical design tokens (design tokens).
+ * @repohive/ui — canonical design tokens (design tokens).
  *
  * Three-tier token model:
  *   1. Primitives — raw brand ramps (theme-independent), in @theme.

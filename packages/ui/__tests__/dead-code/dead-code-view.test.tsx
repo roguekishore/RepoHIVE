@@ -7,7 +7,7 @@ import type { DeadCodeAdapter } from "../../src/dead-code/dead-code-adapter.js";
 import type {
   DeadCodeFinding,
   DeadCodeSummary,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 
 // jsdom has no layout engine → stub ResizeObserver so the Radix slider mounts.
 class RO {

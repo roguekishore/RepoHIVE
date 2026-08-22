@@ -3,7 +3,7 @@ import type {
   DecisionEvidence,
   DecisionLineageEntry,
   DecisionStatusUpdate,
-} from "@repowise-dev/types/decisions";
+} from "@repohive/types/decisions";
 
 /** Link element the host injects (e.g. `next/link`); defaults to `<a>`. */
 export type DecisionLinkComponent = ElementType<{

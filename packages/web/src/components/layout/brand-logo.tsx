@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { cn } from "@repowise-dev/ui/lib/cn";
+import { cn } from "@repohive/ui/lib/cn";
 
 /**
  * Theme-aware brand mark. The canonical logo has light strokes (drawn for

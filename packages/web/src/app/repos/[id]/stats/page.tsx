@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BarChart3 } from "lucide-react";
 import { getStatsHighlights } from "@/lib/api/stats";
-import { PageShell } from "@repowise-dev/ui/shared";
+import { PageShell } from "@repohive/ui/shared";
 import { StatsTabs } from "@/components/stats/stats-tabs";
 
 export const metadata: Metadata = { title: "Stats" };

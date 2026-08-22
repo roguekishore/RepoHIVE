@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { displayLabel, treeLabel } from "../../src/docs/page-labels.js";
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 function summary(overrides: Partial<DocPageSummary> = {}): DocPageSummary {
   return {

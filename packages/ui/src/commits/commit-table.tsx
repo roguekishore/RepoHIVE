@@ -10,7 +10,7 @@ import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-tab
 import { ResultsFooter } from "../shared/results-footer";
 import { formatLOC, formatRelativeTime } from "../lib/format";
 import { cn } from "../lib/cn";
-import type { Commit, ReviewPriority } from "@repowise-dev/types/git";
+import type { Commit, ReviewPriority } from "@repohive/types/git";
 
 export type CommitSort = "risk" | "date";
 export type CommitAuthorship = "all" | "human" | "agent";

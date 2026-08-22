@@ -4,13 +4,13 @@
  * Dead Code host — binds the shared {@link DeadCodeView} to web's `/api`
  * client and `/repos/:id` routing. The composition (safe-to-delete pile,
  * cluster rollups, drill-down table, patch/undo, bulk resolve, Propose
- * cleanup, Re-analyze) lives in `@repowise-dev/ui/dead-code`; this file only
+ * cleanup, Re-analyze) lives in `@repohive/ui/dead-code`; this file only
  * injects the app-specific pieces so web and hosted render the same view.
  */
 
 import { useRouter } from "next/navigation";
-import { DeadCodeView, type DeadCodeAdapter } from "@repowise-dev/ui/dead-code";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { DeadCodeView, type DeadCodeAdapter } from "@repohive/ui/dead-code";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import {
   getDeadCodeSummary,
   listDeadCode,

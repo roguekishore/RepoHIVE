@@ -41,7 +41,7 @@ import type {
   CommunitySummaryItem,
   ArchitectureGraph,
   CommunitySlice,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 import { SigmaCanvas, type SigmaCanvasHandle } from "./sigma/sigma-canvas";
 import {
   fileGraphToGraphology,

@@ -7,7 +7,7 @@ import {
   Landmark,
   Globe2,
 } from "lucide-react";
-import type { StatsScale } from "@repowise-dev/types/stats";
+import type { StatsScale } from "@repohive/types/stats";
 
 const SIZE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   Seedling: Sprout,

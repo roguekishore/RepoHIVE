@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 import { BlastRadiusHeader } from "./blast-radius-header";
 import { ImpactGraph } from "./impact-graph";
 import { DirectRisksTable } from "./direct-risks-table";

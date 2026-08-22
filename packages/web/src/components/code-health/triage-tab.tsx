@@ -3,7 +3,7 @@
 /**
  * Triage host — binds the shared {@link TriageView} to web's `/api` client,
  * `/repos/:id` routing, and the file-detail drawer. The composition itself
- * lives in `@repowise-dev/ui/health`; this file only injects the app-specific
+ * lives in `@repohive/ui/health`; this file only injects the app-specific
  * pieces so web and hosted render the same view.
  */
 
@@ -15,8 +15,8 @@ import {
   type CodeHealthAdapter,
   type CodeHealthOverlay,
   type HealthPillar,
-} from "@repowise-dev/ui/health";
-import { fileEntityPath, symbolEntityPath } from "@repowise-dev/ui/shared/entity";
+} from "@repohive/ui/health";
+import { fileEntityPath, symbolEntityPath } from "@repohive/ui/shared/entity";
 import {
   getHealthOverview,
   getRefactoringTargets,

@@ -1,5 +1,5 @@
-import type { HealthBand, HealthDistribution } from "@repowise-dev/types/health";
-import { bandForScore, HEALTH_BAND_LABEL } from "@repowise-dev/types";
+import type { HealthBand, HealthDistribution } from "@repohive/types/health";
+import { bandForScore, HEALTH_BAND_LABEL } from "@repohive/types";
 import { HeartPulse, Wrench, Gauge } from "lucide-react";
 import { formatNumber } from "../lib/format";
 import { InfoTip } from "../shared/info-tip";

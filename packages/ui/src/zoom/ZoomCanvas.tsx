@@ -55,12 +55,20 @@ export interface ZoomCanvasProps {
    * rather than the canvas walking the relation list a second time.
    */
   relationsByNode?: Map<string, ZoomRelation[]>;
+  /**
+   * RepoHIVE additive (Phase E, E6): blast-radius result for the selected node
+   * — impacted card ids (leaves rolled up to ancestors). Impacted cards light
+   * up red and the rest dim. Null/empty clears the highlight.
+   */
+  highlightIds?: Set<string> | null;
 }
 
-const WHEEL_ZOOM_RATE = 0.0015;
+// E1: a touch snappier than upstream's 0.0015 so a scroll flick covers more
+// zoom distance on deep trees without feeling twitchy.
+const WHEEL_ZOOM_RATE = 0.0025;
 const CLICK_SLOP_PX = 4;
 const KEY_PAN_PX = 80;
-const KEY_ZOOM_FACTOR = 1.35;
+const KEY_ZOOM_FACTOR = 1.45;
 
 interface HoverState {
   node: ZoomNode;
@@ -91,6 +99,7 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
     showStats,
     relationVerb = null,
     relationsByNode,
+    highlightIds = null,
   },
   ref,
 ) {
@@ -111,6 +120,9 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
 
   const [hover, setHover] = useState<HoverState | null>(null);
   const [stats, setStats] = useState<FrameStats | null>(null);
+  // E5: the pinned selection, tracked here so the hover card can render a
+  // relationship-specific view when hovering one of its related neighbours.
+  const [selectedNode, setSelectedNode] = useState<ZoomNode | null>(null);
 
   // Keep the latest callbacks in refs so the renderer and the native event
   // listeners (each created once) always call the current closure without being
@@ -166,6 +178,11 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
   useEffect(() => {
     rendererRef.current?.setRelationVerb(relationVerb);
   }, [relationVerb]);
+
+  // E6: push the blast-radius highlight set to the renderer.
+  useEffect(() => {
+    rendererRef.current?.setHighlight(highlightIds ?? null);
+  }, [highlightIds]);
 
   // One-shot: jump to the URL-provided focus node once the canvas has done its
   // initial fit (it needs a real viewport size before a node rect can be framed).
@@ -260,6 +277,7 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
       const id = renderer.pick(sx, sy);
       const node = id ? (nodeById.get(id) ?? null) : null;
       renderer.setSelected(node?.id ?? null);
+      setSelectedNode(node);
       onSelectRef.current?.(node);
     };
 
@@ -319,6 +337,7 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
           break;
         case "Escape":
           renderer.setSelected(null);
+          setSelectedNode(null);
           onSelectRef.current?.(null);
           setHover(null);
           return; // do not preventDefault on Escape
@@ -363,6 +382,7 @@ export const ZoomCanvas = forwardRef<ZoomCanvasHandle, ZoomCanvasProps>(function
           hover={hover}
           canvas={canvasRef.current}
           relations={relationsByNode?.get(hover.node.id)}
+          selectedNode={selectedNode}
         />
       )}
       {showStats && stats && <StatsOverlay stats={stats} laidOut={scene.laidOutCount} />}
@@ -391,14 +411,33 @@ function HoverCard({
   hover,
   canvas,
   relations,
+  selectedNode,
 }: {
   hover: HoverState;
   canvas: HTMLCanvasElement | null;
   relations: ZoomRelation[] | undefined;
+  selectedNode: ZoomNode | null;
 }) {
   const { node } = hover;
   const roles = nodeRoles(node);
   const band = healthBandLabel(node.health_score);
+
+  // E5 — two-tier hover: when a selection is pinned and the hovered card is one
+  // of its related neighbours, lead with the relationship rather than the
+  // generic node summary. Relations are directed (source depends on target).
+  const relToSelected =
+    selectedNode && selectedNode.id !== node.id
+      ? relations?.find(
+          (r) =>
+            (r.source_id === selectedNode.id && r.target_id === node.id) ||
+            (r.target_id === selectedNode.id && r.source_id === node.id),
+        )
+      : undefined;
+  const relationLine = relToSelected
+    ? relToSelected.source_id === selectedNode!.id
+      ? `Used by ${selectedNode!.name}`
+      : `Depends on ${selectedNode!.name}`
+    : null;
   // Flip the card toward the interior when the cursor is near the right/bottom
   // edge, so it never spills off-canvas (N2).
   const w = canvas?.clientWidth ?? 0;
@@ -418,6 +457,15 @@ function HoverCard({
       <div className="mt-0.5 font-semibold text-[var(--color-text-primary)]">{node.name}</div>
       {node.path && node.path !== node.name && (
         <div className="truncate text-[var(--color-text-tertiary)]">{node.path}</div>
+      )}
+      {relationLine && relToSelected && (
+        <div className="mt-1.5 rounded border border-[var(--color-accent-primary)] bg-[var(--color-accent-muted)] px-1.5 py-1 text-[var(--color-accent-primary)]">
+          <span className="font-medium">{relationLine}</span>{" "}
+          <span className="tabular-nums text-[var(--color-text-secondary)]">
+            · {relToSelected.edge_count} file{relToSelected.edge_count === 1 ? "" : "s"} ·{" "}
+            {relToSelected.coupling}
+          </span>
+        </div>
       )}
       {node.summary && (
         <div className="mt-1 line-clamp-2 text-[var(--color-text-secondary)]">{node.summary}</div>

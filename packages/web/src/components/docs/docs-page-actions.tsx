@@ -4,9 +4,9 @@ import {
   DocsPageActions as DocsPageActionsShell,
   ExportMenu as ExportMenuShell,
   SidebarToggle,
-} from "@repowise-dev/ui/docs/docs-page-actions";
+} from "@repohive/ui/docs/docs-page-actions";
 import { downloadTextFile } from "@/lib/utils/download";
-import type { ReaderPersona } from "@repowise-dev/ui/docs/reader-persona";
+import type { ReaderPersona } from "@repohive/ui/docs/reader-persona";
 import type { PageResponse } from "@/lib/api/types";
 
 export { SidebarToggle };

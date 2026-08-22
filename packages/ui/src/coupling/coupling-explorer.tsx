@@ -9,7 +9,7 @@ import { GraphCanvasShell } from "../graph/graph-canvas-shell";
 import { AiPromptModal, buildCouplingAiPrompt } from "../health";
 import { fileEntityPath } from "../shared/entity/routes";
 import { cn } from "../lib/cn";
-import type { CouplingEdge, CouplingGraphResponse } from "@repowise-dev/types/coupling";
+import type { CouplingEdge, CouplingGraphResponse } from "@repohive/types/coupling";
 
 /** Injected link component (e.g. Next's Link); defaults to a plain anchor. */
 type LinkLike = React.ElementType<{

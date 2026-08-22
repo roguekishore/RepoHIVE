@@ -14,7 +14,7 @@
 
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import type { CoverageFileRow, CoverageSummary } from "@repowise-dev/types/health";
+import type { CoverageFileRow, CoverageSummary } from "@repohive/types/health";
 
 import { PageLede } from "../shared/page-lede";
 import { StatRibbon, type RibbonStat } from "../stats/stat-ribbon";

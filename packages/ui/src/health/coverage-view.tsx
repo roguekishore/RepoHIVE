@@ -25,7 +25,7 @@ import type {
   CoverageFileRow,
   HealthCoverageResponse,
   HealthFinding,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 
 import { Skeleton } from "../ui/skeleton";
 import { EmptyState } from "../shared/empty-state";

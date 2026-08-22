@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Commit, ReviewPriority } from "@repowise-dev/types/git";
+import type { Commit, ReviewPriority } from "@repohive/types/git";
 import { cn } from "../lib/cn";
 
 /**

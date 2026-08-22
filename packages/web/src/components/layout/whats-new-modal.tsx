@@ -5,7 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@repowise-dev/ui/ui/dialog";
+} from "@repohive/ui/ui/dialog";
 import { useChangelog } from "@/lib/hooks/use-meta-version";
 
 export interface WhatsNewModalProps {

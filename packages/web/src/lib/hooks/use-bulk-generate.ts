@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { RegenerateCascade } from "@repowise-dev/ui/wiki/regenerate-button";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import type { RegenerateCascade } from "@repohive/ui/wiki/regenerate-button";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 import { generateEstimate, generatePages } from "@/lib/api/repos";
 import type { GenerateEstimate, GenerateSelection } from "@/lib/api/types";
 

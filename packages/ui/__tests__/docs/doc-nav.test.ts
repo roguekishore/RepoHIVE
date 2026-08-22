@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeDocNav } from "../../src/docs/doc-nav.js";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 function makePage(overrides: Partial<DocPage> = {}): DocPage {
   return {

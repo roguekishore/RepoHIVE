@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { FileGraphTab } from "../../src/files/file-graph-tab.js";
-import type { FileDetailGraph, FileGraphNeighbor } from "@repowise-dev/types/files";
+import type { FileDetailGraph, FileGraphNeighbor } from "@repohive/types/files";
 
 function makeNeighbor(overrides: Partial<FileGraphNeighbor> = {}): FileGraphNeighbor {
   return {

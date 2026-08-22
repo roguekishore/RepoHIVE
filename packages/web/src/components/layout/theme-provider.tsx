@@ -5,7 +5,7 @@
  *
  * `attribute="class"` writes the resolved theme onto <html> as `class="dark"`
  * / `class="light"`, which the theme token contract keys off
- * (`:root` = light, `.dark` = dark overrides in @repowise-dev/ui globals).
+ * (`:root` = light, `.dark` = dark overrides in @repohive/ui globals).
  *
  * `defaultTheme="light"` — fresh visitors with no stored preference land in
  * Light; Dark is opt-in via the shared ThemeToggle and persists across reloads

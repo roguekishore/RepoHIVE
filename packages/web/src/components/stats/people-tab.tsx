@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { AlertTriangle, Users } from "lucide-react";
-import type { StatsHighlights } from "@repowise-dev/types/stats";
-import { ArrivalsTimeline, ChronotypeList, StatCallout } from "@repowise-dev/ui/stats";
-import { formatNumber } from "@repowise-dev/ui/lib/format";
+import type { StatsHighlights } from "@repohive/types/stats";
+import { ArrivalsTimeline, ChronotypeList, StatCallout } from "@repohive/ui/stats";
+import { formatNumber } from "@repohive/ui/lib/format";
 import { useWeekendDays } from "@/lib/hooks/use-weekend";
 
 /**

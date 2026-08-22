@@ -2,8 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
-import type { FileLanguageCount, FileRow } from "@repowise-dev/types/files";
-import { bandForScore } from "@repowise-dev/types/health";
+import type { FileLanguageCount, FileRow } from "@repohive/types/files";
+import { bandForScore } from "@repohive/types/health";
 import { cn } from "../lib/cn";
 import { formatLOC, formatNumber } from "../lib/format";
 import { FilesTreemap, type TreemapColor, type TreemapSize } from "./files-treemap";

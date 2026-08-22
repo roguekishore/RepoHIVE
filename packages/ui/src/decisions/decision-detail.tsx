@@ -25,7 +25,7 @@ import {
 import type {
   DecisionRecord,
   DecisionStatus,
-} from "@repowise-dev/types/decisions";
+} from "@repohive/types/decisions";
 
 import { Markdown } from "../shared/markdown";
 import { ConfirmDialog } from "../ui/confirm-dialog";

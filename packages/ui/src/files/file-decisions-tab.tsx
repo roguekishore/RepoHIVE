@@ -6,7 +6,7 @@ import { Badge } from "../ui/badge";
 import { EmptyState } from "../shared/empty-state";
 import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-table";
 import { stripMarkdown } from "../lib/format";
-import type { GoverningDecisionRef } from "@repowise-dev/types/files";
+import type { GoverningDecisionRef } from "@repohive/types/files";
 
 const STATUS_VARIANT: Record<string, "default" | "fresh" | "stale" | "outdated" | "outline" | "accent"> = {
   active: "fresh",

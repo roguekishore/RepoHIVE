@@ -6,13 +6,13 @@ import { useQueryState } from "nuqs";
 import { useSearchParams } from "next/navigation";
 import { GraphFlow } from "@/components/graph/graph-flow";
 import { GraphDocPanel } from "@/components/graph/graph-doc-panel";
-import { GraphCanvasShell } from "@repowise-dev/ui/graph/graph-canvas-shell";
-import { GraphTruncationBanner } from "@repowise-dev/ui/graph/graph-truncation-banner";
+import { GraphCanvasShell } from "@repohive/ui/graph/graph-canvas-shell";
+import { GraphTruncationBanner } from "@repohive/ui/graph/graph-truncation-banner";
 import {
   GraphScopeSwitcher,
   ModuleFilterSelect,
-} from "@repowise-dev/ui/graph/graph-scope-controls";
-import type { ModuleGroup } from "@repowise-dev/ui/graph/use-module-filter";
+} from "@repohive/ui/graph/graph-scope-controls";
+import type { ModuleGroup } from "@repohive/ui/graph/use-module-filter";
 import { getGraph } from "@/lib/api/graph";
 import type { GraphExportResponse } from "@/lib/api/types";
 
@@ -37,11 +37,18 @@ export function GraphView({
   repoId,
   scope,
   onScopeChange,
+  showScopeSwitcher = true,
 }: {
   repoId: string;
   /** Controlled by the page, which owns `?view=`. */
   scope: Scope;
   onScopeChange: (scope: Scope) => void;
+  /**
+   * RepoHIVE (Phase D): the dedicated flat-baseline surface locks to `files`
+   * and hides the scope switcher, so it never offers the community scope
+   * RepoHIVE's engine does not feed (spec R9).
+   */
+  showScopeSwitcher?: boolean;
 }) {
   const searchParams = useSearchParams();
   const initialNode = searchParams.get("node");
@@ -148,10 +155,20 @@ export function GraphView({
             onModuleChange={(next) => void setActiveModule(next)}
           />
         )}
-        <GraphScopeSwitcher scope={effectiveScope} onScopeChange={handleScopeChange} />
+        {showScopeSwitcher && (
+          <GraphScopeSwitcher scope={effectiveScope} onScopeChange={handleScopeChange} />
+        )}
       </div>
     ),
-    [isCommunities, moduleGroups, activeModule, setActiveModule, effectiveScope, handleScopeChange],
+    [
+      isCommunities,
+      moduleGroups,
+      activeModule,
+      setActiveModule,
+      effectiveScope,
+      handleScopeChange,
+      showScopeSwitcher,
+    ],
   );
 
   return (

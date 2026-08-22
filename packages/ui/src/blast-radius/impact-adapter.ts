@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 
 /** A hotspot suggestion chip — only the path is rendered. */
 export interface ImpactHotspot {

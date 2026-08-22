@@ -8,7 +8,7 @@ import {
   ChevronRight,
   Layers,
 } from "lucide-react";
-import type { DocPage, DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPage, DocPageSummary } from "@repohive/types/docs";
 import { cn } from "../lib/cn";
 import { formatRelativeTime, formatTokens } from "../lib/format";
 import { getPageLabel } from "../lib/page-types";

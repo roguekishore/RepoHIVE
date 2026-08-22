@@ -4,7 +4,7 @@ import useSWR from "swr";
 import {
   RefactoringSettingsCard,
   type RefactoringSettingsValue,
-} from "@repowise-dev/ui/refactoring";
+} from "@repohive/ui/refactoring";
 import {
   getRefactoringSettings,
   updateRefactoringSettings,

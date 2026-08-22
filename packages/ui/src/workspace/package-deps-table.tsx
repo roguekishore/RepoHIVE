@@ -3,7 +3,7 @@
 import { Badge } from "../ui/badge";
 import { EmptyState } from "../shared/empty-state";
 import { VirtualizedTable } from "../shared/virtualized-table";
-import type { WorkspacePackageDepEntry } from "@repowise-dev/types/workspace";
+import type { WorkspacePackageDepEntry } from "@repohive/types/workspace";
 
 interface PackageDepsTableProps {
   deps: WorkspacePackageDepEntry[];

@@ -41,12 +41,12 @@ import { use, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsStringLiteral } from "nuqs";
 import { Code2 } from "lucide-react";
-import { ViewTabs } from "@repowise-dev/ui/shared/view-tabs";
+import { ViewTabs } from "@repohive/ui/shared/view-tabs";
 import { GraphView } from "@/components/architecture/graph-view";
 import { DependenciesView } from "@/components/architecture/dependencies-view";
 import { SymbolTableWrapper as SymbolTable } from "@/components/symbols/symbol-table-wrapper";
-import { SymbolIndexHeader } from "@repowise-dev/ui/symbols";
-import { COUPLING_DISCLAIMER } from "@repowise-dev/ui/coupling";
+import { SymbolIndexHeader } from "@repohive/ui/symbols";
+import { COUPLING_DISCLAIMER } from "@repohive/ui/coupling";
 import { CouplingTab } from "@/components/coupling/coupling-tab";
 
 // The curated layered view now lives under the dedicated Knowledge Graph route.

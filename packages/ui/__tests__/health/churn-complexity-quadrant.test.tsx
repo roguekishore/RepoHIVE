@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { ChurnComplexityPoint } from "@repowise-dev/types/health";
+import type { ChurnComplexityPoint } from "@repohive/types/health";
 import { ChurnComplexityQuadrant } from "../../src/health/churn-complexity-quadrant.js";
 
 function pt(partial: Partial<ChurnComplexityPoint> & { file_path: string }): ChurnComplexityPoint {

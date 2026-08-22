@@ -250,7 +250,7 @@ export function Markdown({ content, density = "reading" }: MarkdownProps) {
 }
 
 /**
- * @deprecated Use `Markdown`. Kept because `@repowise-dev/ui/chat/chat-markdown`
+ * @deprecated Use `Markdown`. Kept because `@repohive/ui/chat/chat-markdown`
  * is imported by the hosted frontend in several places.
  */
 export const ChatMarkdown = Markdown;

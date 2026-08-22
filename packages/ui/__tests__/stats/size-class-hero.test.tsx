@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { StatsScale } from "@repowise-dev/types/stats";
+import type { StatsScale } from "@repohive/types/stats";
 import { describe, expect, it } from "vitest";
 import { SizeClassHero } from "../../src/stats/size-class-hero.js";
 

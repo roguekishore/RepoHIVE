@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
+import { PageShell } from "@repohive/ui/shared/page-shell";
 import { ConnectionSection } from "@/components/settings/connection-section";
 import { ProviderSection } from "@/components/settings/provider-section";
 import { WebhookSection } from "@/components/settings/webhook-section";

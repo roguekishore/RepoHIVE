@@ -29,7 +29,7 @@ import {
 // Shared band function, never a local threshold: two surfaces disagreeing
 // about where "Good" starts is worse than the import.
 import { healthBand } from "../overview/health-lede";
-import type { FileHealthTrend, FileSignals } from "@repowise-dev/types/health";
+import type { FileHealthTrend, FileSignals } from "@repohive/types/health";
 import { SeverityMark } from "./severity-mark";
 
 export interface HealthDrawerFinding {

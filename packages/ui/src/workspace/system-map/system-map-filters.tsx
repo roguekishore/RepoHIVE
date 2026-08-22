@@ -7,7 +7,7 @@
  * the parent map.
  */
 
-import type { SystemEdgeKind } from "@repowise-dev/types";
+import type { SystemEdgeKind } from "@repohive/types";
 import { EDGE_KIND_ORDER, SYSTEM_EDGE_KINDS } from "./edge-kinds";
 
 export interface SystemMapFiltersProps {

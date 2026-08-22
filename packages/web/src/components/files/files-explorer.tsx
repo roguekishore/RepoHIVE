@@ -3,8 +3,8 @@
 import { useCallback } from "react";
 import useSWR from "swr";
 import { AlertTriangle } from "lucide-react";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { FilesIndex } from "@repowise-dev/ui/files";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { FilesIndex } from "@repohive/ui/files";
 import { getFilesIndex } from "@/lib/api/files";
 
 export function FilesExplorer({ repoId }: { repoId: string }) {

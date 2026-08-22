@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { FindingsTable } from "../../src/dead-code/findings-table.js";
-import type { DeadCodeFinding } from "@repowise-dev/types/dead-code";
+import type { DeadCodeFinding } from "@repohive/types/dead-code";
 
 // jsdom has no layout engine → stub ResizeObserver so the Radix slider mounts.
 class RO {

@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import {
   FreshnessTable,
   type FreshnessTableProps,
-} from "@repowise-dev/ui/coverage/freshness-table";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+} from "@repohive/ui/coverage/freshness-table";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 import { GenerationProgressWrapper } from "@/components/jobs/generation-progress-wrapper";
 import { regeneratePage } from "@/lib/api/pages";
 

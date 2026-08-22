@@ -12,7 +12,7 @@ import {
   Workflow,
   Zap,
 } from "lucide-react";
-import type { StatsRecords } from "@repowise-dev/types/stats";
+import type { StatsRecords } from "@repohive/types/stats";
 import { formatNumber, formatRelativeTimeOrNull, truncatePath } from "../lib/format";
 
 interface AwardRow {

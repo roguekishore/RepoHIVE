@@ -11,14 +11,14 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { getWorkspace, getWorkspaceCoChanges } from "@/lib/api/workspace";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
-import { EmptyState } from "@repowise-dev/ui/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { RepoCard } from "@repowise-dev/ui/workspace/repo-card";
-import { CrossRepoSummary } from "@repowise-dev/ui/workspace/cross-repo-summary";
-import { CoChangeTable } from "@repowise-dev/ui/workspace/co-change-table";
-import { ContractTypeBadge } from "@repowise-dev/ui/workspace/contract-type-badge";
-import { formatNumber } from "@repowise-dev/ui/lib/format";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
+import { EmptyState } from "@repohive/ui/shared/empty-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { RepoCard } from "@repohive/ui/workspace/repo-card";
+import { CrossRepoSummary } from "@repohive/ui/workspace/cross-repo-summary";
+import { CoChangeTable } from "@repohive/ui/workspace/co-change-table";
+import { ContractTypeBadge } from "@repohive/ui/workspace/contract-type-badge";
+import { formatNumber } from "@repohive/ui/lib/format";
 import { WorkspaceGraphSection } from "./workspace-graph-section";
 import { SyncButton } from "./sync-buttons";
 

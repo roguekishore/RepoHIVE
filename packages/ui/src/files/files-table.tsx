@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, FlaskConical, LogIn } from "lucide-react";
-import type { FileRow } from "@repowise-dev/types/files";
+import type { FileRow } from "@repohive/types/files";
 import { cn } from "../lib/cn";
 import { formatLOC, truncatePath } from "../lib/format";
 import { healthInk } from "../health/tokens";

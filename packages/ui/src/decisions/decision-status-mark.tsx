@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "../lib/cn";
-import type { DecisionStatus } from "@repowise-dev/types/decisions";
+import type { DecisionStatus } from "@repohive/types/decisions";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "var(--color-success)",

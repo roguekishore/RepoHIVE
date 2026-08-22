@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { FileHealthTrend } from "@repowise-dev/types/health";
+import type { FileHealthTrend } from "@repohive/types/health";
 import { FileTrendChart } from "../../src/health/file-trend-chart.js";
 
 function trend(partial: Partial<FileHealthTrend>): FileHealthTrend {

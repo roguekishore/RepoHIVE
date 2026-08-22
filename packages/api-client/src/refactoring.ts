@@ -4,7 +4,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from "./client";
-import type { GeneratedCode, RefactoringPlan, RefactoringTargets } from "@repowise-dev/ui/refactoring";
+import type { GeneratedCode, RefactoringPlan, RefactoringTargets } from "@repohive/ui/refactoring";
 
 export interface RefactoringSettings {
   enabled: boolean;

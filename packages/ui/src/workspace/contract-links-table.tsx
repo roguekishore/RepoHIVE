@@ -3,7 +3,7 @@
 import { ContractTypeBadge } from "./contract-type-badge";
 import { EmptyState } from "../shared/empty-state";
 import { VirtualizedTable } from "../shared/virtualized-table";
-import type { WorkspaceContractLinkEntry } from "@repowise-dev/types/workspace";
+import type { WorkspaceContractLinkEntry } from "@repohive/types/workspace";
 
 interface ContractLinksTableProps {
   links: WorkspaceContractLinkEntry[];

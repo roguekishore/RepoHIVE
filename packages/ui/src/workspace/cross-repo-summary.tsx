@@ -5,7 +5,7 @@ import { MetricCard } from "../shared/metric-card";
 import type {
   WorkspaceCrossRepoSummary,
   WorkspaceContractSummary,
-} from "@repowise-dev/types/workspace";
+} from "@repohive/types/workspace";
 
 interface CrossRepoSummaryProps {
   crossRepo: WorkspaceCrossRepoSummary | null;

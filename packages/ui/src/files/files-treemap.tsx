@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hierarchy, treemap, treemapSquarify, type HierarchyRectangularNode } from "d3-hierarchy";
-import type { FileRow } from "@repowise-dev/types/files";
+import type { FileRow } from "@repohive/types/files";
 import {
   ALERT_MAX,
   bandForScore,
   HEALTH_BAND_LABEL,
   HEALTHY_MIN,
   type HealthBand,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 import { ChevronRight, FolderOpen } from "lucide-react";
 import { healthBandInk, healthInk } from "../health/tokens";
 

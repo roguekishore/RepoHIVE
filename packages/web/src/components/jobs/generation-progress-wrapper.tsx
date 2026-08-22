@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GenerationProgress } from "@repowise-dev/ui/jobs/generation-progress";
+import { GenerationProgress } from "@repohive/ui/jobs/generation-progress";
 import { useJob } from "@/lib/hooks/use-job";
 import { cancelJob } from "@/lib/api/jobs";
-import { formatNumber } from "@repowise-dev/ui/lib/format";
+import { formatNumber } from "@repohive/ui/lib/format";
 import { computeElapsedMs } from "@/lib/jobs/progress";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 interface Props {
   jobId: string;

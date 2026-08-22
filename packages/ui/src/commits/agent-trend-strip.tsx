@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot } from "lucide-react";
-import type { AgentTrend } from "@repowise-dev/types/git";
+import type { AgentTrend } from "@repohive/types/git";
 import { cn } from "../lib/cn";
 
 export interface AgentTrendStripProps {

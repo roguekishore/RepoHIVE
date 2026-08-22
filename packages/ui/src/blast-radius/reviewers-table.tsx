@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReviewerEntry } from "@repowise-dev/types/blast-radius";
+import type { ReviewerEntry } from "@repohive/types/blast-radius";
 import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-table";
 
 interface ReviewersTableProps {

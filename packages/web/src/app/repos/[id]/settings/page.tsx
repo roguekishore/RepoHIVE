@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { OverviewSection } from "@repowise-dev/ui/overview";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
+import { OverviewSection } from "@repohive/ui/overview";
+import { PageShell } from "@repohive/ui/shared/page-shell";
 import { RefactoringSettingsSection } from "@/components/repos/refactoring-settings-section";
 import { ProviderSettingsPanel } from "@/components/settings/provider-settings-panel";
 import { getRepo } from "@/lib/api/repos";

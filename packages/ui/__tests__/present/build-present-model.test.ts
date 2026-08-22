@@ -7,7 +7,7 @@ import {
   countWords,
   clampProse,
 } from "../../src/present/split-markdown.js";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 function makePage(overrides: Partial<DocPage> = {}): DocPage {
   return {

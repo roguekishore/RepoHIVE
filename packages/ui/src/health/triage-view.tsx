@@ -30,7 +30,7 @@ import type {
   HealthFilesResponse,
   HealthOverviewResponse,
   HealthTrendResponse,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 
 import { Skeleton } from "../ui/skeleton";
 import { ApiError } from "../shared/api-error";

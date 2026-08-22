@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { WorkspaceContractLinkEntry } from "@repowise-dev/types/workspace";
+import type { WorkspaceContractLinkEntry } from "@repohive/types/workspace";
 import { ContractLinksTable } from "../../src/workspace/contract-links-table.js";
 
 function link(

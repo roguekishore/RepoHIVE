@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { StatsChronotype } from "@repowise-dev/types/stats";
+import type { StatsChronotype } from "@repohive/types/stats";
 import {
   contributorArchetype,
   NAME_MIN_COMMITS,

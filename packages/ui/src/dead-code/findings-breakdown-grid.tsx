@@ -4,7 +4,7 @@ import * as React from "react";
 import {
   DEAD_CODE_CONFIDENCE,
   deadCodeConfidenceTier,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 import { EmptyState } from "../shared/empty-state";
 import { cn } from "../lib/cn";
 

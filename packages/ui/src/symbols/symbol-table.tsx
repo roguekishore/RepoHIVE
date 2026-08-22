@@ -22,7 +22,7 @@ import { RowActions } from "../shared/row-actions";
 import { VirtualizedTable } from "../shared/virtualized-table";
 import { truncatePath } from "../lib/format";
 import { cn } from "../lib/cn";
-import type { CodeSymbol } from "@repowise-dev/types/symbols";
+import type { CodeSymbol } from "@repohive/types/symbols";
 
 const KINDS = ["function", "class", "method", "interface", "variable", "module"];
 const LANGUAGES = ["python", "typescript", "javascript", "go", "rust", "java", "cpp", "c"];

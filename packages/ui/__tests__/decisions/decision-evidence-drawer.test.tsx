@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DecisionEvidenceDrawer } from "../../src/decisions/decision-evidence-drawer.js";
-import type { DecisionEvidence } from "@repowise-dev/types/decisions";
+import type { DecisionEvidence } from "@repohive/types/decisions";
 
 function makeEvidence(overrides: Partial<DecisionEvidence> = {}): DecisionEvidence {
   return {

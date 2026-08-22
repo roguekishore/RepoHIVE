@@ -1,9 +1,9 @@
 "use client";
 
-import { GraphCommunityPanel as GraphCommunityPanelShell } from "@repowise-dev/ui/graph/graph-community-panel";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { GraphCommunityPanel as GraphCommunityPanelShell } from "@repohive/ui/graph/graph-community-panel";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import { useCommunityDetail } from "@/lib/hooks/use-graph";
-import type { CommunityDetail } from "@repowise-dev/types/graph";
+import type { CommunityDetail } from "@repohive/types/graph";
 
 interface GraphCommunityPanelWrapperProps {
   repoId: string;

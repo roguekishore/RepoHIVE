@@ -12,7 +12,7 @@ import { Boxes, Cloud, Library, Search, Wrench, X } from "lucide-react";
 import type {
   ExternalSystemEntry,
   ExternalSystemsRegistry,
-} from "@repowise-dev/types/external-systems";
+} from "@repohive/types/external-systems";
 import { EmptyState } from "../shared/empty-state";
 import { Badge } from "../ui/badge";
 import { cn } from "../lib/cn";

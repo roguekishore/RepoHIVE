@@ -3,12 +3,12 @@
 import { useState, useMemo } from "react";
 import { GitMerge, Filter, ArrowLeft, LayoutList, Columns } from "lucide-react";
 import { useWorkspaceCoChanges, useWorkspace } from "@/lib/hooks/use-workspace";
-import { CoChangeTable } from "@repowise-dev/ui/workspace/co-change-table";
-import { RepoPairTable, type RepoPairSummary } from "@repowise-dev/ui/workspace/repo-pair-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { Button } from "@repowise-dev/ui/ui/button";
+import { CoChangeTable } from "@repohive/ui/workspace/co-change-table";
+import { RepoPairTable, type RepoPairSummary } from "@repohive/ui/workspace/repo-pair-table";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { Button } from "@repohive/ui/ui/button";
 
 export default function CoChangesPage() {
   const { workspace } = useWorkspace();

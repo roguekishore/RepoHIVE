@@ -4,14 +4,14 @@
  * Impact host — binds the shared {@link ImpactView} to web's `/api` client and
  * supplies the reviewer-suggestions panel as the analyzer's reviewer slot. The
  * composition (file picker, hotspot chips, depth control, blast-radius results)
- * lives in `@repowise-dev/ui/blast-radius`; this file only injects the
+ * lives in `@repohive/ui/blast-radius`; this file only injects the
  * app-specific pieces so web and hosted render the same view.
  */
 
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
-import { ImpactView, type ImpactAdapter } from "@repowise-dev/ui/blast-radius";
-import { ReviewerSuggestions } from "@repowise-dev/ui/git/reviewer-suggestions";
+import { ImpactView, type ImpactAdapter } from "@repohive/ui/blast-radius";
+import { ReviewerSuggestions } from "@repohive/ui/git/reviewer-suggestions";
 import { analyzeBlastRadius } from "@/lib/api/blast-radius";
 import { getHotspots, getReviewerSuggestions } from "@/lib/api/git";
 import { searchNodes } from "@/lib/api/graph";

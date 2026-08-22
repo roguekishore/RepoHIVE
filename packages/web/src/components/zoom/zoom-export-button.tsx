@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileType2, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { getStructurizrDsl } from "@repowise-dev/api-client/c4";
+import { getStructurizrDsl } from "@repohive/api-client/c4";
 import { downloadTextFile } from "@/lib/utils/download";
 
 const WORKSPACE_FILENAME = "workspace.dsl";

@@ -2,7 +2,7 @@ import { Shield } from "lucide-react";
 import { EmptyState } from "../shared/empty-state";
 import { coverageColor } from "../health/tokens";
 import { formatRelativeTime } from "../lib/format";
-import type { FileDetailCoverage } from "@repowise-dev/types/files";
+import type { FileDetailCoverage } from "@repohive/types/files";
 
 interface FileCoverageTabProps {
   coverage: FileDetailCoverage | null;

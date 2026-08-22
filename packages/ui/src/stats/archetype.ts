@@ -13,7 +13,7 @@
  * wrong for every team that rests Friday and Saturday.
  */
 
-import type { StatsChronotype } from "@repowise-dev/types/stats";
+import type { StatsChronotype } from "@repohive/types/stats";
 
 export interface Archetype {
   /** Short display name. */

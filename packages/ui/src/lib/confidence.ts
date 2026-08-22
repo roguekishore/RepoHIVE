@@ -4,7 +4,7 @@
  * Freshness: "fresh" | "stale" | "outdated"
  */
 
-import type { FreshnessStatus } from "@repowise-dev/types/docs";
+import type { FreshnessStatus } from "@repohive/types/docs";
 export type { FreshnessStatus };
 
 export function scoreToStatus(score: number): FreshnessStatus {

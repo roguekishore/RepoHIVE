@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, ArrowUpRight } from "lucide-react";
 import { cn } from "../lib/cn";
-import type { ChatUIToolCall } from "@repowise-dev/types/chat";
+import type { ChatUIToolCall } from "@repohive/types/chat";
 
 const TOOL_LABELS: Record<string, string> = {
   get_overview: "Getting codebase overview",

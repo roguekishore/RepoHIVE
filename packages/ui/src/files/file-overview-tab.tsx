@@ -1,6 +1,6 @@
 import { ArrowRight, Bug, Code2, Network } from "lucide-react";
-import type { FileDetailResponse } from "@repowise-dev/types/files";
-import { isExternal, nodeKind } from "@repowise-dev/types";
+import type { FileDetailResponse } from "@repohive/types/files";
+import { isExternal, nodeKind } from "@repohive/types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { StatGrid, StatTile } from "../shared/stat-grid";

@@ -14,7 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import type { FileDetailResponse, FilesIndexResponse } from "@repowise-dev/types/files";
+import type { FileDetailResponse, FilesIndexResponse } from "@repohive/types/files";
 import type {
   ChurnComplexityResponse,
   HealthFilesResponse,
@@ -22,9 +22,9 @@ import type {
   HealthOverviewResponse,
   HealthTrendResponse,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
-import type { OverviewSummaryResponse } from "@repowise-dev/types/overview";
-import type { StatsHighlights } from "@repowise-dev/types/stats";
+} from "@repohive/types/health";
+import type { OverviewSummaryResponse } from "@repohive/types/overview";
+import type { StatsHighlights } from "@repohive/types/stats";
 import { createHostedProvider, type HostedProvider } from "./hosted";
 import type {
   ArchitectureGraphResponse,

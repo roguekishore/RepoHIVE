@@ -1,4 +1,4 @@
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 
 /**
  * Resolve the best in-app destination for a wiki page id.

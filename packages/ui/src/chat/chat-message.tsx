@@ -6,7 +6,7 @@ import { BrandMark } from "../shared/brand-mark";
 import { ToolCallGroup } from "./tool-call-group";
 import { Markdown } from "../shared/markdown";
 import { SourceCitations, type SourceReference } from "./source-citations";
-import type { ChatUIMessage } from "@repowise-dev/types/chat";
+import type { ChatUIMessage } from "@repohive/types/chat";
 
 interface ChatMessageProps {
   message: ChatUIMessage;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DecisionLineage } from "../../src/decisions/decision-lineage.js";
-import type { DecisionLineageEntry } from "@repowise-dev/types/decisions";
+import type { DecisionLineageEntry } from "@repohive/types/decisions";
 
 const CHAIN: DecisionLineageEntry[] = [
   { id: "d1", title: "Use REST", status: "superseded", source: "inline_marker", relation: "supersedes" },

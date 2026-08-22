@@ -5,7 +5,7 @@ import {
   Network,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 import { cn } from "../lib/cn";
 
 interface BlastRadiusHeaderProps {

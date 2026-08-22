@@ -1,5 +1,5 @@
 import { cn } from "../lib/cn";
-import type { ReviewPriority } from "@repowise-dev/types/git";
+import type { ReviewPriority } from "@repohive/types/git";
 
 // Colours track review attention, not absolute danger: "Below typical" and
 // "Typical" are calm (this commit is not unusual for the repo); only

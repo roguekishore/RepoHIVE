@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Network, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { WorkspaceGraph, type WorkspaceGraphData } from "@repowise-dev/ui/workspace/workspace-graph";
-import { EmptyState } from "@repowise-dev/ui/shared/empty-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { WorkspaceGraph, type WorkspaceGraphData } from "@repohive/ui/workspace/workspace-graph";
+import { EmptyState } from "@repohive/ui/shared/empty-state";
 import { getWorkspaceGraph } from "@/lib/api/workspace";
 
 interface WorkspaceGraphSectionProps {

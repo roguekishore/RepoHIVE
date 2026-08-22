@@ -15,9 +15,9 @@
  * to the local singleton client and route per repo.
  */
 
-import type { ArchitectureView, C4L1, C4L2, C4L3 } from "@repowise-dev/ui/c4";
-import type { CouplingGraphResponse } from "@repowise-dev/types/coupling";
-import type { FileDetailResponse, FilesIndexResponse } from "@repowise-dev/types/files";
+import type { ArchitectureView, C4L1, C4L2, C4L3 } from "@repohive/ui/c4";
+import type { CouplingGraphResponse } from "@repohive/types/coupling";
+import type { FileDetailResponse, FilesIndexResponse } from "@repohive/types/files";
 import type {
   ChurnComplexityResponse,
   HealthCoverageResponse,
@@ -29,10 +29,10 @@ import type {
   HealthTrendResponse,
   RefactoringQuery,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
-import type { OverviewSummaryResponse } from "@repowise-dev/types/overview";
-import type { StatsHighlights } from "@repowise-dev/types/stats";
-import type { SymbolDetailResponse } from "@repowise-dev/types/symbols";
+} from "@repohive/types/health";
+import type { OverviewSummaryResponse } from "@repohive/types/overview";
+import type { StatsHighlights } from "@repohive/types/stats";
+import type { SymbolDetailResponse } from "@repohive/types/symbols";
 import { ApiClientError } from "./client";
 import type { ModuleHealthSortKey } from "./modules";
 import type {

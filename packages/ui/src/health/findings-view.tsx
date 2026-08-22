@@ -20,7 +20,7 @@ import type {
   HealthOverviewResponse,
   RefactoringQuery,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";

@@ -4,7 +4,7 @@ import { SWRConfig } from "swr";
 import type { ReactElement } from "react";
 import { ImpactView } from "../../src/blast-radius/impact-view.js";
 import type { ImpactAdapter } from "../../src/blast-radius/impact-adapter.js";
-import type { BlastRadiusResponse } from "@repowise-dev/types/blast-radius";
+import type { BlastRadiusResponse } from "@repohive/types/blast-radius";
 
 const RESULT: BlastRadiusResponse = {
   overall_risk_score: 0.42,

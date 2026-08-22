@@ -1,5 +1,5 @@
 /**
- * @repowise-dev/ui/zoom: continuous-zoom knowledge-graph canvas.
+ * @repohive/ui/zoom: continuous-zoom knowledge-graph canvas.
  *
  * Public entry point. Host pages mount `<ZoomCanvas data={zoomMap} />` with the
  * map fetched from `/api/graph/{repo_id}/zoom-map`. The renderer, camera and

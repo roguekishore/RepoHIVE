@@ -12,7 +12,7 @@ import {
 } from "../shared/responsive-table";
 import { RowActions } from "../shared/row-actions";
 import { cn } from "../lib/cn";
-import type { OwnershipEntry } from "@repowise-dev/types/git";
+import type { OwnershipEntry } from "@repohive/types/git";
 
 interface OwnershipTableProps {
   entries: OwnershipEntry[];

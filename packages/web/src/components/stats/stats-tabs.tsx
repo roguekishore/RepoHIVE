@@ -1,9 +1,9 @@
 "use client";
 
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repowise-dev/ui/ui/tabs";
-import { ErrorBoundary } from "@repowise-dev/ui/shared";
-import type { StatsHighlights } from "@repowise-dev/types/stats";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repohive/ui/ui/tabs";
+import { ErrorBoundary } from "@repohive/ui/shared";
+import type { StatsHighlights } from "@repohive/types/stats";
 import { ByTheNumbersTab } from "./by-the-numbers-tab";
 import { RhythmTab } from "./rhythm-tab";
 import { PeopleTab } from "./people-tab";

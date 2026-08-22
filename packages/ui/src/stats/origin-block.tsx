@@ -1,4 +1,4 @@
-import type { StatsOrigin } from "@repowise-dev/types/stats";
+import type { StatsOrigin } from "@repohive/types/stats";
 import { formatAgeDays, formatNumber } from "../lib/format";
 
 /** Absolute date in UTC.

@@ -1,4 +1,4 @@
-import type { SymbolDetailResponse } from "@repowise-dev/types/symbols";
+import type { SymbolDetailResponse } from "@repohive/types/symbols";
 import { apiGet } from "./client";
 import type { Paginated, SymbolResponse } from "./types";
 

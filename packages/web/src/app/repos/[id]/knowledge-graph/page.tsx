@@ -20,17 +20,17 @@
  *
  * This replaced the earlier node-link / layered-C4 Knowledge Graph. The reusable
  * C4 machinery it used to render still lives on (backend `c4_builder`, the zoom
- * map's own `/zoom-map` endpoint, and `@repowise-dev/ui/c4` for the VS Code
+ * map's own `/zoom-map` endpoint, and `@repohive/ui/c4` for the VS Code
  * webview); only the old web surface for it was retired.
  */
 
-import { use, useCallback, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { ZoomCanvas } from "@repowise-dev/ui/zoom";
-import { CO_CHANGES, indexRelationsByNode } from "@repowise-dev/ui/zoom";
-import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repowise-dev/ui/zoom";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { ZoomCanvas } from "@repohive/ui/zoom";
+import { CO_CHANGES, indexRelationsByNode } from "@repohive/ui/zoom";
+import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
 import { useZoomMap } from "@/lib/hooks/use-graph";
 import { ZoomBreadcrumb } from "@/components/zoom/zoom-breadcrumb";
 import { ZoomSearch } from "@/components/zoom/zoom-search";
@@ -42,6 +42,20 @@ import { ZoomExportButton } from "@/components/zoom/zoom-export-button";
 /** Stable identities, so an unselected / unloaded render does not churn props. */
 const EMPTY_RELATIONS: ZoomRelation[] = [];
 const NO_RELATIONS: Map<string, ZoomRelation[]> = new Map();
+
+/**
+ * The reason behind a failed zoom-map load (spec R12.2). The zoom-map route
+ * returns `{ detail }` carrying the index parser's own message and the file
+ * involved; ApiClientError exposes it as `detail` (and folds it into `message`).
+ */
+function zoomMapErrorReason(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as { detail?: unknown; message?: unknown };
+    if (typeof e.detail === "string" && e.detail.length > 0) return e.detail;
+    if (typeof e.message === "string" && e.message.length > 0) return e.message;
+  }
+  return "The index could not be read.";
+}
 
 export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: repoId } = use(params);
@@ -56,6 +70,8 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
   const [chain, setChain] = useState<ZoomNode[]>([]);
   const [selected, setSelected] = useState<ZoomNode | null>(null);
   const [relationVerb, setRelationVerb] = useState<string | null>(null);
+  // E6: the blast-radius highlight set for the current selection.
+  const [highlightIds, setHighlightIds] = useState<Set<string> | null>(null);
 
   // Snapshot the initial URL focus once so later URL writes don't re-trigger a jump.
   const initialFocus = useRef(focusParam ?? undefined).current;
@@ -88,6 +104,35 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
   );
   const showStats = process.env.NODE_ENV === "development";
 
+  // E6: on select, fetch the node's blast radius (everything that depends on it)
+  // and light it up across the map; clear it on deselect. The route rolls the
+  // impacted leaves up to their ancestor cards, so the highlight reads at any
+  // zoom level. Aborts in-flight requests when the selection changes.
+  useEffect(() => {
+    if (!selected) {
+      setHighlightIds(null);
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/graph/${repoId}/blast-radius?node=${encodeURIComponent(selected.id)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) {
+          setHighlightIds(null);
+          return;
+        }
+        const data = (await res.json()) as { ids?: string[] };
+        setHighlightIds(new Set(data.ids ?? []));
+      } catch {
+        // Aborted (selection changed) or network error — leave un-highlighted.
+      }
+    })();
+    return () => controller.abort();
+  }, [selected, repoId]);
+
   return (
     <PageShell
       title="Knowledge Graph"
@@ -105,12 +150,29 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
         </div>
       )}
       {error && !isLoading && (
-        <div className="flex h-[520px] items-center justify-center text-sm text-[var(--color-error)]">
-          Could not load the knowledge graph for this repository.
+        <div className="flex h-[520px] flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-sm font-medium text-[var(--color-error)]">
+            Could not load the knowledge graph for this repository.
+          </p>
+          {/* The parser's reported reason and the file involved (R12.2). */}
+          <p className="max-w-md text-xs text-[var(--color-text-secondary)]">
+            {zoomMapErrorReason(error)}
+          </p>
+          {/* How to produce an index when none is present (R12.1). */}
+          <p className="max-w-md text-xs text-[var(--color-text-tertiary)]">
+            Run the group stage over this repository to produce its index, then reload.
+          </p>
         </div>
       )}
       {zoomMap && !isLoading && (
         <>
+          {/* A repository that produced no groups still renders its root node,
+              with a plain statement of what happened (spec R12.4). */}
+          {zoomMap.nodes.length <= 1 && (
+            <div className="mb-3 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+              This repository produced no groups — only the repository node is shown.
+            </div>
+          )}
           {/* The one chrome row: where you are, and how to get somewhere. */}
           <div className="mb-3 flex items-start justify-between gap-3 border-b border-[var(--color-border-default)] pb-3">
             <ZoomBreadcrumb chain={chain} onCrumb={flyTo} />
@@ -145,6 +207,7 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
                 showStats={showStats}
                 relationVerb={relationVerb}
                 relationsByNode={relationsByNode}
+                highlightIds={highlightIds}
               />
               <ZoomHint />
             </div>
@@ -167,6 +230,20 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
             onVerbChange={setRelationVerb}
             coChangeCount={coChangeCount}
           />
+
+          {/* Decision legend (spec R7.4): what a group card's Preserved /
+              Reconstructed note means, plus the honest caveat on reconstruct
+              sub-clusters (§7-a). The distinction is carried as text, so it
+              stays perceivable without colour (R7.6). */}
+          <p className="mt-3 border-t border-[var(--color-border-default)] pt-3 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+            Group cards say whether the algorithm{" "}
+            <span className="text-[var(--color-text-secondary)]">Preserved</span> a region — its package
+            kept as authored — or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
+            it — rebuilt by dependency clustering — with the structural-quality score behind that call.
+            Select a group to read it. Reconstruct sub-clusters share their region&rsquo;s decision
+            (approximate). Selecting a file or group also lights up everything that depends on it
+            (its blast radius) in red across the map.
+          </p>
         </>
       )}
     </PageShell>

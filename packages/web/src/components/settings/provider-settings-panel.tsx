@@ -1,9 +1,9 @@
 "use client";
 
 import { toast } from "sonner";
-import { ProviderSettings } from "@repowise-dev/ui/settings/provider-settings";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { ProviderSettings } from "@repohive/ui/settings/provider-settings";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 import { useProviders } from "@/lib/hooks/use-providers";
 
 /**

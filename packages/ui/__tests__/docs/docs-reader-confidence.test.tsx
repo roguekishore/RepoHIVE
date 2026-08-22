@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DocsReader } from "../../src/docs/docs-reader.js";
-import type { DocPage } from "@repowise-dev/types/docs";
+import type { DocPage } from "@repohive/types/docs";
 
 /**
  * The low-confidence warning had never rendered for anyone.

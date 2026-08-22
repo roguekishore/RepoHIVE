@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ArrowRight, GitMerge } from "lucide-react";
 import { Card } from "../ui/card";
-import type { CouplingEdge } from "@repowise-dev/types/coupling";
+import type { CouplingEdge } from "@repohive/types/coupling";
 
 /** Injected link component (e.g. Next's Link); defaults to a plain anchor. */
 type LinkLike = React.ElementType<{

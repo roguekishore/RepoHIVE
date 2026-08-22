@@ -11,7 +11,7 @@ import {
   Cell,
   ReferenceLine,
 } from "recharts";
-import type { Hotspot } from "@repowise-dev/types/git";
+import type { Hotspot } from "@repohive/types/git";
 import { riskInk } from "../health/tokens";
 
 interface RiskDistributionChartProps {

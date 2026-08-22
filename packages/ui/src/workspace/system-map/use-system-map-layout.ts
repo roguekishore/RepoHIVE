@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { SystemGraph } from "@repowise-dev/types";
+import type { SystemGraph } from "@repohive/types";
 import { applyView, computeSystemMapPositions, type SystemMapView } from "./layout";
 import {
   resolveEdgeOverlay,

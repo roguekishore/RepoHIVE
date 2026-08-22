@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { CrossRepoBlastRadius, SystemEdge, SystemGraph, SystemNode } from "@repowise-dev/types";
+import type { CrossRepoBlastRadius, SystemEdge, SystemGraph, SystemNode } from "@repohive/types";
 import { SystemMap } from "../../src/workspace/system-map/system-map";
 import { SystemMapFilters } from "../../src/workspace/system-map/system-map-filters";
 import { SystemMapLegend } from "../../src/workspace/system-map/system-map-legend";
 import { SystemMapInspector } from "../../src/workspace/system-map/system-map-inspector";
 import { SystemMapBlastPanel } from "../../src/workspace/system-map/system-map-blast-panel";
 import { SystemMapBreakingPanel } from "../../src/workspace/system-map/system-map-breaking-panel";
-import type { BreakingChange, BreakingChangeReport } from "@repowise-dev/types";
+import type { BreakingChange, BreakingChangeReport } from "@repohive/types";
 
 // jsdom has no layout engine → stub ResizeObserver so React Flow can mount.
 beforeAll(() => {

@@ -5,7 +5,7 @@ import {
   GovernedFiles,
   summarizeGovernance,
 } from "../../src/decisions/decision-governance.js";
-import type { DecisionGraph } from "@repowise-dev/types/decisions";
+import type { DecisionGraph } from "@repohive/types/decisions";
 
 function graph(over: Partial<DecisionGraph> = {}): DecisionGraph {
   return {

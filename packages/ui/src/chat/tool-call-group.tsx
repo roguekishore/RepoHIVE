@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { ToolCallBlock } from "./tool-call-block";
-import type { ChatUIToolCall } from "@repowise-dev/types/chat";
+import type { ChatUIToolCall } from "@repohive/types/chat";
 
 interface ToolCallGroupProps {
   toolCalls: ChatUIToolCall[];

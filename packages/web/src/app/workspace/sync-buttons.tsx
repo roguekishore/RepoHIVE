@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { syncWorkspace } from "@/lib/api/workspace";
 import type { WorkspaceSyncResult } from "@/lib/api/types";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 type SyncState =
   | { kind: "idle" }

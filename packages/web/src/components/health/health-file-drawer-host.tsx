@@ -1,8 +1,8 @@
 "use client";
 
 import { toast } from "sonner";
-import { HealthFileDrawer } from "@repowise-dev/ui/health";
-import { fileEntityPath } from "@repowise-dev/ui/shared/entity";
+import { HealthFileDrawer } from "@repohive/ui/health";
+import { fileEntityPath } from "@repohive/ui/shared/entity";
 import { updateFindingStatus } from "@/lib/api/code-health";
 import { useFileBreakdown } from "./use-file-breakdown";
 

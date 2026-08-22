@@ -14,7 +14,7 @@ import type {
   SystemEdge,
   SystemGraph,
   SystemNode,
-} from "@repowise-dev/types";
+} from "@repohive/types";
 import { HealthRing } from "../workspace-graph-node";
 import { roleStyle } from "./architecture";
 import { edgeKindStyle, matchTypeLabel } from "./edge-kinds";

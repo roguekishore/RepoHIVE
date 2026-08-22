@@ -1,1 +1,1 @@
-export * from "@repowise-dev/api-client/types";
+export * from "@repohive/api-client/types";

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { OverviewSection, SectionLink } from "@repowise-dev/ui/overview";
-import { PageLede } from "@repowise-dev/ui/shared/page-lede";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { OverviewSection, SectionLink } from "@repohive/ui/overview";
+import { PageLede } from "@repohive/ui/shared/page-lede";
 import {
   DecisionConflicts,
   GovernedFiles,
   summarizeGovernance,
-} from "@repowise-dev/ui/decisions";
+} from "@repohive/ui/decisions";
 import {
   getDecision,
   getDecisionCounts,

@@ -1,5 +1,5 @@
-import { bandForScore } from "@repowise-dev/types";
-import type { HealthBand } from "@repowise-dev/types/health";
+import { bandForScore } from "@repohive/types";
+import type { HealthBand } from "@repohive/types/health";
 import { healthBandSoftBadgeClass } from "./tokens";
 
 export interface HealthBadgeProps {

@@ -11,7 +11,7 @@
 // there rather than re-derived (or alphabetised, which would put "API" above
 // "Runtime" and say something untrue about the dependency direction).
 
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 /** The layer id and display name stamped on a page, if any. */
 export interface LayerStamp {

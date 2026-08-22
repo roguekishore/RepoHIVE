@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDecision } from "@/lib/api/decisions";
-import { stripMarkdown } from "@repowise-dev/ui/lib/format";
+import { stripMarkdown } from "@repohive/ui/lib/format";
 import { DecisionDetail } from "@/components/decisions/decision-detail";
 
 export const revalidate = 30;

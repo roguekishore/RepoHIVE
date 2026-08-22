@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { createRepo, preflightIndex, startIndexJob } from "@/lib/api/repos";
 import { getProviders } from "@/lib/api/providers";
-import { Button } from "@repowise-dev/ui/ui/button";
+import { Button } from "@repohive/ui/ui/button";
 import {
   AddRepoWizard,
   type AddRepoWizardAdapter,
-} from "@repowise-dev/ui/onboarding/add-repo-wizard";
+} from "@repohive/ui/onboarding/add-repo-wizard";
 
 interface Props {
   /** Render as a sidebar button (icon + label) vs standalone button */

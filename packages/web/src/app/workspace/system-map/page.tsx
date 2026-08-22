@@ -13,10 +13,10 @@ import {
   buildConformanceOverlay,
   buildArchitectureOverlay,
   type RepoHealth,
-} from "@repowise-dev/ui/workspace/system-map";
+} from "@repohive/ui/workspace/system-map";
 import type { NodeArchitectureRole } from "@/lib/api/types";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 import {
   useWorkspaceSystemGraph,
   useWorkspaceGraph,

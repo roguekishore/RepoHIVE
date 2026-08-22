@@ -10,7 +10,7 @@ import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { summarizeFixHistory } from "../lib/fix-history";
 import { formatAgeDays, formatRelativeTime, truncatePath } from "../lib/format";
-import type { FileDetailGit } from "@repowise-dev/types/files";
+import type { FileDetailGit } from "@repohive/types/files";
 
 interface FileHistoryTabProps {
   git: FileDetailGit | null;

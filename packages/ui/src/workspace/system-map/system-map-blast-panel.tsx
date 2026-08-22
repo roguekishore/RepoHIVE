@@ -10,7 +10,7 @@
  */
 
 import { X, Zap } from "lucide-react";
-import type { CrossRepoBlastRadius, ImpactedNode } from "@repowise-dev/types";
+import type { CrossRepoBlastRadius, ImpactedNode } from "@repohive/types";
 import { impactBadgeTone } from "./blast-radius";
 
 export interface SystemMapBlastPanelProps {

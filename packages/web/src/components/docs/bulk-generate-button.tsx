@@ -1,13 +1,13 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { Button } from "@repowise-dev/ui/ui/button";
+import { Button } from "@repohive/ui/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@repowise-dev/ui/ui/dialog";
+} from "@repohive/ui/ui/dialog";
 import { GenerationProgressWrapper } from "@/components/jobs/generation-progress-wrapper";
 import { BulkGenerateConfirm } from "./bulk-generate-confirm";
 import { useBulkGenerate } from "@/lib/hooks/use-bulk-generate";

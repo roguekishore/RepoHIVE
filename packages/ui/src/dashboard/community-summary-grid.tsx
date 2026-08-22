@@ -12,7 +12,7 @@ import { cn } from "../lib/cn";
 import type {
   CommunityDetail,
   CommunitySummaryItem,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 
 const COMMUNITY_COLORS = [
   "bg-[var(--color-community-1)]",

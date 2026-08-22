@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ToolCallGroup } from "../../src/chat/tool-call-group.js";
-import type { ChatUIToolCall } from "@repowise-dev/types/chat";
+import type { ChatUIToolCall } from "@repohive/types/chat";
 
 function call(id: string, status: ChatUIToolCall["status"]): ChatUIToolCall {
   return {

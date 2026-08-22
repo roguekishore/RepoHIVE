@@ -1,6 +1,6 @@
 "use client";
 
-import type { ZoomMap } from "@repowise-dev/ui/zoom";
+import type { ZoomMap } from "@repohive/ui/zoom";
 import useSWR from "swr";
 import {
   getArchitecture,

@@ -1,3 +1,3 @@
 import "./client";
 
-export * from "@repowise-dev/api-client/code-health";
+export * from "@repohive/api-client/code-health";

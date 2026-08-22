@@ -4,7 +4,7 @@
  */
 
 import { apiGet, BASE_URL, buildHeaders, doFetch } from "./client";
-import type { C4L1, C4L2, C4L3, ArchitectureView } from "@repowise-dev/ui/c4";
+import type { C4L1, C4L2, C4L3, ArchitectureView } from "@repohive/ui/c4";
 
 export async function getC4L1(repoId: string): Promise<C4L1> {
   return apiGet<C4L1>(`/api/graph/${repoId}/c4/l1`);

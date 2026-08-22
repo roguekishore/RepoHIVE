@@ -1,6 +1,6 @@
 "use client";
 
-import type { DirectRiskEntry } from "@repowise-dev/types/blast-radius";
+import type { DirectRiskEntry } from "@repohive/types/blast-radius";
 import { ResponsiveTable, type ResponsiveColumn } from "../shared/responsive-table";
 import { riskInk } from "../health/tokens";
 

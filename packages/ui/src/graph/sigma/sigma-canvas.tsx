@@ -16,7 +16,7 @@ import type { Signal } from "../context";
 import type {
   GraphNode as GraphNodeResponse,
   GraphLink as GraphEdgeResponse,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 import { useSigmaRenderer } from "./use-sigma";
 import { useFA2Layout } from "./use-fa2-layout";
 import { useElkSigmaLayout } from "./use-elk-sigma-layout";

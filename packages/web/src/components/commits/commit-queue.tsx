@@ -7,7 +7,7 @@ import {
   CommitTable,
   type CommitAuthorship,
   type CommitSort,
-} from "@repowise-dev/ui/commits/commit-table";
+} from "@repohive/ui/commits/commit-table";
 import { getCommitsPage } from "@/lib/api/git";
 import type { CommitResponse, Paginated } from "@/lib/api/types";
 

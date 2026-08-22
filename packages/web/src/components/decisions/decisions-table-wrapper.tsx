@@ -6,9 +6,9 @@ import Link from "next/link";
 import {
   DecisionsTable,
   type DecisionsTableFilters,
-} from "@repowise-dev/ui/decisions/decisions-table";
+} from "@repohive/ui/decisions/decisions-table";
 import { getDecisionCounts, listDecisions } from "@/lib/api/decisions";
-import type { DecisionRecord } from "@repowise-dev/types/decisions";
+import type { DecisionRecord } from "@repohive/types/decisions";
 
 interface DecisionsTableWrapperProps {
   repoId: string;

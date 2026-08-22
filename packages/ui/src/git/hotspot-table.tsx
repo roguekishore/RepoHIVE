@@ -15,7 +15,7 @@ import { summarizeFixHistory } from "../lib/fix-history";
 import { cn } from "../lib/cn";
 import { useVirtualRows } from "../shared/virtualized-table";
 import { clickableRowProps, CLICKABLE_ROW_CLS } from "../shared/responsive-table";
-import type { Hotspot } from "@repowise-dev/types/git";
+import type { Hotspot } from "@repohive/types/git";
 
 /**
  * Collapsed main-row height (px), used as the initial virtualization estimate.

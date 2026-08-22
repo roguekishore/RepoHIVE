@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { WorkspacePackageDepEntry } from "@repowise-dev/types/workspace";
+import type { WorkspacePackageDepEntry } from "@repohive/types/workspace";
 import { PackageDepsTable } from "../../src/workspace/package-deps-table.js";
 
 function dep(

@@ -4,18 +4,18 @@ import { useState } from "react";
 import useSWR from "swr";
 import { RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import { SecurityFindingsTable } from "@repowise-dev/ui/security/findings-table";
-import { SeverityDirectoryMatrix } from "@repowise-dev/ui/security/severity-directory-matrix";
-import { AiPromptModal, buildSecurityAiPrompt } from "@repowise-dev/ui/health";
-import { Button } from "@repowise-dev/ui/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { CollapsibleSection } from "@repowise-dev/ui/shared/collapsible-section";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
+import { SecurityFindingsTable } from "@repohive/ui/security/findings-table";
+import { SeverityDirectoryMatrix } from "@repohive/ui/security/severity-directory-matrix";
+import { AiPromptModal, buildSecurityAiPrompt } from "@repohive/ui/health";
+import { Button } from "@repohive/ui/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { CollapsibleSection } from "@repohive/ui/shared/collapsible-section";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
 import { listSecurityFindings, type SecurityFinding } from "@/lib/api/security";
 import { syncRepo } from "@/lib/api/repos";
 import { useFileCardHost } from "@/components/shared/file-card-host";
-import type { FileCardData } from "@repowise-dev/ui/shared/file-card";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import type { FileCardData } from "@repohive/ui/shared/file-card";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 export function SecurityTab({ repoId }: { repoId: string }) {
   const { data: findings, isLoading, error } = useSWR<SecurityFinding[]>(

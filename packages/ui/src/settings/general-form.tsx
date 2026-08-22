@@ -12,8 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { DEFAULT_WIKI_STYLE, WIKI_STYLES } from "@repowise-dev/types";
-import type { RepoSettingsValue, WikiStyle } from "@repowise-dev/types/settings";
+import { DEFAULT_WIKI_STYLE, WIKI_STYLES } from "@repohive/types";
+import type { RepoSettingsValue, WikiStyle } from "@repohive/types/settings";
 
 const SUGGESTIONS = [
   "vendor/",

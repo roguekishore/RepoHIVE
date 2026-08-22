@@ -1,5 +1,5 @@
 import Graph from "graphology";
-import { isExternal } from "@repowise-dev/types";
+import { isExternal } from "@repohive/types";
 import type {
   GraphExport,
   GraphNode,
@@ -8,7 +8,7 @@ import type {
   ModuleNode,
   ModuleEdge,
   CommunitySummaryItem,
-} from "@repowise-dev/types/graph";
+} from "@repohive/types/graph";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import noverlap from "graphology-layout-noverlap";
 import type { SigmaNodeAttributes, SigmaEdgeAttributes } from "./types";

@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { OverviewSection } from "@repowise-dev/ui/overview";
+import { OverviewSection } from "@repohive/ui/overview";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repowise-dev/ui/ui/select";
+} from "@repohive/ui/ui/select";
 import {
   SettingsRow,
   SettingsRows,
   SaveIndicator,
   type SaveState,
-} from "@repowise-dev/ui/settings";
-import { DEFAULT_WEEKEND_PRESET, WEEKEND_PRESETS } from "@repowise-dev/ui/stats";
+} from "@repohive/ui/settings";
+import { DEFAULT_WEEKEND_PRESET, WEEKEND_PRESETS } from "@repohive/ui/stats";
 import { config } from "@/lib/config";
 
 /** Reader-local display preferences for the stats surfaces. */

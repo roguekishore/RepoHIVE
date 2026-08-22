@@ -7,7 +7,7 @@ import type {
   HealthOverviewResponse,
   RefactoringQuery,
   RefactoringTargetsResponse,
-} from "@repowise-dev/types/health";
+} from "@repohive/types/health";
 
 /** Subset of the findings list query the shared views need. */
 export interface CodeHealthFindingsQuery {

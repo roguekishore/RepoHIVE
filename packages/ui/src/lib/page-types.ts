@@ -11,7 +11,7 @@ import {
   Compass,
   Layers,
 } from "lucide-react";
-import type { DocPageSummary } from "@repowise-dev/types/docs";
+import type { DocPageSummary } from "@repohive/types/docs";
 
 export interface PageTypeConfig {
   label: string;

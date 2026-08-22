@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { GeneralForm } from "@repowise-dev/ui/settings/general-form";
-import { ConfirmDialog } from "@repowise-dev/ui/ui/confirm-dialog";
+import { GeneralForm } from "@repohive/ui/settings/general-form";
+import { ConfirmDialog } from "@repohive/ui/ui/confirm-dialog";
 import { fullResyncRepo, updateRepo } from "@/lib/api/repos";
 import type { RepoResponse } from "@/lib/api/types";
-import { DEFAULT_WIKI_STYLE } from "@repowise-dev/types";
-import type { RepoSettingsValue, WikiStyle } from "@repowise-dev/types/settings";
-import { toFriendlyMessage } from "@repowise-dev/ui/lib/errors";
+import { DEFAULT_WIKI_STYLE } from "@repohive/types";
+import type { RepoSettingsValue, WikiStyle } from "@repohive/types/settings";
+import { toFriendlyMessage } from "@repohive/ui/lib/errors";
 
 interface Props {
   repo: RepoResponse;

@@ -10,7 +10,7 @@ import {
   Skull,
   Users,
 } from "lucide-react";
-import type { SymbolDetailData } from "@repowise-dev/types/symbols";
+import type { SymbolDetailData } from "@repohive/types/symbols";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { StatGrid, StatTile } from "../shared/stat-grid";

@@ -5,7 +5,7 @@ import { RiskDriverBreakdown, describeDriver } from "./risk-driver-breakdown";
 import { PageLede } from "../shared/page-lede";
 import { OverviewSection } from "../overview/section";
 import { formatDateTime } from "../lib/format";
-import type { CommitDetail } from "@repowise-dev/types/git";
+import type { CommitDetail } from "@repohive/types/git";
 
 export interface CommitDetailCardProps {
   commit: CommitDetail;

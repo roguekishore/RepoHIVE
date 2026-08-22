@@ -5,7 +5,7 @@ import type {
   FileDetailGit,
   FileDetailResponse,
   FileSymbolSlim,
-} from "@repowise-dev/types/files";
+} from "@repohive/types/files";
 
 function symbol(name: string, complexity: number): FileSymbolSlim {
   return {

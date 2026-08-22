@@ -25,7 +25,7 @@ import {
   DEAD_CODE_CONFIDENCE,
   type DeadCodeFinding,
   type DeadCodeStatus,
-} from "@repowise-dev/types/dead-code";
+} from "@repohive/types/dead-code";
 
 /**
  * Display names and tab order for the kinds we know about. Any other kind the

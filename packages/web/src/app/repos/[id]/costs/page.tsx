@@ -4,11 +4,11 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useParams } from "next/navigation";
 import { DollarSign } from "lucide-react";
-import { MetricCard } from "@repowise-dev/ui/shared/metric-card";
-import { PageShell } from "@repowise-dev/ui/shared/page-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@repowise-dev/ui/ui/card";
-import { Skeleton } from "@repowise-dev/ui/ui/skeleton";
-import { Tabs, ScrollableTabsList, TabsTrigger, TabsContent } from "@repowise-dev/ui/ui/tabs";
+import { MetricCard } from "@repohive/ui/shared/metric-card";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import { Card, CardContent, CardHeader, CardTitle } from "@repohive/ui/ui/card";
+import { Skeleton } from "@repohive/ui/ui/skeleton";
+import { Tabs, ScrollableTabsList, TabsTrigger, TabsContent } from "@repohive/ui/ui/tabs";
 import {
   CostHeatmap,
   DailySpendChart,
@@ -17,10 +17,10 @@ import {
   OperationBreakdown,
   RoiCard,
   SavingsTrendChart,
-} from "@repowise-dev/ui/costs";
+} from "@repohive/ui/costs";
 import { listCosts, getCostSummary, getDistillSavings } from "@/lib/api/costs";
 import type { CostGroup, CostSummary, DistillSavings } from "@/lib/api/costs";
-import { formatCost, formatNumber, formatTokens } from "@repowise-dev/ui/lib/format";
+import { formatCost, formatNumber, formatTokens } from "@repohive/ui/lib/format";
 
 export default function CostsPage() {
   const params = useParams<{ id: string }>();
