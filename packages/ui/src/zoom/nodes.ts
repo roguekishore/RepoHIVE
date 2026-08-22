@@ -31,6 +31,9 @@ const TEXTURE_MIN_PX = 96; // paint the paper texture once the card is big enoug
 const GLYPH_MIN_PX = 52; // draw the kind glyph beside the title once there is room
 const FOOTER_MIN_W_PX = 132; // draw the bottom signal row on cards at least this wide
 const FOOTER_MIN_H_PX = 104; // ...and at least this tall
+// Paper-grain show-through: the texture wash pulls the tile back ~82% toward the
+// card colour, leaving ~18% grain (the light-theme `paper-wash` strength).
+const PAPER_WASH_STRENGTH = 0.82;
 
 /** Human label per node kind, shown small in the card footer. */
 const KIND_LABEL: Record<ZoomKind, string> = {
@@ -157,7 +160,7 @@ function drawPaperTexture(
   rect: Rect,
   radius: number,
   paper: CanvasPattern,
-  palette: ZoomPalette,
+  fill: string,
   alpha: number,
 ): void {
   ctx.save();
@@ -166,10 +169,14 @@ function drawPaperTexture(
   ctx.globalAlpha = alpha;
   ctx.fillStyle = paper;
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-  // The wash carries its own per-theme alpha (the `--color-zoom-card-paper-wash`
-  // token); globalAlpha here only folds in the card's body-fade.
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = palette.paperWash;
+  // RepoHIVE fix: wash toward the card's OWN fill colour, not a hardcoded white.
+  // The vendored wash was fixed white, which erased the warm container tint on
+  // large/high-importance cards (they turned white) while small cards kept the
+  // tint — a size-driven colour split that read as a bug. Washing toward `fill`
+  // keeps every card its intended colour at any size; the strength constant
+  // supplies the same ~18% grain the `paper-wash` token carried.
+  ctx.globalAlpha = alpha * PAPER_WASH_STRENGTH;
+  ctx.fillStyle = fill;
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   ctx.restore();
 }
@@ -244,21 +251,23 @@ export function drawCard(
   // so the frame stays cheap). This lays down the card silhouette + shadow; the
   // paper texture below is painted over it and the border re-strokes the rect.
   const elevate = !lowDetail && rect.w >= 56 && rect.h >= 36;
+  const fill = node.kind === "file" ? palette.nodeFill : palette.nodeFillAlt;
   ctx.save();
   if (elevate) {
     ctx.shadowColor = palette.shadow;
     ctx.shadowBlur = hovered ? 26 : 14;
     ctx.shadowOffsetY = hovered ? 7 : 3;
   }
-  ctx.fillStyle = node.kind === "file" ? palette.nodeFill : palette.nodeFillAlt;
+  ctx.fillStyle = fill;
   ctx.fill();
   ctx.restore();
 
   // Ruled-paper texture (shared KG asset) inside the card, skipped on tiny cards
   // / pans and whenever the texture has not loaded yet (then the base fill above
   // stands in). The photo supplies the ruled lines, so none are drawn by hand.
+  // Washed toward the card's own `fill` so the tint survives at any size.
   if (paper && !lowDetail && rect.w >= TEXTURE_MIN_PX && rect.h >= TEXTURE_MIN_PX) {
-    drawPaperTexture(ctx, rect, radius, paper, palette, alpha);
+    drawPaperTexture(ctx, rect, radius, paper, fill, alpha);
   }
 
   // Hairline border; the hovered card firms up, the selected card gets an accent
