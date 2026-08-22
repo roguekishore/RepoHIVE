@@ -180,7 +180,6 @@ export function drawScene(
     node: ZoomNode,
     inheritedAlpha: number,
     depth: number,
-    dimmed: boolean,
   ): void => {
     const worldRect = scene.worldRects.get(node.id);
     if (!worldRect) return;
@@ -204,12 +203,17 @@ export function drawScene(
     const cap = leafCapScale(screen.w, thresholds, hasChildren);
     const drawnRect = cap < 1 ? shrinkAboutCentre(screen, cap) : screen;
 
-    // E6 — once a branch is not impacted it stays dimmed (impacted leaves are
-    // rolled up to their ancestors server-side, so a non-impacted node never has
-    // an impacted descendant). The selected node itself never dims.
+    // E6 — dim per node by membership, NOT by inheritance. The blast-radius
+    // roll-up already includes every impacted node AND its full ancestor path,
+    // so a non-highlighted node has no highlighted descendants and dims on its
+    // own; its non-highlighted children dim likewise. Inheriting the dim would
+    // cascade from the always-excluded repository root and grey the entire map
+    // (including the selection). The selected node and the root never dim.
     const nodeDimmed =
-      dimmed ||
-      (highlightActive && !opts.highlightIds!.has(node.id) && node.id !== opts.selectedId);
+      highlightActive &&
+      !opts.highlightIds!.has(node.id) &&
+      node.id !== opts.selectedId &&
+      node.id !== scene.rootId;
     const bodyAlpha = nodeDimmed ? body * BLAST_DIM_FACTOR : body;
 
     if (bodyAlpha > ALPHA_EPSILON) {
@@ -218,7 +222,12 @@ export function drawScene(
         hovered: node.id === opts.hoveredId,
         lowDetail: opts.lowDetail,
         related: relatedIds.has(node.id),
-        highlighted: highlightActive && opts.highlightIds!.has(node.id),
+        // The selection keeps its own accent ring; only the *other* impacted
+        // cards get the red blast-radius ring, so the origin stays distinct.
+        highlighted:
+          highlightActive &&
+          opts.highlightIds!.has(node.id) &&
+          node.id !== opts.selectedId,
       }, t, paper);
     }
     stats.drawn++;
@@ -261,12 +270,12 @@ export function drawScene(
       selectionActive,
     );
 
-    for (const kid of visible) drawNode(kid, child, depth + 1, nodeDimmed);
+    for (const kid of visible) drawNode(kid, child, depth + 1);
 
     ctx.restore();
   };
 
-  drawNode(root, 1, 0, false);
+  drawNode(root, 1, 0);
   return stats;
 }
 
