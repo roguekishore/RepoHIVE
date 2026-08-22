@@ -1,0 +1,37 @@
+RepoHIVE
+Copyright (C) 2026 Kishore N E
+
+This product is licensed under the GNU Affero General Public License v3.0 or
+later. See the LICENSE file for the full license text.
+
+================================================================================
+Third-party components
+================================================================================
+
+The following packages in this repository are DERIVED FROM the repowise project
+and are redistributed here under the terms of the GNU Affero General Public
+License v3.0 or later. Copyright in the original work remains with its authors.
+
+    packages/types        derived from repowise packages/types
+    packages/ui           derived from repowise packages/ui
+    packages/api-client   derived from repowise packages/api-client
+    packages/web          derived from repowise packages/web
+
+    Upstream project : repowise
+    Upstream URL     : https://github.com/repowise-dev/repowise
+    Original license : GNU Affero General Public License v3.0 or later
+    Copyright        : (C) 2024-2026 Raghav Chamadiya and contributors
+
+Modifications made by RepoHIVE:
+
+    - Package scope renamed from @repowise-dev/* to @repohive/*
+    - Upstream package publication configuration removed
+    - Data adapters added to consume RepoHIVE's index/*.json contract
+    - Navigation restricted to the surfaces RepoHIVE's engine can populate
+
+All copyright notices and license headers present in the original source have
+been retained in the derived files. Where a derived file has been modified, the
+modification is confined to the change described above.
+
+RepoHIVE's own engine packages (packages/shared, packages/parser,
+packages/core, packages/cli) are original work.
