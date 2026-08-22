@@ -56,7 +56,14 @@ export const WORKSPACE_NAV: NavItem[] = [
   { label: "Co-Changes", href: "/workspace/co-changes", icon: GitMerge },
 ];
 
-export function repoNavGroups(repoId: string): NavGroup[] {
+/**
+ * The full vendored repo information architecture. Retained in source (spec
+ * R9.6) so any surface can be re-enabled later — by listing it in
+ * {@link repoNavGroups} — without re-vendoring. This is NOT the active
+ * registry; nothing renders from it while it is not referenced by
+ * `repoNavGroups`.
+ */
+export function allRepoNavGroups(repoId: string): NavGroup[] {
   const base = `/repos/${repoId}`;
   return [
     {
@@ -87,6 +94,26 @@ export function repoNavGroups(repoId: string): NavGroup[] {
         { label: "Stats", href: `${base}/stats`, icon: BarChart3 },
         { label: "Usage & savings", href: `${base}/costs`, icon: DollarSign },
         { label: "Settings", href: `${base}/settings`, icon: Settings },
+      ],
+    },
+  ];
+}
+
+/**
+ * The gated repo navigation — the single declarative source of
+ * Reachable_Surfaces (spec R9.1). Only surfaces RepoHIVE's engine genuinely
+ * feeds are listed; everything else stays vendored but unreachable (R9.3/R9.6).
+ *
+ * Phase 1 (Reviews 2–3): Knowledge Graph only. To make another surface
+ * reachable later, move its item here from {@link allRepoNavGroups} once its
+ * data adapter exists (R9.5).
+ */
+export function repoNavGroups(repoId: string): NavGroup[] {
+  const base = `/repos/${repoId}`;
+  return [
+    {
+      items: [
+        { label: "Knowledge Graph", href: `${base}/knowledge-graph`, icon: ScanSearch },
       ],
     },
   ];
