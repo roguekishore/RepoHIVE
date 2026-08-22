@@ -124,17 +124,28 @@ export function adaptIndexToZoomMap(
     decisionByPackage.set(pkg, decision);
   }
   const groupSummary = new Map<string, string>();
+  const groupDecision = new Map<string, "preserve" | "reconstruct">();
   for (const [id, pkg] of groupPackages) {
     if (!pkg) continue;
     const decision = decisionByPackage.get(pkg);
-    if (decision) groupSummary.set(id, decisionSummary(decision));
+    if (decision) {
+      groupSummary.set(id, decisionSummary(decision));
+      groupDecision.set(id, decision.action);
+    }
   }
 
   // --- 4. Nodes -------------------------------------------------------------
   const zoomNodes: ZoomNode[] = emitted.map((node) => {
     const kind = zoomKindOf(node.kind, node.level);
     const isFile = node.kind === "file";
-    const path = isFile ? fileSourcePath(node.id) : "";
+    const isGroup = node.kind === "group";
+    // E2: files carry their source path; groups carry the full package prefix
+    // (the hover card shows it as the subtitle under the short label).
+    const path = isFile
+      ? fileSourcePath(node.id)
+      : isGroup
+        ? (groupPackages.get(node.id) ?? "")
+        : "";
     return {
       id: node.id,
       parent_id: node.parentId,
@@ -163,6 +174,8 @@ export function adaptIndexToZoomMap(
       is_dead: false,
       is_test: false,
       on_flow: false,
+      // E3: structured decision drives the card badge/tint + legend.
+      decision: groupDecision.get(node.id) ?? null,
     };
   });
   zoomNodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

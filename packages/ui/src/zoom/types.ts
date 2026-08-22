@@ -54,6 +54,14 @@ export interface ZoomNode {
   is_dead: boolean;
   is_test: boolean;
   on_flow: boolean;
+  /**
+   * RepoHIVE additive field (Phase E). The adaptive grouping decision for a
+   * group node: whether its region was preserved as authored or reconstructed
+   * by dependency clustering. `null`/absent for the system root, files, and
+   * groups with no recorded decision. Drives the decision badge/tint in
+   * `nodes.ts` and the legend in the map key; upstream repowise ignores it.
+   */
+  decision?: "preserve" | "reconstruct" | null;
 }
 
 /** An aggregated edge between two sibling subtrees under a shared parent. */

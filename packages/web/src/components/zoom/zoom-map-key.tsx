@@ -98,6 +98,17 @@ export function ZoomMapKey({ verb, onVerbChange, coChangeCount }: ZoomMapKeyProp
             {HEALTH_BAND_LABEL.alert} under 4.
           </dd>
         </div>
+        {/* RepoHIVE additive (Phase E, E3): the group decision badge. */}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-success)] text-[9px] font-bold text-[var(--color-success)]">
+            P
+          </span>
+          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-warning)] text-[9px] font-bold text-[var(--color-warning)]">
+            R
+          </span>
+          <dt className="sr-only">Group decision badge</dt>
+          <dd>Group: Preserved (kept as authored) or Reconstructed (rebuilt by clustering).</dd>
+        </div>
       </dl>
     </div>
   );

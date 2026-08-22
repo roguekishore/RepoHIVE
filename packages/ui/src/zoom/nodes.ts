@@ -216,6 +216,10 @@ export interface CardState {
   hovered: boolean;
   /** During a pan we skip the (costlier) shadow so dragging stays smooth. */
   lowDetail: boolean;
+  /** RepoHIVE additive (Phase E): a direct relation-neighbour of the selection. */
+  related?: boolean;
+  /** RepoHIVE additive (Phase E): inside the current blast-radius result. */
+  highlighted?: boolean;
 }
 
 /** Draw one node's card body in screen space, at the given alpha. */
@@ -268,6 +272,50 @@ export function drawCard(
       ? palette.nodeBorderHover
       : palette.nodeBorder;
   ctx.stroke();
+
+  // RepoHIVE additive (Phase E): blast-radius ring and related halo. Drawn as
+  // extra rings over the base border so they compose with selection/hover.
+  if (state.highlighted) {
+    // Impacted by the current blast-radius query — a firm ring in the risk hue.
+    roundRectPath(ctx, rect, radius);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = palette.hotspot;
+    ctx.stroke();
+  } else if (state.related && !selected) {
+    // A direct relation-neighbour of the selection — a soft dashed halo.
+    ctx.save();
+    roundRectPath(ctx, rect, radius);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = palette.accent;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Decision badge (top-right): P = preserved, R = reconstructed. The letter is
+  // the non-colour cue (R7.6); the colour reinforces it. Only group cards carry
+  // a decision, and this viewer draws no role/health dots, so the corner is free.
+  if (node.decision && rect.w >= DOT_MIN_PX && rect.h >= 28) {
+    const isPreserve = node.decision === "preserve";
+    const col = isPreserve ? palette.decisionPreserve : palette.decisionReconstruct;
+    const badge = isPreserve ? "P" : "R";
+    const s = 15;
+    const bx = rect.x + rect.w - s - 8;
+    const by = rect.y + 8;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, s, s, 4);
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = col;
+    ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.font = `700 ${Math.round(s * 0.72)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(badge, bx + s / 2, by + s / 2 + 0.5);
+    ctx.restore();
+  }
 
   // Role status dot, top-right. One dot, most-salient role only.
   if (rect.w >= DOT_MIN_PX && rect.h >= 28) {
@@ -400,13 +448,20 @@ export function drawEdge(
   palette: ZoomPalette,
   alpha: number,
   withArrow: boolean,
+  emphasized = false,
 ): void {
   if (alpha <= 0.02) return;
   const { start, c1, c2, end, endAngle } = route;
-  const color = coupling === "tight" ? palette.edgeStrong : palette.edge;
-  ctx.globalAlpha = alpha;
+  // RepoHIVE additive (Phase E): an emphasised edge (incident to the selection,
+  // or the hovered connector) lifts to the accent hue at full strength.
+  const color = emphasized
+    ? palette.accent
+    : coupling === "tight"
+      ? palette.edgeStrong
+      : palette.edge;
+  ctx.globalAlpha = emphasized ? Math.max(alpha, 0.95) : alpha;
   ctx.strokeStyle = color;
-  ctx.lineWidth = EDGE_LINE_PX * couplingWidth(coupling);
+  ctx.lineWidth = EDGE_LINE_PX * couplingWidth(coupling) * (emphasized ? 1.7 : 1);
   // Stop the curve just shy of the head so the stroke and the fill do not overlap.
   const headBack = withArrow ? ARROW_SIZE_PX : 0;
   const ex = end.x - Math.cos(endAngle) * headBack;

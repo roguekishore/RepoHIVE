@@ -53,6 +53,14 @@ export interface ZoomPalette {
   healthHealthy: string;
   /** Neutral ink for an unscored file/subtree (health is sparse). */
   healthNeutral: string;
+  /**
+   * RepoHIVE additive (Phase E). Decision-encoding inks for the group badge:
+   * preserved regions vs reconstructed ones. Reuse the success/warning tokens
+   * (green = kept, amber = rebuilt) — health is never drawn in this viewer, so
+   * there is no clash.
+   */
+  decisionPreserve: string;
+  decisionReconstruct: string;
 }
 
 /** Map each palette slot to its design-system token. */
@@ -84,6 +92,8 @@ const TOKEN_SPEC: Record<keyof ZoomPalette, string> = {
   healthWarning: "--color-warning",
   healthHealthy: "--color-success",
   healthNeutral: "--color-text-tertiary",
+  decisionPreserve: "--color-success",
+  decisionReconstruct: "--color-warning",
 };
 
 /** CSS named-color fallbacks (lint-safe, only hit before tokens resolve). */
@@ -111,6 +121,8 @@ const FALLBACK: ZoomPalette = {
   healthWarning: "orange",
   healthHealthy: "green",
   healthNeutral: "gray",
+  decisionPreserve: "seagreen",
+  decisionReconstruct: "goldenrod",
 };
 
 /** Resolve the live palette from the document theme. Call on the client only. */

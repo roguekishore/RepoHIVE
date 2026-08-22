@@ -30,6 +30,12 @@ function fileSimpleName(id: string): string {
   return segment ?? id;
 }
 
+/** The last dot-segment of a package path (`com.a.friend` -> `friend`). */
+export function lastPackageSegment(pkg: string): string {
+  const seg = pkg.split(".").filter(Boolean).pop();
+  return seg ?? pkg;
+}
+
 /** Longest common dot-separated package prefix across the given paths. */
 export function commonPackagePrefix(paths: readonly string[]): string {
   const split = paths.filter((p) => p.length > 0).map((p) => p.split("."));
@@ -124,7 +130,10 @@ export function buildDisplayLabels(
     const seen = new Map<string, number>();
     groupChildren.forEach((child, index) => {
       const prefix = prefixes.get(child.id) ?? "";
-      const base = prefix.length > 0 ? prefix : `Group ${index + 1}`;
+      // E2: show the readable last segment (`friend`), not the full dotted path
+      // (`com.backend.springapp.friend`). The full prefix goes on the node's
+      // `path` (adapter) so the hover card shows it as the subtitle.
+      const base = prefix.length > 0 ? lastPackageSegment(prefix) : `Group ${index + 1}`;
       const occurrence = (seen.get(base) ?? 0) + 1;
       seen.set(base, occurrence);
       labels.set(child.id, occurrence === 1 ? base : `${base} \u00b7 ${occurrence}`);

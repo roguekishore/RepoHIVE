@@ -53,7 +53,16 @@ export interface DrawOptions {
    * view surfaces.
    */
   relationVerb?: string | null;
+  /**
+   * RepoHIVE additive (Phase E, E6): the blast-radius result — ids of the
+   * impacted cards (leaves rolled up to their ancestors). When present and
+   * non-empty, impacted cards get a red ring and everything else dims.
+   */
+  highlightIds?: Set<string> | null;
 }
+
+/** How far a non-impacted card fades when a blast-radius result is active. */
+const BLAST_DIM_FACTOR = 0.22;
 
 /**
  * A faint graph-paper line grid under the cards, anchored to the camera so it
@@ -144,11 +153,35 @@ export function drawScene(
   const root = scene.nodes.get(scene.rootId);
   if (!root) return stats;
 
-  // The node under the cursor (or selected) lifts its incident relations out of
-  // the quiet baseline. Hover wins for immediate feedback.
-  const focusId = opts.hoveredId ?? opts.selectedId;
+  // E4 — sticky selection: a set selection PINS the drawn relation set; hover
+  // reveals relations only when nothing is selected. (Previously hover won,
+  // which hijacked a pinned selection.)
+  const relationFocusId = opts.selectedId ?? opts.hoveredId;
+  const selectionActive = opts.selectedId !== null;
 
-  const drawNode = (node: ZoomNode, inheritedAlpha: number, depth: number): void => {
+  // E4 — the direct relation-neighbours of the selection (siblings connected by
+  // a relation), for the related-halo. Relations are sibling-only, so this is
+  // the selected node's parent bucket filtered to edges touching it.
+  const relatedIds = new Set<string>();
+  if (opts.selectedId) {
+    const selected = scene.nodes.get(opts.selectedId);
+    if (selected && selected.parent_id) {
+      for (const r of scene.relationsByParent.get(selected.parent_id) ?? []) {
+        if (r.source_id === opts.selectedId) relatedIds.add(r.target_id);
+        else if (r.target_id === opts.selectedId) relatedIds.add(r.source_id);
+      }
+    }
+  }
+
+  // E6 — blast-radius highlight.
+  const highlightActive = !!opts.highlightIds && opts.highlightIds.size > 0;
+
+  const drawNode = (
+    node: ZoomNode,
+    inheritedAlpha: number,
+    depth: number,
+    dimmed: boolean,
+  ): void => {
     const worldRect = scene.worldRects.get(node.id);
     if (!worldRect) return;
     const screen = worldRectToScreen(cam, vp, worldRect);
@@ -171,11 +204,21 @@ export function drawScene(
     const cap = leafCapScale(screen.w, thresholds, hasChildren);
     const drawnRect = cap < 1 ? shrinkAboutCentre(screen, cap) : screen;
 
-    if (body > ALPHA_EPSILON) {
-      drawCard(ctx, drawnRect, node, palette, body, {
+    // E6 — once a branch is not impacted it stays dimmed (impacted leaves are
+    // rolled up to their ancestors server-side, so a non-impacted node never has
+    // an impacted descendant). The selected node itself never dims.
+    const nodeDimmed =
+      dimmed ||
+      (highlightActive && !opts.highlightIds!.has(node.id) && node.id !== opts.selectedId);
+    const bodyAlpha = nodeDimmed ? body * BLAST_DIM_FACTOR : body;
+
+    if (bodyAlpha > ALPHA_EPSILON) {
+      drawCard(ctx, drawnRect, node, palette, bodyAlpha, {
         selected: node.id === opts.selectedId,
         hovered: node.id === opts.hoveredId,
         lowDetail: opts.lowDetail,
+        related: relatedIds.has(node.id),
+        highlighted: highlightActive && opts.highlightIds!.has(node.id),
       }, t, paper);
     }
     stats.drawn++;
@@ -213,16 +256,17 @@ export function drawScene(
       palette,
       child,
       opts.lowDetail,
-      focusId,
+      relationFocusId,
       opts.relationVerb ?? null,
+      selectionActive,
     );
 
-    for (const kid of visible) drawNode(kid, child, depth + 1);
+    for (const kid of visible) drawNode(kid, child, depth + 1, nodeDimmed);
 
     ctx.restore();
   };
 
-  drawNode(root, 1, 0);
+  drawNode(root, 1, 0, false);
   return stats;
 }
 
@@ -244,6 +288,12 @@ function drawEdges(
   lowDetail: boolean,
   focusId: string | null,
   relationVerb: string | null,
+  /**
+   * E4: a pinned selection draws its incident relations emphasised (accent,
+   * full alpha, arrow). Plain hover (no selection) reveals relations quietly,
+   * as before.
+   */
+  emphasize: boolean,
 ): void {
   // Relations are revealed only for the box the user is pointing at / has
   // selected, so the canvas is not a thicket of arrows. No focus -> no edges.
@@ -272,8 +322,18 @@ function drawEdges(
   }));
   for (const routed of routeEdges(inputs, childRects)) {
     const to = childRects.get(routed.targetId)!;
-    const withArrow = to.w >= ARROW_MIN_BOX_PX && to.h >= ARROW_MIN_BOX_PX;
-    drawEdge(ctx, routed.route, routed.coupling, palette, alpha * EDGE_FOCUS_ALPHA, withArrow);
+    // E4: a pinned selection's edges are emphasised and always arrowed; plain
+    // hover reveal keeps the quiet size-gated arrow.
+    const withArrow = emphasize || (to.w >= ARROW_MIN_BOX_PX && to.h >= ARROW_MIN_BOX_PX);
+    drawEdge(
+      ctx,
+      routed.route,
+      routed.coupling,
+      palette,
+      alpha * EDGE_FOCUS_ALPHA,
+      withArrow,
+      emphasize,
+    );
   }
 }
 

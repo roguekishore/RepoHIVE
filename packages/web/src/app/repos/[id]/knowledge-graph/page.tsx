@@ -24,7 +24,7 @@
  * webview); only the old web surface for it was retired.
  */
 
-import { use, useCallback, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
 import { PageShell } from "@repohive/ui/shared/page-shell";
@@ -70,6 +70,8 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
   const [chain, setChain] = useState<ZoomNode[]>([]);
   const [selected, setSelected] = useState<ZoomNode | null>(null);
   const [relationVerb, setRelationVerb] = useState<string | null>(null);
+  // E6: the blast-radius highlight set for the current selection.
+  const [highlightIds, setHighlightIds] = useState<Set<string> | null>(null);
 
   // Snapshot the initial URL focus once so later URL writes don't re-trigger a jump.
   const initialFocus = useRef(focusParam ?? undefined).current;
@@ -101,6 +103,35 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
     [zoomMap],
   );
   const showStats = process.env.NODE_ENV === "development";
+
+  // E6: on select, fetch the node's blast radius (everything that depends on it)
+  // and light it up across the map; clear it on deselect. The route rolls the
+  // impacted leaves up to their ancestor cards, so the highlight reads at any
+  // zoom level. Aborts in-flight requests when the selection changes.
+  useEffect(() => {
+    if (!selected) {
+      setHighlightIds(null);
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/graph/${repoId}/blast-radius?node=${encodeURIComponent(selected.id)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) {
+          setHighlightIds(null);
+          return;
+        }
+        const data = (await res.json()) as { ids?: string[] };
+        setHighlightIds(new Set(data.ids ?? []));
+      } catch {
+        // Aborted (selection changed) or network error — leave un-highlighted.
+      }
+    })();
+    return () => controller.abort();
+  }, [selected, repoId]);
 
   return (
     <PageShell
@@ -176,6 +207,7 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
                 showStats={showStats}
                 relationVerb={relationVerb}
                 relationsByNode={relationsByNode}
+                highlightIds={highlightIds}
               />
               <ZoomHint />
             </div>
@@ -209,7 +241,8 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
             kept as authored — or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
             it — rebuilt by dependency clustering — with the structural-quality score behind that call.
             Select a group to read it. Reconstruct sub-clusters share their region&rsquo;s decision
-            (approximate).
+            (approximate). Selecting a file or group also lights up everything that depends on it
+            (its blast radius) in red across the map.
           </p>
         </>
       )}

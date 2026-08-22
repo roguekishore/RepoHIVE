@@ -76,6 +76,8 @@ export class ZoomRenderer {
   private selectedId: string | null = null;
   private hoveredId: string | null = null;
   private relationVerb: string | null = null;
+  /** RepoHIVE additive (Phase E, E6): blast-radius impacted-id set. */
+  private highlightIds: Set<string> | null = null;
   private lowDetailFrames = 0;
   private tween: Tween | null = null;
   private lastFocusId: string | null = null;
@@ -133,6 +135,17 @@ export class ZoomRenderer {
   setRelationVerb(verb: string | null): void {
     if (verb === this.relationVerb) return;
     this.relationVerb = verb;
+    this.invalidate();
+  }
+
+  /**
+   * RepoHIVE additive (Phase E, E6): set the blast-radius impacted-id set (or
+   * null to clear). Impacted cards get a red ring; everything else dims.
+   */
+  setHighlight(ids: Set<string> | null): void {
+    // Reference check is enough: the host passes a fresh Set per query.
+    if (ids === this.highlightIds) return;
+    this.highlightIds = ids;
     this.invalidate();
   }
 
@@ -261,6 +274,7 @@ export class ZoomRenderer {
         lowDetail,
         paper: this.paper,
         relationVerb: this.relationVerb,
+        highlightIds: this.highlightIds,
       });
       if (this.onStats) {
         this.onStats({
