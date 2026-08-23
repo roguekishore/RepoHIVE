@@ -8,9 +8,24 @@
  * `\n` line endings, no BOM).
  */
 
-/** Byte-wise (code-unit) lexicographic comparator for identifiers. */
+import { compareCanonical } from "@repohive/shared";
+
+/**
+ * Canonical lexicographic comparator for identifiers: byte-wise over the UTF-8
+ * encoding, which is the order the parser has always used (R9.2, R9.3).
+ *
+ * This was previously JavaScript's `<`/`>`, i.e. UTF-16 code-unit order. The two
+ * disagree whenever a supplementary-plane character is compared against a
+ * high-BMP one, so the engine's two halves ordered the same identifiers
+ * differently (Gap 17). The single implementation lives in `@repohive/shared`.
+ *
+ * `compareIds` feeds `sortIds`, which feeds `partitionChildren`'s slicing and
+ * the content-addressed group-id membership key — so for a repository with
+ * supplementary-plane identifiers this changes child ordering and group ids.
+ * ASCII-only repositories are byte-for-byte unaffected.
+ */
 export function compareIds(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  return compareCanonical(a, b);
 }
 
 /** Comparator for edge-like pairs: by source, then target. */
