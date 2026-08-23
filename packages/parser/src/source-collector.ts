@@ -26,6 +26,8 @@
 import * as nodeFs from "node:fs/promises";
 import * as path from "node:path";
 
+import { compareCanonical } from "@repohive/shared";
+
 import { makeError, ok, err, type ParseError, type Result } from "./errors.js";
 import type { CollectedFile } from "./types.js";
 
@@ -145,10 +147,11 @@ function toPosixRelative(rootAbsolute: string, entryAbsolute: string): string {
  * JavaScript's default string comparison orders by UTF-16 code units, which
  * diverges from UTF-8 byte order for characters outside the Basic Multilingual
  * Plane. Comparing the UTF-8 byte sequences directly gives the canonical
- * ordering the contract requires (R2.6, R9.5).
+ * ordering the contract requires (R2.6, R9.5). The engine keeps exactly one
+ * implementation of that order, in `@repohive/shared` (Gap 17).
  */
 function compareByteWise(a: string, b: string): number {
-  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  return compareCanonical(a, b);
 }
 
 /**

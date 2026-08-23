@@ -21,10 +21,11 @@
  * the returned string to disk as UTF-8 without a BOM.
  */
 
-import type {
-  DependencyEdge,
-  GraphNode,
-  RawDependencyGraph,
+import {
+  compareCanonical,
+  type DependencyEdge,
+  type GraphNode,
+  type RawDependencyGraph,
 } from "@repohive/shared";
 
 /**
@@ -32,11 +33,14 @@ import type {
  *
  * Returns a negative number if `a` sorts before `b`, a positive number if it
  * sorts after, and `0` when the two strings are byte-for-byte equal. This is
- * the total order required by R9.2 / R9.3; `Buffer.compare` performs the
- * unsigned byte-wise lexicographic comparison of the UTF-8 bytes.
+ * the total order required by R9.2 / R9.3.
+ *
+ * The comparison itself lives in `@repohive/shared` so that the parser and the
+ * core provably share one definition of canonical order (Gap 17); this remains
+ * the parser's name for it.
  */
 export function compareUtf8(a: string, b: string): number {
-  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  return compareCanonical(a, b);
 }
 
 /**
