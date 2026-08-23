@@ -5,3 +5,5 @@ export type {
   DependencyEdge,
   RawDependencyGraph,
 } from "./contract.js";
+
+export { compareCanonical } from "./canonical-order.js";
