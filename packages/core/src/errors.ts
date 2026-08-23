@@ -19,6 +19,10 @@ import type { NodeId } from "@repohive/shared";
  *   to the shared contract's definedInFile invariant (class/function nodes
  *   declare an existing `file` node) — without it, contract-violating input
  *   silently corrupts the hierarchy downstream.
+ * - `MALFORMED_NODE` / `MALFORMED_EDGE` carry Requirement 1's field-validity
+ *   check: `graph.json` is untrusted disk input, and the contract's own doc
+ *   comments ("Unique, non-empty", "Non-negative integer") were never enforced,
+ *   so wrongly-typed fields flowed into the algorithm and were silently coerced.
  */
 export type GroupingError =
   | { code: "NO_GRAPH" }
@@ -26,6 +30,8 @@ export type GroupingError =
   | { code: "DUPLICATE_NODE"; nodeId: NodeId }
   | { code: "DANGLING_EDGE"; nodeId: NodeId }
   | { code: "INVALID_DEFINED_IN_FILE"; nodeId: NodeId; detail: string }
+  | { code: "MALFORMED_NODE"; nodeId: NodeId; detail: string }
+  | { code: "MALFORMED_EDGE"; source?: NodeId; target?: NodeId; detail: string }
   | { code: "NODE_NOT_FOUND"; nodeId: NodeId }
   | { code: "EMPTY_NODE_ID" }
   | { code: "MISSING_FILES"; files: string[] }
@@ -56,6 +62,15 @@ export function describeError(error: GroupingError): string {
       return `edge references a missing node identifier: ${error.nodeId}`;
     case "INVALID_DEFINED_IN_FILE":
       return `node ${error.nodeId} has an invalid definedInFile: ${error.detail}`;
+    case "MALFORMED_NODE":
+      return `malformed node ${error.nodeId}: ${error.detail}`;
+    case "MALFORMED_EDGE": {
+      const pair =
+        error.source !== undefined || error.target !== undefined
+          ? ` (${String(error.source)} -> ${String(error.target)})`
+          : "";
+      return `malformed edge${pair}: ${error.detail}`;
+    }
     case "NODE_NOT_FOUND":
       return `node not found: ${error.nodeId}`;
     case "EMPTY_NODE_ID":
