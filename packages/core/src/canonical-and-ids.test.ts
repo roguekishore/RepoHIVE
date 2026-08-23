@@ -181,11 +181,15 @@ test("stableStringify sorts keys at every depth, ends with a newline, omits unde
   );
 });
 
-test("compareIds is a total order consistent with < and >", () => {
+test("compareIds is a total order, byte-wise over UTF-8", () => {
   fc.assert(
     fc.property(fc.string(), fc.string(), fc.string(), (a, b, c) => {
-      // Consistency with the code-unit relational operators.
-      assert.equal(compareIds(a, b), a < b ? -1 : a > b ? 1 : 0);
+      // Consistency with the canonical order: byte-wise over the UTF-8 encoding
+      // (Gap 17). This assertion used to name the code-unit relational
+      // operators; they agree only on ASCII, which is all this generator emits.
+      // `canonical-order.test.ts` carries the non-ASCII cases that separate them.
+      const byteWise = Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+      assert.equal(compareIds(a, b), byteWise);
       // Reflexivity and antisymmetry. (`+ 0` normalizes -0: assert.equal
       // follows Object.is, which distinguishes -0 from 0.)
       assert.equal(compareIds(a, a), 0);
