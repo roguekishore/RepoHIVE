@@ -36,6 +36,33 @@ export function compareEdgePairs(
   return compareIds(a.source, b.source) || compareIds(a.target, b.target);
 }
 
+/** The signal-bearing shape {@link compareDependencyEdges} orders. */
+type EdgeLike = {
+  source: string;
+  target: string;
+  importFrequency: number;
+  methodCallFrequency: number;
+  sharedTypeCount: number;
+};
+
+/**
+ * Numeric comparison that stays a total order even on `NaN`.
+ *
+ * `a - b` is not a comparator: for a `NaN` operand it returns `NaN`, which
+ * `Array.prototype.sort` reads as "equal", so differing elements tie and the
+ * stable sort falls back to *input order*. Ordering by `<`/`>` with `NaN`
+ * placed last (and equal to itself) is antisymmetric and transitive, which is
+ * what a deterministic sort requires.
+ */
+function compareNumbers(a: number, b: number): number {
+  const aIsNaN = Number.isNaN(a);
+  const bIsNaN = Number.isNaN(b);
+  if (aIsNaN || bIsNaN) {
+    return aIsNaN && bIsNaN ? 0 : aIsNaN ? 1 : -1;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /**
  * Total-order comparator for dependency edges: (source, target) first, then
  * the full signal content as a tiebreaker. Parallel edges (same source and
@@ -43,29 +70,21 @@ export function compareEdgePairs(
  * input position — without this, a stable sort would preserve input order for
  * ties and reordered input could change downstream accumulation and output
  * (Req 7.2).
+ *
+ * The signals are coerced and compared NaN-safely rather than subtracted. Ingest
+ * now rejects non-numeric signals outright (Gap 13), but this comparator is part
+ * of `packages/core`'s public API and is reachable without passing through
+ * `ingest`, so it defends itself: a string-valued signal previously produced a
+ * `NaN` tiebreak and left parallel edges in input order — a reproduced violation
+ * of Req 7.2, the project's hardest guarantee.
  */
-export function compareDependencyEdges(
-  a: {
-    source: string;
-    target: string;
-    importFrequency: number;
-    methodCallFrequency: number;
-    sharedTypeCount: number;
-  },
-  b: {
-    source: string;
-    target: string;
-    importFrequency: number;
-    methodCallFrequency: number;
-    sharedTypeCount: number;
-  }
-): number {
+export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
   return (
     compareIds(a.source, b.source) ||
     compareIds(a.target, b.target) ||
-    a.importFrequency - b.importFrequency ||
-    a.methodCallFrequency - b.methodCallFrequency ||
-    a.sharedTypeCount - b.sharedTypeCount
+    compareNumbers(Number(a.importFrequency), Number(b.importFrequency)) ||
+    compareNumbers(Number(a.methodCallFrequency), Number(b.methodCallFrequency)) ||
+    compareNumbers(Number(a.sharedTypeCount), Number(b.sharedTypeCount))
   );
 }
 

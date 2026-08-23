@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
-import { compareIds, sortByIds, sortEdges, sortIds, stableStringify } from "./canonical.js";
+import {
+  compareDependencyEdges,
+  compareIds,
+  sortByIds,
+  sortEdges,
+  sortIds,
+  stableStringify,
+} from "./canonical.js";
 import { groupIdOf, repositoryIdOf } from "./group-id.js";
 import { seededRng } from "./community.js";
 
@@ -201,4 +208,72 @@ test("compareIds is a total order, byte-wise over UTF-8", () => {
     }),
     { numRuns: 100 }
   );
+});
+
+// --- Property: edge order never depends on input position (Gap 13) ---------
+//
+// Property 25 already covers order-independence, but it generates only
+// well-typed graphs — which is exactly why this hole survived. These generators
+// deliberately emit the contract-violating signal values that reach the
+// comparator when something upstream of `ingest` hands it raw JSON.
+
+/** Signal values including the ones that used to make the comparator tie. */
+const arbitrarySignal = fc.oneof(
+  fc.nat({ max: 5 }),
+  fc.constantFrom(0, 1, 2, 2.5, -1),
+  fc.constantFrom("1", "2", "abc"),
+  fc.constantFrom(Number.NaN, Number.POSITIVE_INFINITY),
+  fc.constantFrom(null, undefined, true),
+) as fc.Arbitrary<number>;
+
+/**
+ * Edges over a two-node id space, so parallel `(source, target)` pairs are the
+ * common case rather than a rarity — parallel edges are the whole subject here.
+ */
+const arbitraryEdges = fc.array(
+  fc.record({
+    source: fc.constantFrom("a", "b"),
+    target: fc.constantFrom("a", "b"),
+    importFrequency: arbitrarySignal,
+    methodCallFrequency: arbitrarySignal,
+    sharedTypeCount: arbitrarySignal,
+  }),
+  { minLength: 0, maxLength: 8 },
+);
+
+// Feature: hierarchical-repository-grouping, Property 35: Canonical edge order is independent of input position, whatever the signal values
+test("Property 35: edge order is input-position-independent even for malformed signals (R7.2)", () => {
+  fc.assert(
+    fc.property(arbitraryEdges, fc.nat(1_000_000), (edges, seed) => {
+      const canonical = [...edges].sort(compareDependencyEdges);
+      const fromPermutation = shuffled(edges, seed).sort(compareDependencyEdges);
+
+      // The serialized rendering is what lands in edges.json, so comparing the
+      // stringified forms is the assertion that actually pins the output bytes.
+      assert.equal(stableStringify(fromPermutation), stableStringify(canonical));
+    }),
+    { numRuns: 100 },
+  );
+});
+
+test("the comparator stays a total order on NaN and non-numeric signals", () => {
+  const edge = (imports: unknown) =>
+    ({
+      source: "a",
+      target: "b",
+      importFrequency: imports,
+      methodCallFrequency: 0,
+      sharedTypeCount: 0,
+    }) as unknown as Parameters<typeof compareDependencyEdges>[0];
+
+  // NaN compares equal to itself and sorts after every real number, rather than
+  // returning NaN — which sort() would have read as "equal", silently falling
+  // back to input order for differing elements.
+  assert.equal(compareDependencyEdges(edge(Number.NaN), edge(Number.NaN)), 0);
+  assert.ok(compareDependencyEdges(edge(Number.NaN), edge(0)) > 0);
+  assert.ok(compareDependencyEdges(edge(0), edge(Number.NaN)) < 0);
+
+  // Antisymmetry across the coercion boundary.
+  assert.ok(compareDependencyEdges(edge("1"), edge(2)) < 0);
+  assert.ok(compareDependencyEdges(edge(2), edge("1")) > 0);
 });
