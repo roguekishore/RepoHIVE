@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/",
+    "test": "node --test dist/*.test.js",
     "group": "node ./dist/group-cli.js",
     "demo:group-determinism": "node ./dist/demo-group-determinism.js",
     "demo:baselines": "node ./dist/demo-baselines.js"

@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/",
+    "test": "node --test dist/*.test.js",
     "parse": "node ./dist/parse-cli.js",
     "demo:determinism": "node ./dist/demo-determinism.js"
   },
