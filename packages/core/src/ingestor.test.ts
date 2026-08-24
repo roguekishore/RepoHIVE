@@ -162,8 +162,8 @@ test("malformed node shapes are rejected naming the node and the field (R1.7)", 
     ["empty-string id", [{ id: "", kind: "file", directoryPath: "" }], "non-empty string"],
     ["missing id", [{ kind: "file", directoryPath: "" }], "non-empty string"],
     ["numeric id", [{ id: 7, kind: "file", directoryPath: "" }], "non-empty string"],
-    ["unknown kind", [{ id: "n", kind: "module", directoryPath: "" }], "unknown kind"],
-    ["missing kind", [{ id: "n", directoryPath: "" }], "unknown kind"],
+    ["unknown kind", [{ id: "n", kind: "module", directoryPath: "" }], "not valid input"],
+    ["missing kind", [{ id: "n", directoryPath: "" }], "not valid input"],
     ["missing directoryPath", [{ id: "n", kind: "file" }], "directoryPath"],
     ["non-string directoryPath", [{ id: "n", kind: "file", directoryPath: 0 }], "directoryPath"],
     [
@@ -244,4 +244,54 @@ test("Property 36: the field gate accepts every conforming graph unchanged (R1.7
     }),
     { numRuns: 100 },
   );
+});
+
+// --- Input kinds and the file-node requirement (Gap 14) -------------------
+//
+// NodeKind legally includes `group` and `repository`, so such nodes passed
+// ingest, were silently dropped by the builder — which places only `file` nodes
+// and their definedInFile members — while every input edge was retained. The
+// result: `group` wrote an index that its own parseIndex rejects.
+
+test("group and repository kinds are rejected as input, naming the node (R1.7)", () => {
+  for (const kind of ["group", "repository"] as const) {
+    const result = ingest(
+      graphWith({
+        nodes: [
+          { id: "file:A.java", kind: "file", directoryPath: "" },
+          { id: `${kind}:X`, kind, directoryPath: "" },
+        ],
+      }),
+    );
+    assert.ok(!result.ok, `${kind} must be rejected as input`);
+    assert.equal(result.error.code, "MALFORMED_NODE");
+    assert.ok("nodeId" in result.error && result.error.nodeId === `${kind}:X`);
+    assert.ok("detail" in result.error && result.error.detail.includes("not valid input"));
+  }
+});
+
+test("a graph carrying no file node is rejected rather than yielding a childless repository", () => {
+  const result = ingest(
+    graphWith({
+      nodes: [{ id: "class:C", kind: "class", directoryPath: "", definedInFile: "file:Ghost.java" }],
+    }),
+  );
+  assert.ok(!result.ok, "a graph with no file nodes must be rejected");
+  assert.equal(result.error.code, "EMPTY_GRAPH");
+  assert.ok("detail" in result.error && result.error.detail?.includes("no file nodes"));
+});
+
+test("an index built from a rejected graph can never reference a dropped node", () => {
+  // The concrete defect: grp:X absent from nodes.json but still an edge endpoint.
+  const result = ingest(
+    graphWith({
+      nodes: [
+        { id: "file:A.java", kind: "file", directoryPath: "" },
+        { id: "grp:X", kind: "group", directoryPath: "" },
+      ],
+      edges: [edgeWith({ source: "file:A.java", target: "grp:X" })],
+    }),
+  );
+  assert.ok(!result.ok);
+  assert.equal(result.error.code, "MALFORMED_NODE");
 });

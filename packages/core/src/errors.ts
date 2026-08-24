@@ -26,7 +26,7 @@ import type { NodeId } from "@repohive/shared";
  */
 export type GroupingError =
   | { code: "NO_GRAPH" }
-  | { code: "EMPTY_GRAPH" }
+  | { code: "EMPTY_GRAPH"; detail?: string }
   | { code: "DUPLICATE_NODE"; nodeId: NodeId }
   | { code: "DANGLING_EDGE"; nodeId: NodeId }
   | { code: "INVALID_DEFINED_IN_FILE"; nodeId: NodeId; detail: string }
@@ -55,7 +55,7 @@ export function describeError(error: GroupingError): string {
     case "NO_GRAPH":
       return "no dependency graph was provided";
     case "EMPTY_GRAPH":
-      return "the dependency graph contains zero nodes";
+      return error.detail ?? "the dependency graph contains zero nodes";
     case "DUPLICATE_NODE":
       return `duplicate node identifier: ${error.nodeId}`;
     case "DANGLING_EDGE":

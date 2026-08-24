@@ -19,8 +19,18 @@ import { compareDependencyEdges, compareIds } from "./canonical.js";
 import { err, ok, type GroupingError, type Result } from "./errors.js";
 import type { DependencyModel } from "./types.js";
 
-/** The node kinds the shared contract defines. */
-const KINDS = new Set<string>(["file", "class", "function", "group", "repository"]);
+/**
+ * The node kinds a *producer* may emit.
+ *
+ * `NodeKind` also admits `group` and `repository`, but those are outputs of the
+ * hierarchy builder, not inputs to it. Accepting them meant they passed ingest,
+ * were silently dropped by the builder (which places only `file` nodes and their
+ * `definedInFile` members) while their edges were retained — so `group` wrote an
+ * index that its own `parseIndex` rejects. They have no defined input semantics,
+ * and inventing one would pre-empt the incremental-re-indexing feature that
+ * deserves its own design.
+ */
+const RAW_KINDS = new Set<string>(["file", "class", "function"]);
 
 /** The three frequency signals every edge carries (contract: DependencyEdge). */
 const SIGNALS = ["importFrequency", "methodCallFrequency", "sharedTypeCount"] as const;
@@ -53,11 +63,11 @@ function validateRawGraph(input: RawDependencyGraph): GroupingError | null {
         detail: "id must be a non-empty string",
       };
     }
-    if (!KINDS.has(node.kind)) {
+    if (!RAW_KINDS.has(node.kind)) {
       return {
         code: "MALFORMED_NODE",
         nodeId: node.id,
-        detail: `unknown kind "${String(node.kind)}"`,
+        detail: `kind "${String(node.kind)}" is not valid input (only file/class/function)`,
       };
     }
     if (typeof node.directoryPath !== "string") {
@@ -113,6 +123,12 @@ function validateRawGraph(input: RawDependencyGraph): GroupingError | null {
         detail: "strength must be a finite non-negative number when present",
       };
     }
+  }
+
+  // The hierarchy is built from `file` nodes; a graph of only class/function
+  // nodes previously succeeded and emitted a single childless repository node.
+  if (!input.nodes.some((node) => node.kind === "file")) {
+    return { code: "EMPTY_GRAPH", detail: "graph contains no file nodes" };
   }
 
   return null;
