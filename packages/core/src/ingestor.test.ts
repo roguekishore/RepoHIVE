@@ -295,3 +295,83 @@ test("an index built from a rejected graph can never reference a dropped node", 
   assert.ok(!result.ok);
   assert.equal(result.error.code, "MALFORMED_NODE");
 });
+
+// --- Parallel duplicate edges (Gap 15) ------------------------------------
+//
+// Two edges over one ordered pair were loaded as distinct edges and their
+// strengths summed independently, inflating Cohesion — reproduced at cohesion 3
+// where the single edge gives 1.5, enough to cross a boundary calibrated
+// between them. Rejecting mirrors how duplicate node ids are treated; folding
+// would contradict R1.4's "no additions and no removals".
+
+test("parallel duplicate edges are rejected naming the pair (R1.10)", () => {
+  const cases: ReadonlyArray<readonly [string, unknown[]]> = [
+    ["byte-identical duplicates", [edgeWith({}), edgeWith({})]],
+    ["same pair, differing signals", [edgeWith({}), edgeWith({ importFrequency: 4 })]],
+    [
+      "duplicated self-loop",
+      [
+        edgeWith({ target: "file:A.java" }),
+        edgeWith({ target: "file:A.java", sharedTypeCount: 2 }),
+      ],
+    ],
+  ];
+
+  for (const [label, edges] of cases) {
+    const result = ingest(graphWith({ edges }));
+    assert.ok(!result.ok, `${label} must be rejected`);
+    assert.equal(result.error.code, "DUPLICATE_EDGE", label);
+    assert.ok("source" in result.error && "target" in result.error, label);
+  }
+});
+
+test("opposite directions over the same node pair are legitimately distinct", () => {
+  const result = ingest(
+    graphWith({
+      edges: [
+        edgeWith({ source: "file:A.java", target: "file:B.java" }),
+        edgeWith({ source: "file:B.java", target: "file:A.java" }),
+      ],
+    }),
+  );
+  assert.ok(result.ok, "A->B and B->A are different ordered pairs");
+  assert.equal(result.value.edges.length, 2);
+
+  // A single self-loop stays legal too; only a duplicated one is rejected.
+  const selfLoop = ingest(graphWith({ edges: [edgeWith({ target: "file:A.java" })] }));
+  assert.ok(selfLoop.ok);
+});
+
+test("the duplicate reported is the same pair whatever the input order", () => {
+  // Two offending pairs: scanning as-given would name whichever came first, so
+  // the error value itself would depend on input position (Req 7.2).
+  const edges = [
+    edgeWith({ source: "file:B.java", target: "file:A.java" }),
+    edgeWith({ source: "file:A.java", target: "file:B.java" }),
+    edgeWith({ source: "file:B.java", target: "file:A.java" }),
+    edgeWith({ source: "file:A.java", target: "file:B.java" }),
+  ];
+
+  const forward = ingest(graphWith({ edges }));
+  const reversed = ingest(graphWith({ edges: [...edges].reverse() }));
+  assert.ok(!forward.ok && !reversed.ok);
+  assert.deepEqual(forward.error, reversed.error);
+});
+
+// Feature: hierarchical-repository-grouping, Property 37: Every accepted graph has at most one edge per ordered pair
+test("Property 37: an accepted graph never carries a parallel duplicate edge (R1.10)", () => {
+  fc.assert(
+    fc.property(arbitraryDependencyGraph(), (graph) => {
+      const result = ingest(graph);
+      assert.ok(result.ok);
+
+      // Edge multiplicity is exactly 1 per ordered pair, so the cohesion
+      // accumulator (which sums per edge) and the modularity projection (which
+      // folds parallel edges into one weighted edge) see the same graph — the
+      // fold/no-fold divergence this gap named cannot arise.
+      const pairs = new Set(result.value.edges.map((e) => `${e.source} ${e.target}`));
+      assert.equal(pairs.size, result.value.edges.length);
+    }),
+    { numRuns: 100 },
+  );
+});

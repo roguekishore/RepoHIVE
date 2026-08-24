@@ -32,6 +32,7 @@ export type GroupingError =
   | { code: "INVALID_DEFINED_IN_FILE"; nodeId: NodeId; detail: string }
   | { code: "MALFORMED_NODE"; nodeId: NodeId; detail: string }
   | { code: "MALFORMED_EDGE"; source?: NodeId; target?: NodeId; detail: string }
+  | { code: "DUPLICATE_EDGE"; source: NodeId; target: NodeId; detail: string }
   | { code: "NODE_NOT_FOUND"; nodeId: NodeId }
   | { code: "EMPTY_NODE_ID" }
   | { code: "MISSING_FILES"; files: string[] }
@@ -64,6 +65,8 @@ export function describeError(error: GroupingError): string {
       return `node ${error.nodeId} has an invalid definedInFile: ${error.detail}`;
     case "MALFORMED_NODE":
       return `malformed node ${error.nodeId}: ${error.detail}`;
+    case "DUPLICATE_EDGE":
+      return `duplicate edge ${error.source} -> ${error.target}: ${error.detail}`;
     case "MALFORMED_EDGE": {
       const pair =
         error.source !== undefined || error.target !== undefined

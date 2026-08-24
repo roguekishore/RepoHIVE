@@ -15,7 +15,7 @@
 
 import { MultiDirectedGraph } from "graphology";
 import type { GraphNode, RawDependencyGraph } from "@repohive/shared";
-import { compareDependencyEdges, compareIds } from "./canonical.js";
+import { compareDependencyEdges, compareEdgePairs, compareIds } from "./canonical.js";
 import { err, ok, type GroupingError, type Result } from "./errors.js";
 import type { DependencyModel } from "./types.js";
 
@@ -121,6 +121,33 @@ function validateRawGraph(input: RawDependencyGraph): GroupingError | null {
         source: edge.source,
         target: edge.target,
         detail: "strength must be a finite non-negative number when present",
+      };
+    }
+  }
+
+  // At most one edge per ordered pair, mirroring how duplicate node ids are
+  // treated. Two edges sharing a (source, target) pair were loaded as distinct
+  // edges and their strengths summed independently, inflating Cohesion —
+  // reproduced at cohesion 3 where the single edge gives 1.5, enough to cross a
+  // boundary calibrated between them. Folding them instead would contradict
+  // R1.4's "no additions and no removals" and silently rewrite a hand-authored
+  // fixture's numbers, so the duplicate is reported rather than repaired.
+  // Opposite directions (A→B and B→A) are legitimately distinct and accepted.
+  //
+  // Scanned in canonical order, not input order: with two offending pairs in a
+  // graph, iterating as-given would name whichever happened to come first, so
+  // the *error value itself* would depend on input position — the very thing
+  // Req 7.2 forbids.
+  const byPair = [...input.edges].sort(compareEdgePairs);
+  for (let i = 1; i < byPair.length; i++) {
+    const previous = byPair[i - 1]!;
+    const current = byPair[i]!;
+    if (previous.source === current.source && previous.target === current.target) {
+      return {
+        code: "DUPLICATE_EDGE",
+        source: current.source,
+        target: current.target,
+        detail: "at most one edge per ordered (source, target) pair",
       };
     }
   }
