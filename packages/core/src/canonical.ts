@@ -84,8 +84,25 @@ export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
     compareIds(a.target, b.target) ||
     compareNumbers(Number(a.importFrequency), Number(b.importFrequency)) ||
     compareNumbers(Number(a.methodCallFrequency), Number(b.methodCallFrequency)) ||
-    compareNumbers(Number(a.sharedTypeCount), Number(b.sharedTypeCount))
+    compareNumbers(Number(a.sharedTypeCount), Number(b.sharedTypeCount)) ||
+    // Final tiebreak on the canonical string rendering. Numeric coercion maps
+    // distinct values onto one number — `"1"`, `1` and `true` all become 1,
+    // `null` and `0` both become 0 — so comparing only the coerced numbers
+    // leaves genuinely different edges tied, and a stable sort then falls back
+    // to input order: the same Req 7.2 hole in a smaller shape. For conforming
+    // input every signal is already an integer, so this never fires and no
+    // output byte moves.
+    compareIds(renderSignals(a), renderSignals(b))
   );
+}
+
+/** The three signals as one canonical string, for the total-order tiebreak. */
+function renderSignals(edge: EdgeLike): string {
+  return JSON.stringify([
+    String(edge.importFrequency),
+    String(edge.methodCallFrequency),
+    String(edge.sharedTypeCount),
+  ]);
 }
 
 /** Return a new array sorted by node/entity id. */
