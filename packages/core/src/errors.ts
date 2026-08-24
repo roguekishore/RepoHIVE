@@ -38,7 +38,8 @@ export type GroupingError =
   | { code: "MISSING_FILES"; files: string[] }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
   | { code: "WRITE_FAILED"; file: string }
-  | { code: "INVALID_CONFIG"; detail: string };
+  | { code: "INVALID_CONFIG"; detail: string }
+  | { code: "INTERNAL_ERROR"; detail: string };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: GroupingError };
 
@@ -86,5 +87,7 @@ export function describeError(error: GroupingError): string {
       return `could not write index file: ${error.file}`;
     case "INVALID_CONFIG":
       return `invalid configuration: ${error.detail}`;
+    case "INTERNAL_ERROR":
+      return `internal error: ${error.detail}`;
   }
 }

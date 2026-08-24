@@ -86,11 +86,39 @@ export interface PartialGroupingConfig {
   hierarchy?: Partial<HierarchyConfig>;
 }
 
+/**
+ * Convert an unexpected throw into a structured error.
+ *
+ * The engine promises errors-as-values, but a reachable path could still throw
+ * — a `null` element in an untrusted `graph.json` raised a `TypeError` straight
+ * out of `ingest` — and a thrown error crosses every boundary uncaught, taking
+ * the whole run with it. One backstop per public entry point makes the promise
+ * total: no future invariant violation can escape as a stack trace.
+ */
+function internalError(cause: unknown): Result<never> {
+  return err({
+    code: "INTERNAL_ERROR",
+    detail: cause instanceof Error ? cause.message : String(cause),
+  });
+}
+
 /** Run the full in-memory pipeline over a raw dependency graph. */
 export function groupGraph(
   input: RawDependencyGraph | null | undefined,
   partialConfig?: PartialGroupingConfig,
   detector: CommunityDetector = new LouvainCommunityDetector()
+): Result<GroupingOutput> {
+  try {
+    return groupGraphUnguarded(input, partialConfig, detector);
+  } catch (cause) {
+    return internalError(cause);
+  }
+}
+
+function groupGraphUnguarded(
+  input: RawDependencyGraph | null | undefined,
+  partialConfig: PartialGroupingConfig | undefined,
+  detector: CommunityDetector
 ): Result<GroupingOutput> {
   const config = resolveConfig(partialConfig);
 
@@ -135,9 +163,13 @@ export function groupGraphToIndex(
   if (!output.ok) {
     return output;
   }
-  const written = serializeIndex(output.value.hierarchy, output.value.metadata, outDir);
-  if (!written.ok) {
-    return written;
+  try {
+    const written = serializeIndex(output.value.hierarchy, output.value.metadata, outDir);
+    if (!written.ok) {
+      return written;
+    }
+  } catch (cause) {
+    return internalError(cause);
   }
   return output;
 }
@@ -156,4 +188,6 @@ export function readGraphFile(path: string): Result<RawDependencyGraph> {
   } catch (cause) {
     return err({ code: "MALFORMED_FILE", file: path, detail: `invalid JSON: ${String(cause)}` });
   }
+  // Element shapes are not checked here: `ingest` is the gate that validates
+  // them (R1.7), and it is the only consumer of this value.
 }
