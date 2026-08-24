@@ -39,6 +39,8 @@ export type ParseErrorReason =
   | "file-unreadable" // R10.2
   | "file-unparseable" // R10.1
   | "duplicate-node-id" // R3.12 — two distinct declarations produce the same id
+  | "path-unsupported" // R10.2 — path cannot be represented as a portable node id
+  | "internal-error" // R10.6 — an unexpected throw, converted at the boundary
   | "output-unwritable"; // R8.4, R8.5
 
 /**

@@ -22,9 +22,11 @@ import fc from "fast-check";
 import {
   collectSourceFiles,
   DEFAULT_EXCLUDED_SEGMENTS,
+  isRepresentablePosixRelative,
   type CollectorDeps,
   type DirentLike,
 } from "./source-collector.js";
+import type { ParseError } from "./errors.js";
 
 // --------------------------------------------------------------------------
 // In-memory filesystem for deterministic, OS-independent unit/property tests.
@@ -465,4 +467,54 @@ test("a custom excluded segment is skipped alongside the defaults", async () => 
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.deepEqual(result.value.map((f) => f.relativePath), ["src/A.java"]);
+});
+
+// --------------------------------------------------------------------------
+// Unrepresentable paths are recoverable, not fatal (Fix 2 — Gap 3).
+//
+// A backslash is a legal character in a Linux filename. It reached
+// `assertRootRelativePosixPath` in ids.ts, which threw — and `extract` wraps
+// its call in try/finally with no catch — so one oddly-named file crashed the
+// whole run with a raw stack trace.
+// --------------------------------------------------------------------------
+
+test("a path that cannot become a node id is reported and the walk continues", async () => {
+  const model = buildModel([
+    { path: "src/Good.java", leafType: "file" },
+    { path: "src/we\\ird.java", leafType: "file" },
+    { path: "src/Also.java", leafType: "file" },
+  ]);
+
+  const unsupported: ParseError[] = [];
+  const result = await collectSourceFiles(
+    { absolutePath: BASE },
+    memDeps(BASE, model),
+    { onUnsupportedPath: (error) => unsupported.push(error) },
+  );
+
+  // Recoverable: the run is not fatal and the other files are still collected.
+  assert.ok(result.ok, "an unrepresentable path must not fail collection");
+  assert.deepEqual(
+    result.value.map((f) => f.relativePath),
+    ["src/Also.java", "src/Good.java"],
+  );
+
+  // Named: the error carries the reason and the offending path.
+  assert.equal(unsupported.length, 1);
+  assert.equal(unsupported[0]!.reason, "path-unsupported");
+  assert.equal(unsupported[0]!.path, "src/we\\ird.java");
+  assert.match(unsupported[0]!.message, /portable node identifier/);
+});
+
+test("isRepresentablePosixRelative holds exactly the id guards' predicates", () => {
+  assert.ok(isRepresentablePosixRelative("src/com/A.java"));
+  assert.ok(isRepresentablePosixRelative("A.java"));
+
+  assert.ok(!isRepresentablePosixRelative(""), "empty");
+  assert.ok(!isRepresentablePosixRelative("src\\A.java"), "backslash");
+  assert.ok(!isRepresentablePosixRelative("/src/A.java"), "leading slash");
+  assert.ok(!isRepresentablePosixRelative("C:/src/A.java"), "drive letter");
+
+  // A colon that is not a drive-letter prefix stays legal.
+  assert.ok(isRepresentablePosixRelative("src/od:d.java"));
 });
