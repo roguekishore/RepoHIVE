@@ -56,8 +56,23 @@ export function analyzeBlastRadius(hierarchy: Hierarchy, nodeId: NodeId | null |
 
   const groupNodes = new Set<NodeId>();
   for (const impacted of visited) {
+    // The ancestor climb needs its own visited set. The dependency-edge
+    // traversal above has one, but containment was assumed acyclic — so a
+    // Hierarchy whose parentId links form a cycle sent this loop round forever
+    // (Gap 11). `analyzeBlastRadius` is public API over a plain Hierarchy value,
+    // so it cannot assume its input came from `buildHierarchy`.
+    //
+    // Breaking rather than erroring is deliberate: Req 10.3/10.4 enumerate only
+    // "not found" and "empty id" failures, so a new error code for malformed
+    // containment would exceed the spec — while terminating is exactly what
+    // Req 10.7 demands.
+    const climbed = new Set<NodeId>([impacted]);
     let node = hierarchy.nodes.get(impacted);
     while (node && node.parentId !== null) {
+      if (climbed.has(node.parentId)) {
+        break;
+      }
+      climbed.add(node.parentId);
       const parent = hierarchy.nodes.get(node.parentId);
       if (parent?.kind === "group") {
         groupNodes.add(parent.id);
