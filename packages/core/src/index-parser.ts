@@ -30,6 +30,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Hierarchy depth: the deepest level present, matching the builder's measure. */
+function depthOf(nodes: ReadonlyMap<NodeId, HierarchyNode>): number {
+  let maxLevel = 0;
+  for (const node of nodes.values()) {
+    if (node.level > maxLevel) {
+      maxLevel = node.level;
+    }
+  }
+  return maxLevel;
+}
+
 export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata: Metadata }> {
   const missing = INDEX_FILE_NAMES.filter((name) => !existsSync(join(dir, name)));
   if (missing.length > 0) {
@@ -302,7 +313,12 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   }
 
   // --- repository.json + metadata.json --------------------------------------
-  const repositoryDoc = raw["repository.json"] as { repositoryId?: unknown; hierarchyDepth?: unknown };
+  const repositoryDoc = raw["repository.json"] as {
+    repositoryId?: unknown;
+    hierarchyDepth?: unknown;
+    nodeCount?: unknown;
+    edgeCount?: unknown;
+  };
   if (typeof repositoryDoc?.repositoryId !== "string" || typeof repositoryDoc.hierarchyDepth !== "number") {
     return err({ code: "MALFORMED_FILE", file: "repository.json", detail: "missing repositoryId or hierarchyDepth" });
   }
@@ -381,6 +397,30 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
           detail: `per-level ${field} must be a non-negative integer, got ${String(value)}`,
         });
       }
+    }
+  }
+
+  // Count invariants across the file set (Gap 10). Each file was individually
+  // well-formed even when a partial write left old and new files side by side,
+  // so the mixture was only ever detectable by cross-checking the counts one
+  // file states against the hierarchy another file describes.
+  const totalEdges = leafEdges.length + crossGroupEdges.length;
+  const countChecks: ReadonlyArray<readonly [string, string, number, number]> = [
+    ["repository.json", "nodeCount", repositoryDoc.nodeCount as number, nodes.size],
+    ["repository.json", "edgeCount", repositoryDoc.edgeCount as number, totalEdges],
+    ["repository.json", "hierarchyDepth", repositoryDoc.hierarchyDepth, depthOf(nodes)],
+    ["metadata.json", "nodeCount", metadata.nodeCount, nodes.size],
+    ["metadata.json", "edgeCount", metadata.edgeCount, totalEdges],
+    ["metadata.json", "hierarchyDepth", metadata.hierarchyDepth, repositoryDoc.hierarchyDepth],
+    ["metadata.json", "totalCrossGroupEdges", metadata.totalCrossGroupEdges, crossGroupEdges.length],
+  ];
+  for (const [file, field, stated, actual] of countChecks) {
+    if (stated !== actual) {
+      return err({
+        code: "MALFORMED_FILE",
+        file,
+        detail: `${field} is ${stated} but the parsed index has ${actual} — the file set is inconsistent`,
+      });
     }
   }
 

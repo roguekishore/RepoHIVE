@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc from "fast-check";
 import type { RawDependencyGraph } from "@repohive/shared";
-import { INDEX_FILE_NAMES, serializeIndex } from "./index-serializer.js";
+import {
+  INDEX_FILE_NAMES,
+  serializeIndex,
+  type IndexSerializerDeps,
+} from "./index-serializer.js";
 import { parseIndex } from "./index-parser.js";
 import { groupGraph, type GroupingOutput } from "./orchestrator.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
@@ -628,4 +642,260 @@ test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)",
     }),
     { numRuns: 100 },
   );
+});
+
+// --- The five-file write is all-or-nothing (Gap 10) -----------------------
+//
+// Writing the five files in sequence meant a failure partway through left some
+// new files beside some old ones — and parseIndex accepted the mixture, because
+// each file was individually well-formed. Reproduced with a read-only
+// metadata.json: repository/hierarchy/nodes/edges were replaced and metadata
+// was not, so the index described one hierarchy with another's parameters.
+
+/** Real-filesystem deps, with the k-th write (1-based) forced to fail. */
+function depsFailingWriteAt(k: number): IndexSerializerDeps {
+  let writes = 0;
+  return {
+    mkdirSync: (p) => mkdirSync(p, { recursive: true }),
+    writeFileSync: (p, data) => {
+      writes += 1;
+      if (writes === k) {
+        throw new Error(`injected write failure at ${k}`);
+      }
+      writeFileSync(p, data, "utf8");
+    },
+    renameSync: (from, to) => renameSync(from, to),
+    rmSync: (p) => rmSync(p, { recursive: true, force: true }),
+    existsSync: (p) => existsSync(p),
+    assertWritable: () => undefined,
+  };
+}
+
+/** Snapshot every file in `dir` as name → content. */
+function snapshot(dir: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const name of readdirSync(dir)) {
+    out.set(name, readFileSync(join(dir, name), "utf8"));
+  }
+  return out;
+}
+
+const smallGraph: RawDependencyGraph = {
+  nodes: [
+    { id: "file:p/A.java", kind: "file", packagePath: "p", directoryPath: "p" },
+    { id: "file:p/B.java", kind: "file", packagePath: "p", directoryPath: "p" },
+  ],
+  edges: [
+    {
+      source: "file:p/A.java",
+      target: "file:p/B.java",
+      importFrequency: 4,
+      methodCallFrequency: 0,
+      sharedTypeCount: 0,
+    },
+  ],
+};
+
+test("a failure at any staging position leaves a fresh target untouched", () => {
+  const output = runPipeline(smallGraph);
+
+  for (let k = 1; k <= INDEX_FILE_NAMES.length; k++) {
+    const parent = mkdtempSync(join(tmpdir(), "repohive-atomic-"));
+    const dir = join(parent, "index");
+    try {
+      const result = serializeIndex(output.hierarchy, output.metadata, dir, depsFailingWriteAt(k));
+      assert.ok(!result.ok, `failure at write ${k} must be reported`);
+      assert.equal(result.error.code, "WRITE_FAILED");
+
+      // Nothing was created at the target at all.
+      assert.equal(existsSync(dir), false, `target must not exist after failure at ${k}`);
+      // And no staging directory was left behind.
+      assert.deepEqual(readdirSync(parent), [], `no leftovers after failure at ${k}`);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a failure at any staging position leaves a previous index byte-identical", () => {
+  const first = runPipeline(smallGraph);
+  // A second, genuinely different hierarchy, so a partial write would show.
+  const second = runPipeline({
+    nodes: [
+      ...smallGraph.nodes,
+      { id: "file:q/C.java", kind: "file", packagePath: "q", directoryPath: "q" },
+    ],
+    edges: smallGraph.edges,
+  });
+
+  for (let k = 1; k <= INDEX_FILE_NAMES.length; k++) {
+    const parent = mkdtempSync(join(tmpdir(), "repohive-atomic-prev-"));
+    const dir = join(parent, "index");
+    try {
+      assert.ok(serializeIndex(first.hierarchy, first.metadata, dir).ok);
+      const before = snapshot(dir);
+
+      const result = serializeIndex(second.hierarchy, second.metadata, dir, depsFailingWriteAt(k));
+      assert.ok(!result.ok, `failure at write ${k} must be reported`);
+
+      const after = snapshot(dir);
+      assert.deepEqual(after, before, `previous index must survive a failure at ${k}`);
+
+      // The surviving index is still internally consistent.
+      assert.ok(parseIndex(dir).ok);
+      // No staging directory left behind.
+      assert.deepEqual(readdirSync(parent), ["index"]);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a failure during promotion leaves the previous index intact", () => {
+  const first = runPipeline(smallGraph);
+  const second = runPipeline({
+    nodes: [
+      ...smallGraph.nodes,
+      { id: "file:q/C.java", kind: "file", packagePath: "q", directoryPath: "q" },
+    ],
+    edges: smallGraph.edges,
+  });
+
+  const parent = mkdtempSync(join(tmpdir(), "repohive-promote-"));
+  const dir = join(parent, "index");
+  try {
+    assert.ok(serializeIndex(first.hierarchy, first.metadata, dir).ok);
+    const before = snapshot(dir);
+
+    let renames = 0;
+    const result = serializeIndex(second.hierarchy, second.metadata, dir, {
+      mkdirSync: (p) => mkdirSync(p, { recursive: true }),
+      writeFileSync: (p, data) => writeFileSync(p, data, "utf8"),
+      renameSync: (from, to) => {
+        renames += 1;
+        if (renames === 3) {
+          throw new Error("injected promotion failure");
+        }
+        renameSync(from, to);
+      },
+      rmSync: (p) => rmSync(p, { recursive: true, force: true }),
+      existsSync: (p) => existsSync(p),
+      assertWritable: () => undefined,
+    });
+
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "WRITE_FAILED");
+    assert.ok("detail" in result.error && result.error.detail?.includes("promotion failed"));
+    // The staging directory is cleaned up even on the promotion path.
+    assert.deepEqual(readdirSync(parent), ["index"]);
+    // Promotion is the only phase that can leave a mixture; two of five files
+    // were renamed before the injected failure, so record what actually
+    // survives rather than claiming more than the mechanism guarantees.
+    const after = snapshot(dir);
+    assert.equal(after.size, before.size, "the five files still exist");
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("a read-only member file is detected before the target is touched", () => {
+  const first = runPipeline(smallGraph);
+  const parent = mkdtempSync(join(tmpdir(), "repohive-readonly-"));
+  const dir = join(parent, "index");
+  try {
+    assert.ok(serializeIndex(first.hierarchy, first.metadata, dir).ok);
+    const before = snapshot(dir);
+
+    const result = serializeIndex(first.hierarchy, first.metadata, dir, {
+      mkdirSync: (p) => mkdirSync(p, { recursive: true }),
+      writeFileSync: (p, data) => writeFileSync(p, data, "utf8"),
+      renameSync: (from, to) => renameSync(from, to),
+      rmSync: (p) => rmSync(p, { recursive: true, force: true }),
+      existsSync: (p) => existsSync(p),
+      assertWritable: (p) => {
+        if (p.endsWith("metadata.json")) {
+          throw new Error("EACCES: permission denied");
+        }
+      },
+    });
+
+    assert.ok(!result.ok, "a read-only member must fail the whole write");
+    assert.equal(result.error.code, "WRITE_FAILED");
+    assert.ok("detail" in result.error && result.error.detail?.includes("not writable"));
+    assert.deepEqual(snapshot(dir), before, "the entire previous index must be intact");
+    assert.deepEqual(readdirSync(parent), ["index"], "no staging directory left behind");
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+// Feature: hierarchical-repository-grouping, Property 41: Index writes are all-or-nothing
+test("Property 41: a staging failure at any position leaves the target unchanged (R9.8)", () => {
+  fc.assert(
+    fc.property(
+      arbitraryDependencyGraph({ maxFiles: 5, maxEdges: 8 }),
+      fc.integer({ min: 1, max: INDEX_FILE_NAMES.length }),
+      (graph, k) => {
+        const output = runPipeline(graph);
+        const parent = mkdtempSync(join(tmpdir(), "repohive-prop-atomic-"));
+        const dir = join(parent, "index");
+        try {
+          assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+          const before = snapshot(dir);
+
+          const result = serializeIndex(
+            output.hierarchy,
+            output.metadata,
+            dir,
+            depsFailingWriteAt(k),
+          );
+          assert.ok(!result.ok);
+          assert.deepEqual(snapshot(dir), before);
+        } finally {
+          rmSync(parent, { recursive: true, force: true });
+        }
+      },
+    ),
+    { numRuns: 100 },
+  );
+});
+
+test("a count mismatch across the file set is rejected — the mixed-index signature", () => {
+  const output = runPipeline(smallGraph);
+
+  const tamperAndParse = (
+    file: string,
+    mutate: (doc: Record<string, unknown>) => void,
+  ): ReturnType<typeof parseIndex> => {
+    const dir = mkdtempSync(join(tmpdir(), "repohive-counts-"));
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, file), "utf8")) as Record<string, unknown>;
+      mutate(doc);
+      writeFileSync(join(dir, file), JSON.stringify(doc), "utf8");
+      return parseIndex(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  // Each of these is what a half-written index looks like: every file is
+  // individually well-formed, but they describe different hierarchies.
+  const cases: ReadonlyArray<readonly [string, string, (doc: Record<string, unknown>) => void]> = [
+    ["repository.json", "nodeCount", (doc) => { doc.nodeCount = 99; }],
+    ["repository.json", "edgeCount", (doc) => { doc.edgeCount = 99; }],
+    ["metadata.json", "nodeCount", (doc) => { doc.nodeCount = 99; }],
+    ["metadata.json", "edgeCount", (doc) => { doc.edgeCount = 99; }],
+    ["metadata.json", "hierarchyDepth", (doc) => { doc.hierarchyDepth = 99; }],
+    ["metadata.json", "totalCrossGroupEdges", (doc) => { doc.totalCrossGroupEdges = 99; }],
+  ];
+
+  for (const [file, field, mutate] of cases) {
+    const parsed = tamperAndParse(file, mutate);
+    const label = `${file}#${field}`;
+    assert.ok(!parsed.ok, `${label} mismatch must be rejected`);
+    assert.equal(parsed.error.code, "MALFORMED_FILE", label);
+    assert.ok("file" in parsed.error && parsed.error.file === file, label);
+    assert.ok("detail" in parsed.error && parsed.error.detail.includes(field), label);
+  }
 });
