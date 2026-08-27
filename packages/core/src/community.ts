@@ -54,7 +54,13 @@ export function seededRng(seed: number): () => number {
 
 export class LouvainCommunityDetector implements CommunityDetector {
   detect(subgraph: CommunitySubgraph, seed: number): CommunityAssignment {
-    const nodeIds = sortIds(subgraph.nodeIds);
+    // Enforce graphology's preconditions here rather than discovering them as a
+    // thrown UsageGraphError from inside the library (Fix 2 — Gap 3): a repeated
+    // node id makes `addNode` throw, and an edge naming a node outside the
+    // subgraph makes `addEdge` throw. Both are caller mistakes, but a throw from
+    // this depth escapes the Result model entirely, so normalize instead.
+    const nodeIds = sortIds([...new Set(subgraph.nodeIds)]);
+    const known = new Set(nodeIds);
 
     // Degenerate subgraphs: Louvain needs edges to find structure. With no
     // internal edges there is no dependency signal to rebuild from, so the
@@ -68,6 +74,12 @@ export class LouvainCommunityDetector implements CommunityDetector {
       (a, b) => compareIds(a.source, b.source) || compareIds(a.target, b.target)
     )) {
       if (edge.source === edge.target) {
+        continue;
+      }
+      // An endpoint outside the subgraph contributes no intra-Region signal.
+      // Dropping it degrades gracefully: if nothing usable is left, the
+      // degenerate check below returns the single-community assignment.
+      if (!known.has(edge.source) || !known.has(edge.target)) {
         continue;
       }
       if (graph.hasEdge(edge.source, edge.target)) {
