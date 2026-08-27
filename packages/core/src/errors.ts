@@ -37,7 +37,7 @@ export type GroupingError =
   | { code: "EMPTY_NODE_ID" }
   | { code: "MISSING_FILES"; files: string[] }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
-  | { code: "WRITE_FAILED"; file: string }
+  | { code: "WRITE_FAILED"; file: string; detail?: string }
   | { code: "INVALID_CONFIG"; detail: string }
   | { code: "INTERNAL_ERROR"; detail: string };
 
@@ -84,7 +84,9 @@ export function describeError(error: GroupingError): string {
     case "MALFORMED_FILE":
       return `malformed index file ${error.file}: ${error.detail}`;
     case "WRITE_FAILED":
-      return `could not write index file: ${error.file}`;
+      return error.detail === undefined
+        ? `could not write index file: ${error.file}`
+        : `could not write index file ${error.file}: ${error.detail}`;
     case "INVALID_CONFIG":
       return `invalid configuration: ${error.detail}`;
     case "INTERNAL_ERROR":
