@@ -364,3 +364,68 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
     "metadata.json"
   );
 });
+
+// --- A null array element must not escape as a throw (Fix 2 — Gap 3) -------
+//
+// Every validation loop in parseIndex reads `entry.<field>`. JSON.parse happily
+// yields `null` inside an array, so a null element raised a TypeError straight
+// out of parseIndex, escaping the Result model the error taxonomy rests on.
+
+test("a null element in any validated array yields MALFORMED_FILE, never a throw", () => {
+  const graph: RawDependencyGraph = {
+    nodes: [
+      { id: "file:a/A.java", kind: "file", packagePath: "a", directoryPath: "a" },
+      { id: "file:a/B.java", kind: "file", packagePath: "a", directoryPath: "a" },
+    ],
+    edges: [
+      {
+        source: "file:a/A.java",
+        target: "file:a/B.java",
+        importFrequency: 2,
+        methodCallFrequency: 0,
+        sharedTypeCount: 0,
+      },
+    ],
+  };
+  const output = runPipeline(graph);
+
+  /** Replace one array's contents with a hostile element list, then parse. */
+  const parseWithElement = (
+    file: string,
+    arrayPath: string,
+    element: unknown,
+  ): ReturnType<typeof parseIndex> => {
+    const dir = mkdtempSync(join(tmpdir(), "repohive-null-elem-"));
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, file), "utf8")) as Record<string, unknown>;
+      const target = doc[arrayPath] as unknown[];
+      target[0] = element;
+      writeFileSync(join(dir, file), JSON.stringify(doc), "utf8");
+      return parseIndex(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  const targets: ReadonlyArray<readonly [string, string]> = [
+    ["hierarchy.json", "nodes"],
+    ["nodes.json", "nodes"],
+    ["edges.json", "leafEdges"],
+    ["metadata.json", "regionDecisions"],
+    ["metadata.json", "perLevel"],
+  ];
+
+  for (const [file, arrayPath] of targets) {
+    for (const element of [null, 42, "text", true]) {
+      let parsed: ReturnType<typeof parseIndex> | undefined;
+      const label = `${file}#${arrayPath} = ${JSON.stringify(element)}`;
+      assert.doesNotThrow(() => {
+        parsed = parseWithElement(file, arrayPath, element);
+      }, label);
+      assert.ok(parsed !== undefined && !parsed.ok, label);
+      assert.equal(parsed.error.code, "MALFORMED_FILE", label);
+      assert.ok("file" in parsed.error && parsed.error.file === file, label);
+    }
+  }
+});

@@ -14,6 +14,18 @@ import { err, ok, type Result } from "./errors.js";
 import { INDEX_FILE_NAMES } from "./index-serializer.js";
 import type { CrossGroupEdge, Hierarchy, HierarchyNode, Metadata } from "./types.js";
 
+/**
+ * Whether a parsed JSON array element can have its fields read.
+ *
+ * `JSON.parse` happily yields `null` and primitives inside an array, and every
+ * validation loop below reads `entry.<field>` — so a `null` element raised a
+ * `TypeError` straight out of `parseIndex`, escaping the Result model that the
+ * whole error taxonomy is built on (Fix 2 — Gap 3).
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata: Metadata }> {
   const missing = INDEX_FILE_NAMES.filter((name) => !existsSync(join(dir, name)));
   if (missing.length > 0) {
@@ -41,7 +53,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "missing repositoryId or nodes" });
   }
   const nodes = new Map<NodeId, HierarchyNode>();
-  for (const entry of hierarchyDoc.nodes as Array<Record<string, unknown>>) {
+  for (const entry of hierarchyDoc.nodes as unknown[]) {
+    if (!isRecord(entry)) {
+      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "node entry is not an object" });
+    }
     if (
       typeof entry.id !== "string" ||
       typeof entry.kind !== "string" ||
@@ -108,7 +123,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   }
   const leafAttributes = new Map<NodeId, GraphNode>();
   const seenNodeEntries = new Set<NodeId>();
-  for (const entry of nodesDoc.nodes as Array<Record<string, unknown>>) {
+  for (const entry of nodesDoc.nodes as unknown[]) {
+    if (!isRecord(entry)) {
+      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "node entry is not an object" });
+    }
     if (typeof entry.id !== "string" || typeof entry.kind !== "string") {
       return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "node entry missing a required field" });
     }
@@ -136,7 +154,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "missing leafEdges or crossGroupEdges" });
   }
   const leafEdges: Hierarchy["leafEdges"] = [];
-  for (const entry of edgesDoc.leafEdges as Array<Record<string, unknown>>) {
+  for (const entry of edgesDoc.leafEdges as unknown[]) {
+    if (!isRecord(entry)) {
+      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "leaf edge entry is not an object" });
+    }
     if (
       typeof entry.source !== "string" ||
       typeof entry.target !== "string" ||
@@ -164,7 +185,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     });
   }
   const crossGroupEdges: CrossGroupEdge[] = [];
-  for (const entry of edgesDoc.crossGroupEdges as Array<Record<string, unknown>>) {
+  for (const entry of edgesDoc.crossGroupEdges as unknown[]) {
+    if (!isRecord(entry)) {
+      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "cross-group edge entry is not an object" });
+    }
     if (
       typeof entry.source !== "string" ||
       typeof entry.target !== "string" ||
@@ -202,6 +226,9 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   }
 
   const metadata = raw["metadata.json"] as Metadata;
+  if (!isRecord(metadata)) {
+    return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "document is not an object" });
+  }
   if (
     typeof metadata?.structuralQualityBoundary !== "number" ||
     typeof metadata.cohesionSquashConstant !== "number" ||
@@ -219,7 +246,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   ) {
     return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "missing a required field" });
   }
-  for (const decision of metadata.regionDecisions as unknown as Array<Record<string, unknown>>) {
+  for (const decision of metadata.regionDecisions as unknown as unknown[]) {
+    if (!isRecord(decision)) {
+      return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "region decision is not an object" });
+    }
     if (
       typeof decision.regionId !== "string" ||
       typeof decision.cohesion !== "number" ||
@@ -233,7 +263,10 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "region decision missing a required field" });
     }
   }
-  for (const level of metadata.perLevel as unknown as Array<Record<string, unknown>>) {
+  for (const level of metadata.perLevel as unknown as unknown[]) {
+    if (!isRecord(level)) {
+      return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "per-level entry is not an object" });
+    }
     if (
       typeof level.level !== "number" ||
       typeof level.groupNodeCount !== "number" ||
