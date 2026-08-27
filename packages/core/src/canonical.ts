@@ -96,12 +96,25 @@ export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
   );
 }
 
-/** The three signals as one canonical string, for the total-order tiebreak. */
+/**
+ * The three signals as one canonical string, for the total-order tiebreak.
+ *
+ * Rendered with `JSON.stringify`, deliberately: the tiebreak has to be exactly
+ * as discriminating as {@link stableStringify}, which is what decides the output
+ * bytes. `String` is not — it maps `"2"` and `2` onto the same text while the
+ * serializer emits `"2"` and `2`, so the comparator tied on two edges that
+ * serialize differently and input order broke the tie. Where the serializer
+ * cannot tell two values apart either (`NaN` and `Infinity` both emit `null`),
+ * a tie here is harmless, because the rendered output is identical anyway.
+ * `undefined` stringifies to the value `undefined`, which `String` renders as
+ * `"undefined"` — distinct from `"null"`, matching the serializer's rule that an
+ * `undefined` entry is omitted rather than emitted as null.
+ */
 function renderSignals(edge: EdgeLike): string {
   return JSON.stringify([
-    String(edge.importFrequency),
-    String(edge.methodCallFrequency),
-    String(edge.sharedTypeCount),
+    String(JSON.stringify(edge.importFrequency)),
+    String(JSON.stringify(edge.methodCallFrequency)),
+    String(JSON.stringify(edge.sharedTypeCount)),
   ]);
 }
 
