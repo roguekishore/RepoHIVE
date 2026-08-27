@@ -10,9 +10,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GraphNode, NodeId } from "@repohive/shared";
+import { compareIds } from "./canonical.js";
 import { err, ok, type Result } from "./errors.js";
 import { INDEX_FILE_NAMES } from "./index-serializer.js";
 import type { CrossGroupEdge, Hierarchy, HierarchyNode, Metadata } from "./types.js";
+
+/** The node kinds a hierarchy may contain (contract: NodeKind). */
+const HIERARCHY_KINDS = new Set<string>(["file", "class", "function", "group", "repository"]);
 
 /**
  * Whether a parsed JSON array element can have its fields read.
@@ -68,6 +72,20 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     ) {
       return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "node entry missing a required field" });
     }
+    if (!HIERARCHY_KINDS.has(entry.kind)) {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "hierarchy.json",
+        detail: `unknown node kind "${entry.kind}" on ${entry.id}`,
+      });
+    }
+    if (entry.level < 0) {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "hierarchy.json",
+        detail: `node ${entry.id} has a negative level ${entry.level}`,
+      });
+    }
     if (nodes.has(entry.id)) {
       return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: `duplicate node entry: ${entry.id}` });
     }
@@ -109,6 +127,70 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     }
   }
 
+  // Global tree validation (Gap 11). The pairwise checks above prove every link
+  // points somewhere real, but they say nothing about the shape as a whole: a
+  // two-node mutual parent cycle satisfies every one of them, and parseIndex
+  // accepted it — after which analyzeBlastRadius's ancestor climb never
+  // terminated. Cycle-freedom, single-rootedness, reachability and level
+  // monotonicity all fall out of one BFS, so this is a single pass rather than
+  // four separate checks.
+  const roots = [...nodes.values()].filter((node) => node.parentId === null);
+  if (roots.length !== 1 || roots[0]!.id !== hierarchyDoc.repositoryId) {
+    return err({
+      code: "MALFORMED_FILE",
+      file: "hierarchy.json",
+      detail: `expected exactly one root equal to repositoryId, found ${roots.length}`,
+    });
+  }
+
+  const seen = new Set<NodeId>([hierarchyDoc.repositoryId]);
+  const queue: NodeId[] = [hierarchyDoc.repositoryId];
+  while (queue.length > 0) {
+    const node = nodes.get(queue.shift()!)!;
+    const childIds = node.childIds;
+    for (let i = 0; i < childIds.length; i++) {
+      const childId = childIds[i]!;
+      if (i > 0 && compareIds(childIds[i - 1]!, childId) >= 0) {
+        // Req 7.5's canonical child ordering is a checkable invariant, and
+        // requiring it strictly also rejects duplicates within one childIds.
+        return err({
+          code: "MALFORMED_FILE",
+          file: "hierarchy.json",
+          detail: `children of ${node.id} are not strictly ascending at ${childId}`,
+        });
+      }
+      if (seen.has(childId)) {
+        // A tree is exactly "every node reached once from a single root", so
+        // this one test catches both a containment cycle and a shared child
+        // (a DAG that is not a tree).
+        return err({
+          code: "MALFORMED_FILE",
+          file: "hierarchy.json",
+          detail: `containment cycle or shared child at ${childId}`,
+        });
+      }
+      const child = nodes.get(childId)!; // existence already verified pairwise
+      if (child.level !== node.level + 1) {
+        return err({
+          code: "MALFORMED_FILE",
+          file: "hierarchy.json",
+          detail: `child ${childId} has level ${child.level}, expected ${node.level + 1}`,
+        });
+      }
+      seen.add(childId);
+      queue.push(childId);
+    }
+  }
+  if (seen.size !== nodes.size) {
+    // Catches disconnected components, including a cycle that the BFS never
+    // reaches from the root and so could not have detected above.
+    return err({
+      code: "MALFORMED_FILE",
+      file: "hierarchy.json",
+      detail: `${nodes.size - seen.size} node(s) are unreachable from the repository root`,
+    });
+  }
+
   // --- nodes.json → leaf attributes ----------------------------------------
   const nodesDoc = raw["nodes.json"] as { nodes?: unknown };
   if (!Array.isArray(nodesDoc?.nodes)) {
@@ -129,6 +211,13 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     }
     if (typeof entry.id !== "string" || typeof entry.kind !== "string") {
       return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "node entry missing a required field" });
+    }
+    if (!HIERARCHY_KINDS.has(entry.kind)) {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "nodes.json",
+        detail: `unknown node kind "${entry.kind}" on ${entry.id}`,
+      });
     }
     if (!nodes.has(entry.id)) {
       return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: `unknown node id ${entry.id}` });
@@ -217,6 +306,13 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   if (typeof repositoryDoc?.repositoryId !== "string" || typeof repositoryDoc.hierarchyDepth !== "number") {
     return err({ code: "MALFORMED_FILE", file: "repository.json", detail: "missing repositoryId or hierarchyDepth" });
   }
+  if (!Number.isInteger(repositoryDoc.hierarchyDepth) || repositoryDoc.hierarchyDepth < 0) {
+    return err({
+      code: "MALFORMED_FILE",
+      file: "repository.json",
+      detail: `hierarchyDepth must be a non-negative integer, got ${repositoryDoc.hierarchyDepth}`,
+    });
+  }
   if (repositoryDoc.repositoryId !== hierarchyDoc.repositoryId) {
     return err({
       code: "MALFORMED_FILE",
@@ -275,6 +371,16 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       typeof level.crossGroupEdgeCount !== "number"
     ) {
       return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "per-level entry missing a required field" });
+    }
+    for (const field of ["level", "groupNodeCount", "leafNodeCount", "leafEdgeCount", "crossGroupEdgeCount"] as const) {
+      const value = level[field];
+      if (!Number.isInteger(value) || (value as number) < 0) {
+        return err({
+          code: "MALFORMED_FILE",
+          file: "metadata.json",
+          detail: `per-level ${field} must be a non-negative integer, got ${String(value)}`,
+        });
+      }
     }
   }
 

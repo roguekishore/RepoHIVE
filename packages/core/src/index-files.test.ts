@@ -429,3 +429,203 @@ test("a null element in any validated array yields MALFORMED_FILE, never a throw
     }
   }
 });
+
+// --- The containment tree is validated globally on read (Gap 11) ----------
+//
+// The pairwise link checks prove every parentId/childIds reference points at a
+// real node, but say nothing about the shape as a whole: a two-node mutual
+// parent cycle satisfies all of them. parseIndex accepted it, and
+// analyzeBlastRadius's ancestor climb then never terminated.
+
+test("a malformed containment tree is rejected on read, naming hierarchy.json", () => {
+  const graph: RawDependencyGraph = {
+    nodes: Array.from({ length: 6 }, (_, i) => ({
+      id: `file:p${i % 2}/F${i}.java`,
+      kind: "file" as const,
+      packagePath: `p${i % 2}`,
+      directoryPath: `p${i % 2}`,
+    })),
+    edges: [
+      {
+        source: "file:p0/F0.java",
+        target: "file:p0/F2.java",
+        importFrequency: 3,
+        methodCallFrequency: 0,
+        sharedTypeCount: 0,
+      },
+    ],
+  };
+  const output = runPipeline(graph);
+
+  type HierarchyDoc = {
+    repositoryId: string;
+    nodes: Array<{ id: string; kind: string; level: number; parentId: string | null; childIds: string[] }>;
+  };
+
+  const parseTampered = (tamper: (doc: HierarchyDoc) => void): ReturnType<typeof parseIndex> => {
+    const dir = mkdtempSync(join(tmpdir(), "repohive-tree-"));
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, "hierarchy.json"), "utf8")) as HierarchyDoc;
+      tamper(doc);
+      writeFileSync(join(dir, "hierarchy.json"), JSON.stringify(doc), "utf8");
+      return parseIndex(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  const node = (doc: HierarchyDoc, id: string) => doc.nodes.find((n) => n.id === id)!;
+  const anyGroup = (doc: HierarchyDoc) => doc.nodes.find((n) => n.kind === "group")!;
+  const anyLeaf = (doc: HierarchyDoc) => doc.nodes.find((n) => n.kind === "file")!;
+
+  const cases: ReadonlyArray<readonly [string, (doc: HierarchyDoc) => void]> = [
+    [
+      "self-parenting node",
+      (doc) => {
+        const g = anyGroup(doc);
+        g.parentId = g.id;
+        g.childIds = [...new Set([...g.childIds, g.id])].sort();
+      },
+    ],
+    [
+      "two-node mutual cycle (the reproduced case)",
+      (doc) => {
+        const root = node(doc, doc.repositoryId);
+        const g = anyGroup(doc);
+        root.parentId = g.id;
+        g.childIds = [...new Set([...g.childIds, root.id])].sort();
+      },
+    ],
+    [
+      "cycle unreachable from the root",
+      (doc) => {
+        doc.nodes.push(
+          { id: "z_x", kind: "group", level: 9, parentId: "z_y", childIds: ["z_y"] },
+          { id: "z_y", kind: "group", level: 10, parentId: "z_x", childIds: ["z_x"] },
+        );
+      },
+    ],
+    [
+      "a second root (forest)",
+      (doc) => {
+        doc.nodes.push({ id: "z_orphan", kind: "group", level: 1, parentId: null, childIds: [] });
+      },
+    ],
+    [
+      "repositoryId naming an absent node",
+      (doc) => {
+        doc.repositoryId = "r_ghost";
+      },
+    ],
+    [
+      "node listed as a child by two parents",
+      (doc) => {
+        const leaf = anyLeaf(doc);
+        const g = anyGroup(doc);
+        if (!g.childIds.includes(leaf.id)) {
+          g.childIds = [...g.childIds, leaf.id].sort();
+        } else {
+          const other = doc.nodes.find((n) => n.kind === "group" && n.id !== g.id);
+          if (other) other.childIds = [...other.childIds, leaf.id].sort();
+        }
+      },
+    ],
+    [
+      "duplicate id inside one childIds",
+      (doc) => {
+        const g = doc.nodes.find((n) => n.childIds.length > 0)!;
+        g.childIds = [g.childIds[0]!, g.childIds[0]!];
+      },
+    ],
+    [
+      "unsorted childIds",
+      (doc) => {
+        const g = doc.nodes.find((n) => n.childIds.length > 1)!;
+        g.childIds = [...g.childIds].reverse();
+      },
+    ],
+    [
+      "child level is not parent.level + 1",
+      (doc) => {
+        const g = doc.nodes.find((n) => n.childIds.length > 0)!;
+        node(doc, g.childIds[0]!).level = g.level + 5;
+      },
+    ],
+    [
+      "unreachable component",
+      (doc) => {
+        doc.nodes.push({ id: "z_lonely", kind: "group", level: 2, parentId: null, childIds: [] });
+        doc.nodes.push({ id: "z_lonely2", kind: "group", level: 3, parentId: "z_lonely", childIds: [] });
+      },
+    ],
+    [
+      "unknown kind",
+      (doc) => {
+        anyGroup(doc).kind = "banana";
+      },
+    ],
+    [
+      "negative level",
+      (doc) => {
+        anyGroup(doc).level = -1;
+      },
+    ],
+  ];
+
+  for (const [label, tamper] of cases) {
+    const parsed = parseTampered(tamper);
+    assert.ok(!parsed.ok, `${label} must be rejected`);
+    assert.equal(parsed.error.code, "MALFORMED_FILE", label);
+    assert.ok("file" in parsed.error && parsed.error.file === "hierarchy.json", label);
+    assert.ok(!("value" in parsed), `${label} must return no partial hierarchy`);
+  }
+});
+
+test("a fractional or negative hierarchyDepth is rejected", () => {
+  const graph: RawDependencyGraph = {
+    nodes: [{ id: "file:A.java", kind: "file", directoryPath: "" }],
+    edges: [],
+  };
+  const output = runPipeline(graph);
+
+  for (const depth of [1.5, -1]) {
+    const dir = mkdtempSync(join(tmpdir(), "repohive-depth-"));
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, "repository.json"), "utf8")) as Record<string, unknown>;
+      doc.hierarchyDepth = depth;
+      writeFileSync(join(dir, "repository.json"), JSON.stringify(doc), "utf8");
+      const parsed = parseIndex(dir);
+      assert.ok(!parsed.ok, `hierarchyDepth ${depth} must be rejected`);
+      assert.equal(parsed.error.code, "MALFORMED_FILE");
+      assert.ok("file" in parsed.error && parsed.error.file === "repository.json");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+// Feature: hierarchical-repository-grouping, Property 39: The parser accepts every index the serializer writes
+test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)", () => {
+  fc.assert(
+    fc.property(arbitraryDependencyGraph(), (graph) => {
+      const output = runPipeline(graph);
+      const dir = freshIndexDir();
+      try {
+        assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+        const parsed = parseIndex(dir);
+        // The risk of tightening validation is rejecting the engine's own valid
+        // output. This property is what makes that impossible to ship.
+        assert.ok(
+          parsed.ok,
+          `serializer output rejected: ${parsed.ok ? "" : JSON.stringify(parsed.error)}`,
+        );
+        assert.equal(parsed.value.hierarchy.nodes.size, output.hierarchy.nodes.size);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }),
+    { numRuns: 100 },
+  );
+});
