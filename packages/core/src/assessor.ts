@@ -136,14 +136,22 @@ export function assess(model: WeightedModel, config: AssessmentConfig = DEFAULT_
   return {
     regions,
     primaryRegionOf,
-    metricWeights: activeWeights(config),
+    metricWeights: activeWeights(config, partitionModularity),
     cohesionSquashConstant: config.cohesionSquashConstant,
   };
 }
 
-/** The weights actually used, i.e. with modularity dropped when not computed. */
-function activeWeights(config: AssessmentConfig): MetricWeights {
-  if (config.computeModularity && config.weights.modularity !== undefined) {
+/**
+ * The weights actually used, i.e. with modularity dropped when not computed.
+ *
+ * `computeModularity` being true is not enough: Q is undefined on an edgeless
+ * projection and on one whose inter-file edges all carry zero strength, and in
+ * those runs `combineScore` never applies the modularity weight. Reporting it
+ * anyway contradicted Req 3.7's "weights **used**" and this function's own name
+ * (Gap 22), and would have made a recorded run irreproducible from its metadata.
+ */
+function activeWeights(config: AssessmentConfig, modularity: number | undefined): MetricWeights {
+  if (config.computeModularity && config.weights.modularity !== undefined && modularity !== undefined) {
     return { ...config.weights };
   }
   return { cohesion: config.weights.cohesion, coupling: config.weights.coupling };
