@@ -284,7 +284,10 @@ export function readGraphFile(path: string): Result<RawDependencyGraph> {
   try {
     text = readFileSync(path, "utf8");
   } catch {
-    return err({ code: "MALFORMED_FILE", file: path, detail: "file could not be read" });
+    // Distinct from MALFORMED_FILE: a missing graph.json is neither an *index*
+    // file nor *malformed*, and reporting it as one sent readers looking for a
+    // content problem that did not exist (Gap 20).
+    return err({ code: "FILE_NOT_FOUND", file: path });
   }
   try {
     const parsed = JSON.parse(text) as RawDependencyGraph;

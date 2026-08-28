@@ -36,6 +36,7 @@ export type GroupingError =
   | { code: "NODE_NOT_FOUND"; nodeId: NodeId }
   | { code: "EMPTY_NODE_ID" }
   | { code: "MISSING_FILES"; files: string[] }
+  | { code: "FILE_NOT_FOUND"; file: string }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
   | { code: "WRITE_FAILED"; file: string; detail?: string }
   | { code: "INVALID_CONFIG"; detail: string; field?: string }
@@ -81,6 +82,8 @@ export function describeError(error: GroupingError): string {
       return "no node identifier was provided";
     case "MISSING_FILES":
       return `missing index files: ${error.files.join(", ")}`;
+    case "FILE_NOT_FOUND":
+      return `file not found or unreadable: ${error.file}`;
     case "MALFORMED_FILE":
       return `malformed index file ${error.file}: ${error.detail}`;
     case "WRITE_FAILED":
