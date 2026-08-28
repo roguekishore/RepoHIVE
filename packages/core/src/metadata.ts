@@ -6,13 +6,22 @@
  * branching factor).
  */
 
-import type { Hierarchy, Metadata, MetricWeights, PerLevelStats, RegionDecision } from "./types.js";
+import type {
+  Hierarchy,
+  Metadata,
+  MetricWeights,
+  PerLevelStats,
+  RegionDecision,
+  RunConfiguration,
+} from "./types.js";
 
 export interface MetadataInputs {
   structuralQualityBoundary: number;
   metricWeights: MetricWeights;
   cohesionSquashConstant: number;
   regionDecisions: RegionDecision[];
+  /** The fully-resolved configuration, so the run reproduces from its own record. */
+  configuration?: RunConfiguration;
 }
 
 export function buildMetadata(hierarchy: Hierarchy, inputs: MetadataInputs): Metadata {
@@ -63,5 +72,6 @@ export function buildMetadata(hierarchy: Hierarchy, inputs: MetadataInputs): Met
     perLevel,
     totalCrossGroupEdges: hierarchy.crossGroupEdges.length,
     averageBranchingFactor: groupNodeTotal > 0 ? groupChildTotal / groupNodeTotal : 0,
+    ...(inputs.configuration !== undefined ? { configuration: inputs.configuration } : {}),
   };
 }

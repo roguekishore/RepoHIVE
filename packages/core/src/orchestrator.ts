@@ -19,6 +19,7 @@ import { buildMetadata } from "./metadata.js";
 import { serializeIndex } from "./index-serializer.js";
 import { ingest } from "./ingestor.js";
 import { computeWeights, DEFAULT_WEIGHT_COEFFICIENTS, type WeightCoefficients } from "./weights.js";
+import { sortIds } from "./canonical.js";
 import type {
   Action,
   AssessmentConfig,
@@ -26,6 +27,7 @@ import type {
   HierarchyConfig,
   Metadata,
   RegionId,
+  RunConfiguration,
 } from "./types.js";
 
 export interface GroupingConfig {
@@ -199,6 +201,33 @@ function internalError(cause: unknown): Result<never> {
   });
 }
 
+/**
+ * Project the resolved config onto its serializable audit record (Gap 22).
+ *
+ * The override Map becomes a plain object with canonically-sorted keys so the
+ * record serializes deterministically — `stableStringify` sorts object keys, but
+ * a Map would stringify to `{}`.
+ */
+function runConfigurationOf(config: GroupingConfig): RunConfiguration {
+  const overrides: Record<string, Action> = {};
+  for (const regionId of sortIds([...(config.overrides?.keys() ?? [])])) {
+    overrides[regionId] = config.overrides!.get(regionId)!;
+  }
+  return {
+    structuralQualityBoundary: config.structuralQualityBoundary,
+    communityDetectionSeed: config.communityDetectionSeed,
+    weightCoefficients: { ...config.weightCoefficients },
+    assessment: {
+      weights: { ...config.assessment.weights },
+      computeModularity: config.assessment.computeModularity,
+      cohesionSquashConstant: config.assessment.cohesionSquashConstant,
+      degenerateScore: config.assessment.degenerateScore,
+    },
+    hierarchy: { ...config.hierarchy },
+    overrides,
+  };
+}
+
 /** Run the full in-memory pipeline over a raw dependency graph. */
 export function groupGraph(
   input: RawDependencyGraph | null | undefined,
@@ -251,6 +280,7 @@ function groupGraphUnguarded(
     metricWeights: assessment.metricWeights,
     cohesionSquashConstant: assessment.cohesionSquashConstant,
     regionDecisions: constructed.decisions,
+    configuration: runConfigurationOf(config),
   });
 
   return ok({ hierarchy: hierarchy.value, metadata });

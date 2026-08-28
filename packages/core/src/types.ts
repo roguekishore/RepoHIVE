@@ -143,6 +143,42 @@ export interface PerLevelStats {
   crossGroupEdgeCount: number;
 }
 
+/**
+ * The fully-resolved configuration a run actually used (Gap 22).
+ *
+ * `metadata.json` recorded the boundary, metric weights, squash constant and
+ * decisions, but not `maxGroupSize`, `minPartitionThreshold`, the seed, the
+ * weight coefficients or `degenerateScore` — so a run's *hierarchy shape* could
+ * not be reproduced from its own audit record, even though Req 7.1 states its
+ * determinism guarantee "with identical configuration".
+ *
+ * The **resolved** config is emitted rather than the caller's partial one: only
+ * a fully-defaulted record is a reproduction recipe. A content hash would be
+ * smaller but useless for actually re-running without the original invocation,
+ * which is the one purpose this field has.
+ */
+export interface RunConfiguration {
+  structuralQualityBoundary: number;
+  communityDetectionSeed: number;
+  weightCoefficients: {
+    importCoefficient: number;
+    callCoefficient: number;
+    sharedTypeCoefficient: number;
+  };
+  assessment: {
+    weights: MetricWeights;
+    computeModularity: boolean;
+    cohesionSquashConstant: number;
+    degenerateScore: number;
+  };
+  hierarchy: {
+    maxGroupSize: number;
+    minPartitionThreshold: number;
+  };
+  /** Per-Region user overrides, as a plain object so it serializes canonically. */
+  overrides: Record<string, Action>;
+}
+
 export interface Metadata {
   structuralQualityBoundary: number;
   metricWeights: MetricWeights;
@@ -154,4 +190,9 @@ export interface Metadata {
   perLevel: PerLevelStats[];
   totalCrossGroupEdges: number;
   averageBranchingFactor: number;
+  /**
+   * The full resolved configuration (Gap 22). Optional so that indexes written
+   * before this field existed still parse.
+   */
+  configuration?: RunConfiguration;
 }
