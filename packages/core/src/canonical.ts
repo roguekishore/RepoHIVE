@@ -154,7 +154,21 @@ export function stableStringify(value: unknown): string {
 }
 
 function render(value: unknown, indent: string): string {
-  if (value === null || typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === "number") {
+    // `JSON.stringify` renders NaN and ±Infinity as `null`, which is how a NaN
+    // score reached metadata.json as a null the engine's own parseIndex then
+    // rejected (Gap 9). Refusing here makes a non-finite number unrepresentable
+    // in output, so that class of defect cannot recur through any other path.
+    //
+    // This throw is an internal invariant, reachable only if a stage forgot to
+    // validate; the public entry points' boundary catch converts it into
+    // INTERNAL_ERROR, which is the correct escalation.
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`stableStringify: refusing to serialize non-finite number ${String(value)}`);
+    }
+    return JSON.stringify(value);
+  }
+  if (value === null || typeof value === "boolean") {
     return JSON.stringify(value);
   }
   if (typeof value === "string") {

@@ -241,6 +241,22 @@ const arbitraryEdges = fc.array(
   { minLength: 0, maxLength: 8 },
 );
 
+/**
+ * An unambiguous rendering of one edge, for sequence comparison.
+ *
+ * `stableStringify` would be the more direct vehicle, but it now refuses
+ * non-finite numbers (Gap 9) — and non-finite signals are exactly what this
+ * property must quantify over. `JSON.stringify` on each field preserves the
+ * type distinctions (`"2"` vs `2`, `null` vs `undefined`) that the comparator
+ * must respect, which is what the assertion is really about.
+ */
+const edgeKey = (edge: Record<string, unknown>): string =>
+  JSON.stringify(
+    ["source", "target", "importFrequency", "methodCallFrequency", "sharedTypeCount"].map((field) =>
+      String(JSON.stringify(edge[field])),
+    ),
+  );
+
 // Feature: hierarchical-repository-grouping, Property 35: Canonical edge order is independent of input position, whatever the signal values
 test("Property 35: edge order is input-position-independent even for malformed signals (R7.2)", () => {
   fc.assert(
@@ -248,8 +264,29 @@ test("Property 35: edge order is input-position-independent even for malformed s
       const canonical = [...edges].sort(compareDependencyEdges);
       const fromPermutation = shuffled(edges, seed).sort(compareDependencyEdges);
 
-      // The serialized rendering is what lands in edges.json, so comparing the
-      // stringified forms is the assertion that actually pins the output bytes.
+      assert.deepEqual(fromPermutation.map(edgeKey), canonical.map(edgeKey));
+    }),
+    { numRuns: 100 },
+  );
+});
+
+test("for conforming signals the canonical order pins the serialized bytes", () => {
+  // The contract-legal case, where stableStringify is the direct vehicle: this
+  // is what actually lands in edges.json.
+  const conforming = fc.array(
+    fc.record({
+      source: fc.constantFrom("a", "b"),
+      target: fc.constantFrom("a", "b"),
+      importFrequency: fc.nat({ max: 4 }),
+      methodCallFrequency: fc.nat({ max: 4 }),
+      sharedTypeCount: fc.nat({ max: 4 }),
+    }),
+    { maxLength: 8 },
+  );
+  fc.assert(
+    fc.property(conforming, fc.nat(1_000_000), (edges, seed) => {
+      const canonical = [...edges].sort(compareDependencyEdges);
+      const fromPermutation = shuffled(edges, seed).sort(compareDependencyEdges);
       assert.equal(stableStringify(fromPermutation), stableStringify(canonical));
     }),
     { numRuns: 100 },

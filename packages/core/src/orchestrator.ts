@@ -10,7 +10,11 @@ import { assess, DEFAULT_ASSESSMENT_CONFIG } from "./assessor.js";
 import { construct } from "./constructor.js";
 import { LouvainCommunityDetector, type CommunityDetector } from "./community.js";
 import { err, ok, type Result } from "./errors.js";
-import { buildHierarchy, DEFAULT_HIERARCHY_CONFIG } from "./hierarchy-builder.js";
+import {
+  buildHierarchy,
+  DEFAULT_HIERARCHY_CONFIG,
+  validateHierarchyConfig,
+} from "./hierarchy-builder.js";
 import { buildMetadata } from "./metadata.js";
 import { serializeIndex } from "./index-serializer.js";
 import { ingest } from "./ingestor.js";
@@ -77,6 +81,99 @@ export function resolveConfig(partial?: PartialGroupingConfig): GroupingConfig {
   };
 }
 
+function isFinitePositive(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+function isFiniteNonNegative(value: number): boolean {
+  return Number.isFinite(value) && value >= 0;
+}
+
+/**
+ * Validate the *resolved* configuration before any work happens (Gap 9).
+ *
+ * Nothing checked these values. A `NaN` boundary made every `score > boundary`
+ * comparison false, so the run silently reconstructed every region — and then
+ * wrote `NaN` into `metadata.json`, where `JSON.stringify` renders it as `null`,
+ * which the engine's own `parseIndex` rejects. The same missing gate sat behind
+ * negative coefficients (every strength clamps to 0, so everything preserves at
+ * confidence 0), a non-positive squash constant, and a `degenerateScore` outside
+ * `[0,1]`. One gate closes all of them.
+ *
+ * Running before ingest matters: a config error should surface before Louvain
+ * has run, not halfway through the pipeline.
+ *
+ * The boundary is required to be **finite only**, not within `[0,1]`. `NaN` and
+ * `±Infinity` are the values that actually break the comparison and the
+ * metadata; `1.000001` is the sanctioned way `demo-baselines` expresses "always
+ * reconstruct", and rejecting it would break a demo to fix nothing.
+ */
+export function validateConfig(config: GroupingConfig): Result<GroupingConfig> {
+  const bad = (field: string, value: unknown, detail: string): Result<GroupingConfig> =>
+    err({
+      code: "INVALID_CONFIG",
+      field,
+      detail: `${field}: ${detail} (got ${JSON.stringify(value) ?? String(value)})`,
+    });
+
+  if (!Number.isFinite(config.structuralQualityBoundary)) {
+    return bad("structuralQualityBoundary", config.structuralQualityBoundary, "must be a finite number");
+  }
+  if (!Number.isSafeInteger(config.communityDetectionSeed)) {
+    return bad("communityDetectionSeed", config.communityDetectionSeed, "must be a safe integer");
+  }
+
+  for (const [key, value] of Object.entries(config.weightCoefficients)) {
+    if (!isFiniteNonNegative(value)) {
+      return bad(`weightCoefficients.${key}`, value, "must be finite and >= 0");
+    }
+  }
+
+  const weights = config.assessment.weights;
+  for (const [key, value] of Object.entries(weights)) {
+    if (value !== undefined && !isFiniteNonNegative(value)) {
+      return bad(`assessment.weights.${key}`, value, "must be finite and >= 0");
+    }
+  }
+  // At least one *active* metric must carry weight, or every score collapses to
+  // the same value and the preserve/reconstruct decision stops meaning anything.
+  const activeSum =
+    weights.cohesion +
+    weights.coupling +
+    (config.assessment.computeModularity ? (weights.modularity ?? 0) : 0);
+  if (!(activeSum > 0)) {
+    return bad("assessment.weights", weights, "at least one active metric weight must be > 0");
+  }
+
+  if (!isFinitePositive(config.assessment.cohesionSquashConstant)) {
+    return bad(
+      "assessment.cohesionSquashConstant",
+      config.assessment.cohesionSquashConstant,
+      "must be finite and > 0"
+    );
+  }
+  if (
+    !Number.isFinite(config.assessment.degenerateScore) ||
+    config.assessment.degenerateScore < 0 ||
+    config.assessment.degenerateScore > 1
+  ) {
+    return bad(
+      "assessment.degenerateScore",
+      config.assessment.degenerateScore,
+      "must be finite and within [0, 1]"
+    );
+  }
+
+  // The hierarchy bounds were validated inside buildHierarchy, i.e. after ingest,
+  // weighting, assessment and community detection had already run. Moving the
+  // check here makes every configuration failure fail at the same, earliest point.
+  const hierarchy = validateHierarchyConfig(config.hierarchy);
+  if (!hierarchy.ok) {
+    return err(hierarchy.error);
+  }
+  return ok(config);
+}
+
 export interface PartialGroupingConfig {
   structuralQualityBoundary?: number;
   overrides?: Map<RegionId, Action>;
@@ -121,6 +218,13 @@ function groupGraphUnguarded(
   detector: CommunityDetector
 ): Result<GroupingOutput> {
   const config = resolveConfig(partialConfig);
+
+  // The configuration gate runs first, before any work: an invalid parameter
+  // should cost an error message, not a completed pipeline with wrong numbers.
+  const validated = validateConfig(config);
+  if (!validated.ok) {
+    return err(validated.error);
+  }
 
   const ingested = ingest(input);
   if (!ingested.ok) {

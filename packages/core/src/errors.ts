@@ -38,7 +38,7 @@ export type GroupingError =
   | { code: "MISSING_FILES"; files: string[] }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
   | { code: "WRITE_FAILED"; file: string; detail?: string }
-  | { code: "INVALID_CONFIG"; detail: string }
+  | { code: "INVALID_CONFIG"; detail: string; field?: string }
   | { code: "INTERNAL_ERROR"; detail: string };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: GroupingError };
