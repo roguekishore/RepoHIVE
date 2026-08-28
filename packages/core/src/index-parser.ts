@@ -400,6 +400,50 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     }
   }
 
+  // The resolved configuration is optional (Gap 22): indexes written before the
+  // field existed must still parse. When present it is validated, because a
+  // half-populated reproduction recipe is worse than none.
+  if (metadata.configuration !== undefined) {
+    const configuration = metadata.configuration as unknown;
+    if (!isRecord(configuration)) {
+      return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "configuration is not an object" });
+    }
+    const assessment = configuration["assessment"];
+    const hierarchy = configuration["hierarchy"];
+    const coefficients = configuration["weightCoefficients"];
+    if (!isRecord(assessment) || !isRecord(hierarchy) || !isRecord(coefficients)) {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "metadata.json",
+        detail: "configuration must carry weightCoefficients, assessment and hierarchy objects",
+      });
+    }
+    const numeric: ReadonlyArray<readonly [string, unknown]> = [
+      ["structuralQualityBoundary", configuration["structuralQualityBoundary"]],
+      ["communityDetectionSeed", configuration["communityDetectionSeed"]],
+      ["assessment.cohesionSquashConstant", assessment["cohesionSquashConstant"]],
+      ["assessment.degenerateScore", assessment["degenerateScore"]],
+      ["hierarchy.maxGroupSize", hierarchy["maxGroupSize"]],
+      ["hierarchy.minPartitionThreshold", hierarchy["minPartitionThreshold"]],
+    ];
+    for (const [field, value] of numeric) {
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        return err({
+          code: "MALFORMED_FILE",
+          file: "metadata.json",
+          detail: `configuration.${field} must be a finite number`,
+        });
+      }
+    }
+    if (typeof assessment["computeModularity"] !== "boolean") {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "metadata.json",
+        detail: "configuration.assessment.computeModularity must be a boolean",
+      });
+    }
+  }
+
   // Count invariants across the file set (Gap 10). Each file was individually
   // well-formed even when a partial write left old and new files side by side,
   // so the mixture was only ever detectable by cross-checking the counts one

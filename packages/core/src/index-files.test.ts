@@ -899,3 +899,147 @@ test("a count mismatch across the file set is rejected — the mixed-index signa
     assert.ok("detail" in parsed.error && parsed.error.detail.includes(field), label);
   }
 });
+
+// --- The run reproduces from its own audit record (Gap 22) ----------------
+//
+// metadata.json recorded the boundary, weights, squash constant and decisions,
+// but not maxGroupSize, minPartitionThreshold, the seed, the coefficients or
+// degenerateScore — so a run's hierarchy *shape* could not be reproduced from
+// its own record, though Req 7.1 states determinism "with identical
+// configuration".
+
+test("metadata records the full resolved configuration, and it round-trips", () => {
+  const output = groupGraph(smallGraph, {
+    structuralQualityBoundary: 0.42,
+    communityDetectionSeed: 99,
+    weightCoefficients: { importCoefficient: 2 },
+    assessment: { degenerateScore: 0.25, cohesionSquashConstant: 3 },
+    hierarchy: { maxGroupSize: 8, minPartitionThreshold: 3 },
+    overrides: new Map([
+      ["pkg:zeta", "preserve"],
+      ["pkg:alpha", "reconstruct"],
+    ]),
+  });
+  assert.ok(output.ok);
+
+  const configuration = output.value.metadata.configuration;
+  assert.ok(configuration !== undefined, "the configuration block must be emitted");
+  assert.equal(configuration.structuralQualityBoundary, 0.42);
+  assert.equal(configuration.communityDetectionSeed, 99);
+  assert.equal(configuration.weightCoefficients.importCoefficient, 2);
+  // Defaults are filled in: only a fully-resolved record is a reproduction recipe.
+  assert.equal(configuration.weightCoefficients.callCoefficient, 1);
+  assert.equal(configuration.assessment.degenerateScore, 0.25);
+  assert.equal(configuration.assessment.cohesionSquashConstant, 3);
+  assert.equal(configuration.hierarchy.maxGroupSize, 8);
+  assert.equal(configuration.hierarchy.minPartitionThreshold, 3);
+  assert.deepEqual(configuration.overrides, { "pkg:alpha": "reconstruct", "pkg:zeta": "preserve" });
+
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.value.hierarchy, output.value.metadata, dir).ok);
+    const parsed = parseIndex(dir);
+    assert.ok(parsed.ok);
+    assert.deepEqual(parsed.value.metadata.configuration, configuration);
+
+    // The override map is a plain object with sorted keys, so it serializes
+    // deterministically — a Map would have stringified to `{}`.
+    const written = readJson(dir, "metadata.json") as {
+      configuration: { overrides: Record<string, string> };
+    };
+    assert.deepEqual(Object.keys(written.configuration.overrides), ["pkg:alpha", "pkg:zeta"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an index written without the configuration block still parses", () => {
+  const output = runPipeline(smallGraph);
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+    const doc = JSON.parse(readFileSync(join(dir, "metadata.json"), "utf8")) as Record<string, unknown>;
+    delete doc.configuration;
+    writeFileSync(join(dir, "metadata.json"), JSON.stringify(doc), "utf8");
+
+    const parsed = parseIndex(dir);
+    assert.ok(parsed.ok, "the field is additive and optional");
+    assert.equal(parsed.value.metadata.configuration, undefined);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a malformed configuration block is rejected rather than half-read", () => {
+  const output = runPipeline(smallGraph);
+
+  const cases: ReadonlyArray<readonly [string, unknown]> = [
+    ["not an object", 42],
+    ["missing sub-objects", { structuralQualityBoundary: 0.5 }],
+    [
+      "non-numeric field",
+      {
+        structuralQualityBoundary: "half",
+        communityDetectionSeed: 1,
+        weightCoefficients: {},
+        assessment: { cohesionSquashConstant: 1, degenerateScore: 0, computeModularity: false },
+        hierarchy: { maxGroupSize: 20, minPartitionThreshold: 2 },
+      },
+    ],
+  ];
+
+  for (const [label, configuration] of cases) {
+    const dir = freshIndexDir();
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, "metadata.json"), "utf8")) as Record<string, unknown>;
+      doc.configuration = configuration;
+      writeFileSync(join(dir, "metadata.json"), JSON.stringify(doc), "utf8");
+
+      const parsed = parseIndex(dir);
+      assert.ok(!parsed.ok, `${label} must be rejected`);
+      assert.equal(parsed.error.code, "MALFORMED_FILE", label);
+      assert.ok("file" in parsed.error && parsed.error.file === "metadata.json", label);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("recorded metricWeights reflect the weights actually applied (R3.7)", () => {
+  // A graph whose only inter-file edges carry zero strength: Q is undefined, so
+  // combineScore never applies the modularity weight. Reporting it anyway made
+  // the record contradict the run.
+  const zeroStrength: RawDependencyGraph = {
+    nodes: [
+      { id: "file:p/A.java", kind: "file", packagePath: "p", directoryPath: "p" },
+      { id: "file:p/B.java", kind: "file", packagePath: "p", directoryPath: "p" },
+    ],
+    edges: [
+      {
+        source: "file:p/A.java",
+        target: "file:p/B.java",
+        importFrequency: 0,
+        methodCallFrequency: 0,
+        sharedTypeCount: 0,
+      },
+    ],
+  };
+
+  const uncomputable = groupGraph(zeroStrength, {
+    assessment: { computeModularity: true, weights: { cohesion: 1, coupling: 1, modularity: 1 } },
+  });
+  assert.ok(uncomputable.ok);
+  assert.equal(
+    uncomputable.value.metadata.metricWeights.modularity,
+    undefined,
+    "a weight that was not applied must not be reported as used",
+  );
+
+  // Where Q *is* computable, the weight is reported.
+  const computable = groupGraph(smallGraph, {
+    assessment: { computeModularity: true, weights: { cohesion: 1, coupling: 1, modularity: 1 } },
+  });
+  assert.ok(computable.ok);
+  assert.equal(computable.value.metadata.metricWeights.modularity, 1);
+});
