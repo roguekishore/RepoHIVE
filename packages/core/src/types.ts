@@ -167,9 +167,10 @@ export interface Hierarchy {
   /**
    * Group node ids produced per Region, in canonical order (Gap 12).
    *
-   * In-memory only — `metadata.json` carries the same association as
-   * `regionDecisions[].groupIds`. Absent on a Hierarchy reconstructed by
-   * `parseIndex`, which rebuilds it from that field instead.
+   * In-memory only, and produced by `buildHierarchy` for `groupGraph` to fold
+   * into `regionDecisions[].groupIds`. It is **absent** on a Hierarchy returned
+   * by `parseIndex`: on the read side the same association is carried by that
+   * metadata field and by each node's own `regionId`, so nothing rebuilds it.
    */
   groupIdsOfRegion?: Map<RegionId, NodeId[]>;
 }

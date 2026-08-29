@@ -232,17 +232,20 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
           />
 
           {/* Decision legend (spec R7.4): what a group card's Preserved /
-              Reconstructed note means, plus the honest caveat on reconstruct
-              sub-clusters (§7-a). The distinction is carried as text, so it
-              stays perceivable without colour (R7.6). */}
+              Reconstructed note means. Each card's decision is now read from the
+              region the engine recorded on that node (Gap 12), so the former
+              caveat about approximate sub-cluster decisions no longer applies.
+              The distinction is carried as text, so it stays perceivable without
+              colour (R7.6). */}
           <p className="mt-3 border-t border-[var(--color-border-default)] pt-3 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
             Group cards say whether the algorithm{" "}
             <span className="text-[var(--color-text-secondary)]">Preserved</span> a region — its package
             kept as authored — or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
             it — rebuilt by dependency clustering — with the structural-quality score behind that call.
-            Select a group to read it. Reconstruct sub-clusters share their region&rsquo;s decision
-            (approximate). Selecting a file or group also lights up everything that depends on it
-            (its blast radius) in red across the map.
+            Each card shows the decision recorded for its own region; a region rebuilt into several
+            clusters labels them <span className="text-[var(--color-text-secondary)]">1 of n</span>.
+            Select a group to read it. Selecting a file or group also lights up everything that depends
+            on it (its blast radius) in red across the map.
           </p>
         </>
       )}
