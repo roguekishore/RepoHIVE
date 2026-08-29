@@ -117,4 +117,18 @@ async function main(): Promise<void> {
   process.exitCode = 1;
 }
 
-void main();
+// `void main()` discarded the promise, so a rejection surfaced as an unhandled
+// rejection with a raw stack trace and — depending on the Node version — an
+// exit code that did not reliably signal failure. Render the same structured
+// block the error path uses and exit non-zero (Fix 2 — Gap 3).
+main().catch((cause: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error(
+    [
+      `RepoHIVE parser — parse FAILED`,
+      `  errors  :`,
+      `    - internal-error: ${cause instanceof Error ? cause.message : String(cause)}`,
+    ].join("\n"),
+  );
+  process.exitCode = 1;
+});

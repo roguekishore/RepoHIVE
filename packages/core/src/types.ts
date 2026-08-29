@@ -82,6 +82,15 @@ export interface RegionDecision {
   userOverridden: boolean;
   /** |score − boundary| (Req 5.4). */
   decisionConfidence: number;
+  /**
+   * The group node ids this decision produced, in canonical order (Gap 12).
+   *
+   * Joins the audit record to the tree in the decision→groups direction, so a
+   * consumer can go from "this region was reconstructed with score 0.31" to the
+   * boxes on screen — which is what makes the adaptive contribution visible
+   * rather than merely recorded. Optional so older indexes still parse.
+   */
+  groupIds?: NodeId[];
 }
 
 /** One produced group of File nodes within a Region's result. */
@@ -111,6 +120,28 @@ export interface HierarchyNode {
   parentId: NodeId | null;
   /** Sorted ascending by child id (Req 7.5). */
   childIds: NodeId[];
+  /**
+   * The Primary_Region this group came from (Gap 12). Purely additive
+   * provenance: a group id is a content hash, so without it a consumer can only
+   * show `g_<hash>` and has no way to tell which package a box represents.
+   *
+   * Omitted on the Repository node and on the intermediate wrapper groups that
+   * exist only to bound the Repository's fan-out — those correspond to no
+   * region, and consumers must handle that.
+   */
+  regionId?: RegionId;
+  /**
+   * This group's index within its region's canonical group list (Gap 12).
+   *
+   * The piece a consumer cannot derive: when a region is reconstructed into
+   * several communities, or split by `maxGroupSize` into slices, the resulting
+   * sibling groups share a `regionId` and differ only by content hash. The
+   * ordinal is a pure function of the already-canonical iteration order — no
+   * counter spans the run — so it stays deterministic.
+   *
+   * Omitted wherever `regionId` is.
+   */
+  ordinal?: number;
 }
 
 export interface CrossGroupEdge {
@@ -133,6 +164,15 @@ export interface Hierarchy {
   crossGroupEdges: CrossGroupEdge[];
   /** Levels from the Repository node to the deepest leaf (Req 9.4). */
   depth: number;
+  /**
+   * Group node ids produced per Region, in canonical order (Gap 12).
+   *
+   * In-memory only, and produced by `buildHierarchy` for `groupGraph` to fold
+   * into `regionDecisions[].groupIds`. It is **absent** on a Hierarchy returned
+   * by `parseIndex`: on the read side the same association is carried by that
+   * metadata field and by each node's own `regionId`, so nothing rebuilds it.
+   */
+  groupIdsOfRegion?: Map<RegionId, NodeId[]>;
 }
 
 export interface PerLevelStats {
@@ -141,6 +181,42 @@ export interface PerLevelStats {
   leafNodeCount: number;
   leafEdgeCount: number;
   crossGroupEdgeCount: number;
+}
+
+/**
+ * The fully-resolved configuration a run actually used (Gap 22).
+ *
+ * `metadata.json` recorded the boundary, metric weights, squash constant and
+ * decisions, but not `maxGroupSize`, `minPartitionThreshold`, the seed, the
+ * weight coefficients or `degenerateScore` — so a run's *hierarchy shape* could
+ * not be reproduced from its own audit record, even though Req 7.1 states its
+ * determinism guarantee "with identical configuration".
+ *
+ * The **resolved** config is emitted rather than the caller's partial one: only
+ * a fully-defaulted record is a reproduction recipe. A content hash would be
+ * smaller but useless for actually re-running without the original invocation,
+ * which is the one purpose this field has.
+ */
+export interface RunConfiguration {
+  structuralQualityBoundary: number;
+  communityDetectionSeed: number;
+  weightCoefficients: {
+    importCoefficient: number;
+    callCoefficient: number;
+    sharedTypeCoefficient: number;
+  };
+  assessment: {
+    weights: MetricWeights;
+    computeModularity: boolean;
+    cohesionSquashConstant: number;
+    degenerateScore: number;
+  };
+  hierarchy: {
+    maxGroupSize: number;
+    minPartitionThreshold: number;
+  };
+  /** Per-Region user overrides, as a plain object so it serializes canonically. */
+  overrides: Record<string, Action>;
 }
 
 export interface Metadata {
@@ -154,4 +230,9 @@ export interface Metadata {
   perLevel: PerLevelStats[];
   totalCrossGroupEdges: number;
   averageBranchingFactor: number;
+  /**
+   * The full resolved configuration (Gap 22). Optional so that indexes written
+   * before this field existed still parse.
+   */
+  configuration?: RunConfiguration;
 }

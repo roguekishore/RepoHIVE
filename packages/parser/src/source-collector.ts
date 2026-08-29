@@ -26,6 +26,8 @@
 import * as nodeFs from "node:fs/promises";
 import * as path from "node:path";
 
+import { compareCanonical } from "@repohive/shared";
+
 import { makeError, ok, err, type ParseError, type Result } from "./errors.js";
 import type { CollectedFile } from "./types.js";
 
@@ -103,6 +105,32 @@ export interface CollectOptions {
    * much was excluded without re-walking.
    */
   onExcludedDirectory?: (relativePath: string) => void;
+  /**
+   * Notified with a recoverable {@link ParseError} for each `.java` file whose
+   * path cannot be represented as a portable node identifier (Fix 2 — Gap 3).
+   * The file is skipped and the walk continues, so one oddly-named file names
+   * itself instead of crashing the run.
+   */
+  onUnsupportedPath?: (error: ParseError) => void;
+}
+
+/**
+ * Whether a root-relative path can be carried inside a node identifier.
+ *
+ * These are the same predicates `ids.ts`'s `assertRootRelativePosixPath` checks;
+ * they exist here as well because discovery is the one place where a path is
+ * still a first-class thing with an error channel. Deciding here leaves the
+ * `ids.ts` guards as the genuinely-unreachable internal assertions they were
+ * written to be, instead of the only place a legal-but-unrepresentable filename
+ * could surface — as a raw stack trace (R9.4, R10.2).
+ */
+export function isRepresentablePosixRelative(relativePath: string): boolean {
+  return (
+    relativePath.length > 0 &&
+    !relativePath.includes("\\") &&
+    !relativePath.startsWith("/") &&
+    !/^[A-Za-z]:/.test(relativePath)
+  );
 }
 
 /** The public SourceFileCollector interface (design: "SourceFileCollector (R2)"). */
@@ -145,10 +173,11 @@ function toPosixRelative(rootAbsolute: string, entryAbsolute: string): string {
  * JavaScript's default string comparison orders by UTF-16 code units, which
  * diverges from UTF-8 byte order for characters outside the Basic Multilingual
  * Plane. Comparing the UTF-8 byte sequences directly gives the canonical
- * ordering the contract requires (R2.6, R9.5).
+ * ordering the contract requires (R2.6, R9.5). The engine keeps exactly one
+ * implementation of that order, in `@repohive/shared` (Gap 17).
  */
 function compareByteWise(a: string, b: string): number {
-  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  return compareCanonical(a, b);
 }
 
 /**
@@ -167,6 +196,7 @@ export function createSourceFileCollector(
       const excludedSegments =
         options?.excludedSegments ?? new Set(DEFAULT_EXCLUDED_SEGMENTS);
       const onExcludedDirectory = options?.onExcludedDirectory;
+      const onUnsupportedPath = options?.onUnsupportedPath;
 
       // Recursive walk. Returns a fatal ParseError (unreadable directory) or
       // `null` on success; discovered `.java` files accumulate into `files`.
@@ -219,10 +249,21 @@ export function createSourceFileCollector(
             // Case-sensitive `.java` match: `.java` is included, `.JAVA` is not
             // (R2.2). Non-`.java` regular files are skipped without error (R2.3).
             if (entry.name.endsWith(".java")) {
-              files.push({
-                absolutePath: entryAbsolute,
-                relativePath: toPosixRelative(rootAbsolute, entryAbsolute),
-              });
+              const relativePath = toPosixRelative(rootAbsolute, entryAbsolute);
+              if (!isRepresentablePosixRelative(relativePath)) {
+                // Recoverable and named, exactly like an unreadable file: the
+                // walk continues so the run reports every problem it finds
+                // rather than dying on the first one (R10.2).
+                onUnsupportedPath?.(
+                  makeError(
+                    "path-unsupported",
+                    `Java source file path cannot be represented as a portable node identifier: ${relativePath}`,
+                    relativePath,
+                  ),
+                );
+                continue;
+              }
+              files.push({ absolutePath: entryAbsolute, relativePath });
             }
             continue;
           }

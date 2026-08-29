@@ -8,7 +8,7 @@
  *   directory-fallback Regions) and root-directory files;
  * - file/class/function node mixes with definedInFile set;
  * - arbitrary edge subsets over file/class pairs — diamonds and cycles arise
- *   naturally, self-edges excluded (parser semantics);
+ *   naturally, at most one edge per ordered (source, target) pair (Gap 15);
  * - varied (import, call, sharedType) signal triples including all-zero;
  * - singleton and edgeless Regions (degenerate cases).
  *
@@ -94,14 +94,24 @@ export function graphFromShape(shape: GraphShape): RawDependencyGraph {
     }
   });
 
-  // Every pick is kept: the valid input space includes parallel
-  // (source, target) edges, self-edges, and function-endpoint edges — the
-  // ingestor accepts them all, so the properties must quantify over them.
-  const edges: DependencyEdge[] = shape.edgePicks.map((pick, i) => {
+  // Self-edges and function-endpoint edges are kept — the ingestor accepts
+  // them, so the properties must quantify over them. Parallel (source, target)
+  // duplicates are NOT: the contract admits at most one edge per ordered pair
+  // and ingest rejects a graph that breaks it (Gap 15), so generating them
+  // would only ever exercise the rejection path. The first pick for each pair
+  // wins, which keeps the mapping from shape to graph a pure function.
+  const seenPairs = new Set<string>();
+  const edges: DependencyEdge[] = [];
+  shape.edgePicks.forEach((pick, i) => {
     const source = edgeEligible[pick.from % edgeEligible.length]!;
     const target = edgeEligible[pick.to % edgeEligible.length]!;
+    const key = `${source} ${target}`;
+    if (seenPairs.has(key)) {
+      return;
+    }
+    seenPairs.add(key);
     const signal = shape.signals[i] ?? { importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0 };
-    return { source, target, ...signal };
+    edges.push({ source, target, ...signal });
   });
 
   return { nodes, edges };

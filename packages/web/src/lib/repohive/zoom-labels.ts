@@ -117,9 +117,20 @@ export function buildDisplayLabels(
     }
   }
 
-  // Group labels: common package prefix, positional fallback, per-parent
-  // de-duplication ordinal. Processed per parent, in canonical child order, so
-  // ordinals are deterministic.
+  // How many groups each Region produced, so a split region can say "2 of 3"
+  // rather than an opaque running number. `regionId`/`ordinal` come from the
+  // engine (Gap 12); the ordinal is the piece that cannot be re-derived here,
+  // because sibling groups of one region differ only by content hash.
+  const groupsPerRegion = new Map<string, number>();
+  for (const node of nodes.values()) {
+    if (node.kind !== "group" || node.regionId === undefined) continue;
+    groupsPerRegion.set(node.regionId, (groupsPerRegion.get(node.regionId) ?? 0) + 1);
+  }
+
+  // Group labels: the Region's own name where the engine recorded one, with a
+  // positional suffix only when that Region produced several groups. Composition
+  // stays here rather than in the engine \u2014 wording and truncation are
+  // presentation policy, and a persisted label would freeze them.
   for (const parent of emitted) {
     const groupChildren = parent.childIds
       .filter((id) => emittedIds.has(id))
@@ -129,11 +140,26 @@ export function buildDisplayLabels(
 
     const seen = new Map<string, number>();
     groupChildren.forEach((child, index) => {
-      const prefix = prefixes.get(child.id) ?? "";
       // E2: show the readable last segment (`friend`), not the full dotted path
       // (`com.backend.springapp.friend`). The full prefix goes on the node's
       // `path` (adapter) so the hover card shows it as the subtitle.
-      const base = prefix.length > 0 ? lastPackageSegment(prefix) : `Group ${index + 1}`;
+      const regionName =
+        child.regionId !== undefined ? lastPackageSegment(stripRegionScheme(child.regionId)) : "";
+      const base =
+        regionName.length > 0
+          ? regionName
+          : lastPackageSegment(prefixes.get(child.id) ?? "") || `Group ${index + 1}`;
+
+      // A region split into several groups gets "name (2 of 3)"; a region that
+      // produced exactly one keeps the bare name.
+      const total = child.regionId !== undefined ? (groupsPerRegion.get(child.regionId) ?? 1) : 1;
+      if (child.regionId !== undefined && child.ordinal !== undefined && total > 1) {
+        labels.set(child.id, `${base} (${child.ordinal + 1} of ${total})`);
+        return;
+      }
+
+      // No region provenance (a Repository fan-out wrapper): fall back to the
+      // per-parent de-duplication ordinal so siblings stay distinguishable.
       const occurrence = (seen.get(base) ?? 0) + 1;
       seen.set(base, occurrence);
       labels.set(child.id, occurrence === 1 ? base : `${base} \u00b7 ${occurrence}`);
@@ -141,6 +167,12 @@ export function buildDisplayLabels(
   }
 
   return labels;
+}
+
+/** Drop a Region identifier's scheme prefix (`pkg:com.example` \u2192 `com.example`). */
+function stripRegionScheme(regionId: string): string {
+  const colon = regionId.indexOf(":");
+  return colon === -1 ? regionId : regionId.slice(colon + 1);
 }
 
 export { fileSimpleName };

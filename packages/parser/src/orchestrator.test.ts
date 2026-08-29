@@ -365,3 +365,102 @@ test("leaves a pre-existing graph.json byte-for-byte unchanged when a per-file e
     await nodeFs.rm(tmpRoot, { recursive: true, force: true });
   }
 });
+
+// --- No exception escapes parseProject (Fix 2 — Gap 3) --------------------
+//
+// parseProject promised errors-as-values, but a throw from any collaborator
+// escaped it. A legal Linux filename containing a backslash reached ids.ts's
+// path guard, which throws, and extract wraps its call in try/finally with no
+// catch — so one file crashed the whole run with a raw stack trace.
+
+test("a throwing extractor becomes internal-error and writes nothing", async () => {
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      collector: collectorOk([file("A.java")]),
+      createExtractor: async () => ({
+        extract(): never {
+          throw new Error("tree-sitter exploded");
+        },
+      }),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(!result.ok, "a throwing collaborator must not reject the promise");
+  assert.equal(result.errors.length, 1);
+  assert.equal(result.errors[0]!.reason, "internal-error");
+  assert.match(result.errors[0]!.message, /tree-sitter exploded/);
+  assert.equal(writes.calls.length, 0, "nothing may be written");
+});
+
+test("a throwing validator, collector or serializer is also converted", async () => {
+  const throwing = [
+    {
+      label: "validator",
+      deps: baseDeps({
+        validator: {
+          async validate(): Promise<never> {
+            throw new Error("validator exploded");
+          },
+        },
+      }),
+    },
+    {
+      label: "collector",
+      deps: baseDeps({
+        collector: {
+          async collect(): Promise<never> {
+            throw new Error("collector exploded");
+          },
+        },
+      }),
+    },
+    {
+      label: "serializer",
+      deps: baseDeps({
+        collector: collectorOk([file("A.java")]),
+        createExtractor: async () => scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+        serializer: {
+          async write(): Promise<never> {
+            throw new Error("serializer exploded");
+          },
+        },
+      }),
+    },
+  ];
+
+  for (const { label, deps } of throwing) {
+    const result = await parseProject({ projectDirectory: ABS_ROOT }, deps);
+    assert.ok(!result.ok, `${label} must yield a Result`);
+    assert.equal(result.errors[0]!.reason, "internal-error", label);
+    assert.match(result.errors[0]!.message, new RegExp(`${label} exploded`), label);
+  }
+});
+
+test("an unrepresentable path is recorded as recoverable and blocks the write", async () => {
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      // The real collector reports through onUnsupportedPath; model that here.
+      collector: {
+        async collect(_root, options) {
+          options?.onUnsupportedPath?.(
+            makeError("path-unsupported", "path cannot be represented", "src/we\\ird.java"),
+          );
+          return ok<CollectedFile[], ParseError>([file("A.java")]);
+        },
+      },
+      createExtractor: async () => scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(!result.ok);
+  assert.equal(result.errors[0]!.reason, "path-unsupported");
+  assert.equal(result.errors[0]!.path, "src/we\\ird.java");
+  // Parity with file-unreadable: recorded errors gate the write (R10.4).
+  assert.equal(writes.calls.length, 0);
+});

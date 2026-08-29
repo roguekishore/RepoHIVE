@@ -37,18 +37,28 @@ export async function GET(
 
   const { hierarchy, metadata } = result.value;
 
-  // package prefix -> group ids, to cross-link each region to its group cards.
-  const groupsByPackage = new Map<string, string[]>();
-  for (const [groupId, pkg] of buildGroupPackagePrefixes(hierarchy)) {
-    if (!pkg) continue;
-    const list = groupsByPackage.get(pkg);
-    if (list) list.push(groupId);
-    else groupsByPackage.set(pkg, [groupId]);
-  }
+  // Each decision names the group nodes it produced (Gap 12), so the
+  // region→groups cross-link is read from the audit record rather than inferred
+  // from package prefixes. Fall back to deriving it only for an index written
+  // before the field existed, where the heuristic is all there is.
+  const legacyGroupsByPackage = (): Map<string, string[]> => {
+    const byPackage = new Map<string, string[]>();
+    for (const [groupId, pkg] of buildGroupPackagePrefixes(hierarchy)) {
+      if (!pkg) continue;
+      const list = byPackage.get(pkg);
+      if (list) list.push(groupId);
+      else byPackage.set(pkg, [groupId]);
+    }
+    return byPackage;
+  };
+  const derived = metadata.regionDecisions.some((d) => d.groupIds === undefined)
+    ? legacyGroupsByPackage()
+    : null;
 
   const regions = [...metadata.regionDecisions]
     .map((d) => {
       const pkg = d.regionId.startsWith("pkg:") ? d.regionId.slice("pkg:".length) : d.regionId;
+      const groupIds = d.groupIds ?? derived?.get(pkg) ?? [];
       return {
         regionId: d.regionId,
         cohesion: d.cohesion,
@@ -59,7 +69,7 @@ export async function GET(
         automaticAction: d.automaticAction,
         userOverridden: d.userOverridden,
         decisionConfidence: d.decisionConfidence,
-        groupIds: (groupsByPackage.get(pkg) ?? []).slice().sort(),
+        groupIds: [...groupIds].sort(),
       };
     })
     .sort((a, b) => (a.regionId < b.regionId ? -1 : a.regionId > b.regionId ? 1 : 0));

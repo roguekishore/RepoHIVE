@@ -19,19 +19,28 @@ import type { NodeId } from "@repohive/shared";
  *   to the shared contract's definedInFile invariant (class/function nodes
  *   declare an existing `file` node) — without it, contract-violating input
  *   silently corrupts the hierarchy downstream.
+ * - `MALFORMED_NODE` / `MALFORMED_EDGE` carry Requirement 1's field-validity
+ *   check: `graph.json` is untrusted disk input, and the contract's own doc
+ *   comments ("Unique, non-empty", "Non-negative integer") were never enforced,
+ *   so wrongly-typed fields flowed into the algorithm and were silently coerced.
  */
 export type GroupingError =
   | { code: "NO_GRAPH" }
-  | { code: "EMPTY_GRAPH" }
+  | { code: "EMPTY_GRAPH"; detail?: string }
   | { code: "DUPLICATE_NODE"; nodeId: NodeId }
   | { code: "DANGLING_EDGE"; nodeId: NodeId }
   | { code: "INVALID_DEFINED_IN_FILE"; nodeId: NodeId; detail: string }
+  | { code: "MALFORMED_NODE"; nodeId: NodeId; detail: string }
+  | { code: "MALFORMED_EDGE"; source?: NodeId; target?: NodeId; detail: string }
+  | { code: "DUPLICATE_EDGE"; source: NodeId; target: NodeId; detail: string }
   | { code: "NODE_NOT_FOUND"; nodeId: NodeId }
   | { code: "EMPTY_NODE_ID" }
   | { code: "MISSING_FILES"; files: string[] }
+  | { code: "FILE_NOT_FOUND"; file: string }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
-  | { code: "WRITE_FAILED"; file: string }
-  | { code: "INVALID_CONFIG"; detail: string };
+  | { code: "WRITE_FAILED"; file: string; detail?: string }
+  | { code: "INVALID_CONFIG"; detail: string; field?: string }
+  | { code: "INTERNAL_ERROR"; detail: string };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: GroupingError };
 
@@ -49,24 +58,41 @@ export function describeError(error: GroupingError): string {
     case "NO_GRAPH":
       return "no dependency graph was provided";
     case "EMPTY_GRAPH":
-      return "the dependency graph contains zero nodes";
+      return error.detail ?? "the dependency graph contains zero nodes";
     case "DUPLICATE_NODE":
       return `duplicate node identifier: ${error.nodeId}`;
     case "DANGLING_EDGE":
       return `edge references a missing node identifier: ${error.nodeId}`;
     case "INVALID_DEFINED_IN_FILE":
       return `node ${error.nodeId} has an invalid definedInFile: ${error.detail}`;
+    case "MALFORMED_NODE":
+      return `malformed node ${error.nodeId}: ${error.detail}`;
+    case "DUPLICATE_EDGE":
+      return `duplicate edge ${error.source} -> ${error.target}: ${error.detail}`;
+    case "MALFORMED_EDGE": {
+      const pair =
+        error.source !== undefined || error.target !== undefined
+          ? ` (${String(error.source)} -> ${String(error.target)})`
+          : "";
+      return `malformed edge${pair}: ${error.detail}`;
+    }
     case "NODE_NOT_FOUND":
       return `node not found: ${error.nodeId}`;
     case "EMPTY_NODE_ID":
       return "no node identifier was provided";
     case "MISSING_FILES":
       return `missing index files: ${error.files.join(", ")}`;
+    case "FILE_NOT_FOUND":
+      return `file not found or unreadable: ${error.file}`;
     case "MALFORMED_FILE":
       return `malformed index file ${error.file}: ${error.detail}`;
     case "WRITE_FAILED":
-      return `could not write index file: ${error.file}`;
+      return error.detail === undefined
+        ? `could not write index file: ${error.file}`
+        : `could not write index file ${error.file}: ${error.detail}`;
     case "INVALID_CONFIG":
       return `invalid configuration: ${error.detail}`;
+    case "INTERNAL_ERROR":
+      return `internal error: ${error.detail}`;
   }
 }

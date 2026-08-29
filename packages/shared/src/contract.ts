@@ -59,6 +59,14 @@ export interface GraphNode {
  *
  * Every edge carries exactly the three frequency signals. The `strength` field
  * is optional in the contract but is NEVER emitted by the parser.
+ *
+ * **Producer obligation:** a graph contains at most one edge per ordered
+ * `(source, target)` pair. Signals between the same two entities are summed
+ * into a single edge before emission; the parser satisfies this via R5.3. Two
+ * edges over one pair are double-counted by consumers that sum strength, which
+ * inflates cohesion enough to flip a preserve/reconstruct decision, so the
+ * grouping engine rejects such a graph rather than silently folding it. The
+ * opposite direction is a different pair and is legitimately distinct.
  */
 export interface DependencyEdge {
   /** Identifier of the source node (an existing node in the graph). */

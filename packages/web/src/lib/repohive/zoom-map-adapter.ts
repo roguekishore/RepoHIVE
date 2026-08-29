@@ -112,27 +112,31 @@ export function adaptIndexToZoomMap(
   const labels = buildDisplayLabels(hierarchy, rootName);
 
   // --- 3b. Decision encoding: join each group to its Region decision (R7) ---
-  // Heuristic join (§7-a): a group's common package prefix -> the `pkg:<...>`
-  // region decision. Exact for a preserved package; approximate for reconstruct
-  // sub-clusters that share a package (they inherit the region's decision).
-  const groupPackages = buildGroupPackagePrefixes(hierarchy);
-  const decisionByPackage = new Map<string, RegionDecision>();
+  // Exact join: the engine records each group's originating Region on the node
+  // itself (Gap 12), so the group→decision link is read, not inferred. This
+  // replaced a package-prefix heuristic that was exact only for a preserved
+  // package and approximate for reconstructed sub-clusters — which is precisely
+  // where the adaptive contribution is most worth seeing. A group that carries
+  // no `regionId` is a Repository-fan-out wrapper belonging to no region, and
+  // correctly shows no decision.
+  const decisionByRegion = new Map<string, RegionDecision>();
   for (const decision of metadata.regionDecisions) {
-    const pkg = decision.regionId.startsWith("pkg:")
-      ? decision.regionId.slice("pkg:".length)
-      : decision.regionId;
-    decisionByPackage.set(pkg, decision);
+    decisionByRegion.set(decision.regionId, decision);
   }
   const groupSummary = new Map<string, string>();
   const groupDecision = new Map<string, "preserve" | "reconstruct">();
-  for (const [id, pkg] of groupPackages) {
-    if (!pkg) continue;
-    const decision = decisionByPackage.get(pkg);
+  for (const node of hierarchy.nodes.values()) {
+    if (node.kind !== "group" || node.regionId === undefined) continue;
+    const decision = decisionByRegion.get(node.regionId);
     if (decision) {
-      groupSummary.set(id, decisionSummary(decision));
-      groupDecision.set(id, decision.action);
+      groupSummary.set(node.id, decisionSummary(decision));
+      groupDecision.set(node.id, decision.action);
     }
   }
+
+  // The package prefix remains the group's *subtitle* (its `path`), which is a
+  // display concern and legitimately derived from members.
+  const groupPackages = buildGroupPackagePrefixes(hierarchy);
 
   // --- 4. Nodes -------------------------------------------------------------
   const zoomNodes: ZoomNode[] = emitted.map((node) => {

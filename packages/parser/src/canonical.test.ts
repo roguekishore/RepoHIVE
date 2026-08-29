@@ -13,10 +13,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
-import type {
-  DependencyEdge,
-  GraphNode,
-  RawDependencyGraph,
+import {
+  compareCanonical,
+  type DependencyEdge,
+  type GraphNode,
+  type RawDependencyGraph,
 } from "@repohive/shared";
 import {
   compareUtf8,
@@ -272,4 +273,36 @@ test("byte-wise comparison orders uppercase before lowercase", () => {
   // 'Z' (0x5A) sorts before 'a' (0x61) byte-wise, unlike a locale-aware sort.
   assert.ok(compareUtf8("Z", "a") < 0);
   assert.ok(compareUtf8("a", "b") < 0);
+});
+
+// --- Property: one canonical order across the engine (Gap 17) --------------
+//
+// The core has a matching test pinning *its* comparator to the same reference.
+// Together the two prevent the packages from drifting back into two orders.
+
+test("compareUtf8 is the shared canonical order, byte-wise over UTF-8 (R9.2, R9.3)", () => {
+  const unit = fc.oneof(
+    fc.constantFrom(..."abzAZ019_.$|/-"),
+    fc.constantFrom("｡", "ﾟ", "é", "́", "一"),
+    fc.constantFrom("\u{10000}", "\u{1F600}", "\u{10FFFF}"),
+  );
+  const id = fc.string({ unit, minLength: 0, maxLength: 24 });
+  const sign = (n: number): number => (n < 0 ? -1 : n > 0 ? 1 : 0);
+
+  fc.assert(
+    fc.property(id, id, (a, b) => {
+      const reference = Buffer.compare(
+        Buffer.from(a, "utf8"),
+        Buffer.from(b, "utf8"),
+      );
+      assert.equal(sign(compareUtf8(a, b)), sign(reference));
+      assert.equal(sign(compareUtf8(a, b)), sign(compareCanonical(a, b)));
+    }),
+    { numRuns: 100 },
+  );
+
+  // The pair that used to divide the two packages: the BMP character's UTF-8
+  // lead byte (EF) is below the supplementary plane's (F0), so it sorts first —
+  // the opposite of what UTF-16 code-unit order says.
+  assert.ok(compareUtf8("｡", "\u{10000}") < 0);
 });

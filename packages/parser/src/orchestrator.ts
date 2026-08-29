@@ -39,6 +39,7 @@ import type { DependencyEdge, GraphNode } from "@repohive/shared";
 import {
   ParseErrorCollector,
   err,
+  makeError,
   type ParseError,
   type ParseSuccess,
   type Result,
@@ -144,6 +145,26 @@ export async function parseProject(
   options: ParseOptions,
   deps: ParseDeps = defaultDeps(),
 ): Promise<Result<ParseSuccess, ParseError>> {
+  try {
+    return await parseProjectUnguarded(options, deps);
+  } catch (cause) {
+    // Backstop (Fix 2 — Gap 3): the parser promises errors-as-values, so no
+    // throw may cross this boundary. Anything unexpected becomes a structured
+    // error rather than a raw stack trace; nothing is written, because the
+    // serializer is the last step and any throw precedes its completion.
+    return err([
+      makeError(
+        "internal-error",
+        `Unexpected internal error while parsing: ${cause instanceof Error ? cause.message : String(cause)}`,
+      ),
+    ]);
+  }
+}
+
+async function parseProjectUnguarded(
+  options: ParseOptions,
+  deps: ParseDeps,
+): Promise<Result<ParseSuccess, ParseError>> {
   // 1. Validate the project directory; a fatal input error short-circuits with
   //    exactly one error and no further work (R1, R1.7).
   const validation = await deps.validator.validate(options.projectDirectory);
@@ -151,6 +172,10 @@ export async function parseProject(
     return validation;
   }
   const validated = validation.value;
+
+  // Recoverable errors are recorded from collection onward: an unrepresentable
+  // path is found during the walk, before extraction begins.
+  const errors = new ParseErrorCollector();
 
   // 2. Collect Java source files in canonical order; fatal collection errors
   //    (unreadable directory, no `.java` files) are returned immediately
@@ -161,6 +186,9 @@ export async function parseProject(
     onExcludedDirectory: () => {
       excludedDirectoryCount += 1;
     },
+    onUnsupportedPath: (error) => {
+      errors.add(error);
+    },
   });
   if (!collection.ok) {
     return collection;
@@ -170,7 +198,6 @@ export async function parseProject(
   // 3. Extract nodes + references from every file in canonical order,
   //    accumulating recoverable per-file errors and continuing (R10.1, R10.2).
   //    No output is written during this phase (R10.3).
-  const errors = new ParseErrorCollector();
   const extractor = await deps.createExtractor();
 
   const nodes: GraphNode[] = [];

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
-import type { RawDependencyGraph } from "@repohive/shared";
+import type { NodeId, RawDependencyGraph } from "@repohive/shared";
 import { analyzeBlastRadius } from "./blast-radius.js";
 import { groupGraph } from "./orchestrator.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
-import type { Hierarchy } from "./types.js";
+import type { Hierarchy, HierarchyNode } from "./types.js";
 
 function hierarchyOf(graph: RawDependencyGraph): Hierarchy {
   const result = groupGraph(graph);
@@ -159,4 +159,65 @@ test("an unknown id is rejected with NODE_NOT_FOUND naming it, hierarchy unchang
   assert.ok("nodeId" in result.error && result.error.nodeId === ghostId);
 
   assert.equal(hierarchy.nodes.size, nodeCountBefore);
+});
+
+// --- The ancestor climb must terminate on cyclic containment (Gap 11) ------
+//
+// The dependency traversal always had a visited set; the containment climb did
+// not, because a Hierarchy was assumed to be a tree. analyzeBlastRadius is
+// public API over a plain Hierarchy value, so a caller — or a future
+// incremental path that patches a hierarchy in memory — can hand it a cycle.
+
+/** A Hierarchy whose parentId links form a cycle. parseIndex would reject it. */
+function cyclicHierarchy(): Hierarchy {
+  const nodes = new Map<NodeId, HierarchyNode>([
+    ["g_a", { id: "g_a", kind: "group", level: 1, parentId: "g_b", childIds: ["g_b"] }],
+    ["g_b", { id: "g_b", kind: "group", level: 2, parentId: "g_a", childIds: ["file:A.java"] }],
+    [
+      "file:A.java",
+      { id: "file:A.java", kind: "file", level: 3, parentId: "g_b", childIds: [] },
+    ],
+  ]);
+  return {
+    repositoryId: "g_a",
+    nodes,
+    leafAttributes: new Map(),
+    leafEdges: [],
+    crossGroupEdges: [],
+    depth: 3,
+  };
+}
+
+test("a containment cycle terminates the climb instead of hanging (R10.7)", () => {
+  const hierarchy = cyclicHierarchy();
+
+  // Completion is the assertion. Relying on the runner's timeout would let a
+  // regression reintroduce the hang and merely look slow.
+  const first = analyzeBlastRadius(hierarchy, "file:A.java");
+  assert.ok(first.ok, "a cyclic hierarchy must still yield a result");
+
+  // Deterministic across repeated queries on an unchanged hierarchy (R10.8).
+  const second = analyzeBlastRadius(hierarchy, "file:A.java");
+  assert.ok(second.ok);
+  assert.deepEqual(second.value, first.value);
+
+  // The groups on the cycle are still reported — the guard stops the loop, it
+  // does not truncate the answer.
+  assert.deepEqual(first.value.groupNodes, ["g_a", "g_b"]);
+});
+
+test("a self-parenting node terminates the climb", () => {
+  const nodes = new Map<NodeId, HierarchyNode>([
+    ["g_self", { id: "g_self", kind: "group", level: 1, parentId: "g_self", childIds: [] }],
+  ]);
+  const hierarchy: Hierarchy = {
+    repositoryId: "g_self",
+    nodes,
+    leafAttributes: new Map(),
+    leafEdges: [],
+    crossGroupEdges: [],
+    depth: 1,
+  };
+  const result = analyzeBlastRadius(hierarchy, "g_self");
+  assert.ok(result.ok);
 });

@@ -8,9 +8,24 @@
  * `\n` line endings, no BOM).
  */
 
-/** Byte-wise (code-unit) lexicographic comparator for identifiers. */
+import { compareCanonical } from "@repohive/shared";
+
+/**
+ * Canonical lexicographic comparator for identifiers: byte-wise over the UTF-8
+ * encoding, which is the order the parser has always used (R9.2, R9.3).
+ *
+ * This was previously JavaScript's `<`/`>`, i.e. UTF-16 code-unit order. The two
+ * disagree whenever a supplementary-plane character is compared against a
+ * high-BMP one, so the engine's two halves ordered the same identifiers
+ * differently (Gap 17). The single implementation lives in `@repohive/shared`.
+ *
+ * `compareIds` feeds `sortIds`, which feeds `partitionChildren`'s slicing and
+ * the content-addressed group-id membership key — so for a repository with
+ * supplementary-plane identifiers this changes child ordering and group ids.
+ * ASCII-only repositories are byte-for-byte unaffected.
+ */
 export function compareIds(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  return compareCanonical(a, b);
 }
 
 /** Comparator for edge-like pairs: by source, then target. */
@@ -21,6 +36,33 @@ export function compareEdgePairs(
   return compareIds(a.source, b.source) || compareIds(a.target, b.target);
 }
 
+/** The signal-bearing shape {@link compareDependencyEdges} orders. */
+type EdgeLike = {
+  source: string;
+  target: string;
+  importFrequency: number;
+  methodCallFrequency: number;
+  sharedTypeCount: number;
+};
+
+/**
+ * Numeric comparison that stays a total order even on `NaN`.
+ *
+ * `a - b` is not a comparator: for a `NaN` operand it returns `NaN`, which
+ * `Array.prototype.sort` reads as "equal", so differing elements tie and the
+ * stable sort falls back to *input order*. Ordering by `<`/`>` with `NaN`
+ * placed last (and equal to itself) is antisymmetric and transitive, which is
+ * what a deterministic sort requires.
+ */
+function compareNumbers(a: number, b: number): number {
+  const aIsNaN = Number.isNaN(a);
+  const bIsNaN = Number.isNaN(b);
+  if (aIsNaN || bIsNaN) {
+    return aIsNaN && bIsNaN ? 0 : aIsNaN ? 1 : -1;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /**
  * Total-order comparator for dependency edges: (source, target) first, then
  * the full signal content as a tiebreaker. Parallel edges (same source and
@@ -28,30 +70,52 @@ export function compareEdgePairs(
  * input position — without this, a stable sort would preserve input order for
  * ties and reordered input could change downstream accumulation and output
  * (Req 7.2).
+ *
+ * The signals are coerced and compared NaN-safely rather than subtracted. Ingest
+ * now rejects non-numeric signals outright (Gap 13), but this comparator is part
+ * of `packages/core`'s public API and is reachable without passing through
+ * `ingest`, so it defends itself: a string-valued signal previously produced a
+ * `NaN` tiebreak and left parallel edges in input order — a reproduced violation
+ * of Req 7.2, the project's hardest guarantee.
  */
-export function compareDependencyEdges(
-  a: {
-    source: string;
-    target: string;
-    importFrequency: number;
-    methodCallFrequency: number;
-    sharedTypeCount: number;
-  },
-  b: {
-    source: string;
-    target: string;
-    importFrequency: number;
-    methodCallFrequency: number;
-    sharedTypeCount: number;
-  }
-): number {
+export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
   return (
     compareIds(a.source, b.source) ||
     compareIds(a.target, b.target) ||
-    a.importFrequency - b.importFrequency ||
-    a.methodCallFrequency - b.methodCallFrequency ||
-    a.sharedTypeCount - b.sharedTypeCount
+    compareNumbers(Number(a.importFrequency), Number(b.importFrequency)) ||
+    compareNumbers(Number(a.methodCallFrequency), Number(b.methodCallFrequency)) ||
+    compareNumbers(Number(a.sharedTypeCount), Number(b.sharedTypeCount)) ||
+    // Final tiebreak on the canonical string rendering. Numeric coercion maps
+    // distinct values onto one number — `"1"`, `1` and `true` all become 1,
+    // `null` and `0` both become 0 — so comparing only the coerced numbers
+    // leaves genuinely different edges tied, and a stable sort then falls back
+    // to input order: the same Req 7.2 hole in a smaller shape. For conforming
+    // input every signal is already an integer, so this never fires and no
+    // output byte moves.
+    compareIds(renderSignals(a), renderSignals(b))
   );
+}
+
+/**
+ * The three signals as one canonical string, for the total-order tiebreak.
+ *
+ * Rendered with `JSON.stringify`, deliberately: the tiebreak has to be exactly
+ * as discriminating as {@link stableStringify}, which is what decides the output
+ * bytes. `String` is not — it maps `"2"` and `2` onto the same text while the
+ * serializer emits `"2"` and `2`, so the comparator tied on two edges that
+ * serialize differently and input order broke the tie. Where the serializer
+ * cannot tell two values apart either (`NaN` and `Infinity` both emit `null`),
+ * a tie here is harmless, because the rendered output is identical anyway.
+ * `undefined` stringifies to the value `undefined`, which `String` renders as
+ * `"undefined"` — distinct from `"null"`, matching the serializer's rule that an
+ * `undefined` entry is omitted rather than emitted as null.
+ */
+function renderSignals(edge: EdgeLike): string {
+  return JSON.stringify([
+    String(JSON.stringify(edge.importFrequency)),
+    String(JSON.stringify(edge.methodCallFrequency)),
+    String(JSON.stringify(edge.sharedTypeCount)),
+  ]);
 }
 
 /** Return a new array sorted by node/entity id. */
@@ -90,7 +154,21 @@ export function stableStringify(value: unknown): string {
 }
 
 function render(value: unknown, indent: string): string {
-  if (value === null || typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === "number") {
+    // `JSON.stringify` renders NaN and ±Infinity as `null`, which is how a NaN
+    // score reached metadata.json as a null the engine's own parseIndex then
+    // rejected (Gap 9). Refusing here makes a non-finite number unrepresentable
+    // in output, so that class of defect cannot recur through any other path.
+    //
+    // This throw is an internal invariant, reachable only if a stage forgot to
+    // validate; the public entry points' boundary catch converts it into
+    // INTERNAL_ERROR, which is the correct escalation.
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`stableStringify: refusing to serialize non-finite number ${String(value)}`);
+    }
+    return JSON.stringify(value);
+  }
+  if (value === null || typeof value === "boolean") {
     return JSON.stringify(value);
   }
   if (typeof value === "string") {

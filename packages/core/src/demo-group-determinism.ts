@@ -14,6 +14,7 @@ import { stableStringify } from "./canonical.js";
 import { describeError } from "./errors.js";
 import { INDEX_FILE_NAMES, indexFilePayloads } from "./index-serializer.js";
 import { groupGraph, readGraphFile } from "./orchestrator.js";
+import { compareRunDigests, MIN_RUNS, validateRuns } from "./determinism-check.js";
 
 function resolveAgainstInvocationDir(path: string): string {
   if (isAbsolute(path)) {
@@ -23,7 +24,14 @@ function resolveAgainstInvocationDir(path: string): string {
 }
 
 const inputArg = process.argv[2] ?? "fixtures/sample-java-project";
-const runs = Number(process.argv[3] ?? "3");
+
+const runsInput = validateRuns(process.argv[3]);
+if (!runsInput.ok) {
+  console.error(`demo: ${runsInput.message}`);
+  console.error(`usage: npm run demo:group-determinism -- <graph.json | dir> [runs>=${MIN_RUNS}]`);
+  process.exit(2);
+}
+const runs = runsInput.runs;
 
 let graphPath = resolveAgainstInvocationDir(inputArg);
 try {
@@ -69,14 +77,20 @@ for (let i = 0; i < runs; i++) {
   };
 }
 
-const identical = digests.every((d) => d === digests[0]);
+const verdict = compareRunDigests(digests, runs);
 console.log("RepoHIVE core — grouping determinism check");
 console.log(`  input   : ${graphPath}`);
 console.log(`  runs    : ${runs}`);
 console.log(`  regions : ${summary.regions}`);
 console.log(`  nodes   : ${summary.nodes} (depth ${summary.depth})`);
-console.log(`  sha-256 : ${digests[0]}`);
-console.log(`  result  : ${identical ? "DETERMINISTIC (identical digest across all runs)" : "NON-DETERMINISTIC"}`);
-if (!identical) {
+console.log(`  sha-256 : ${digests[0] ?? "(none produced)"}`);
+console.log(
+  `  result  : ${
+    verdict.deterministic
+      ? `DETERMINISTIC (${runs} runs, identical digest)`
+      : `NON-DETERMINISTIC — ${verdict.reason}`
+  }`,
+);
+if (!verdict.deterministic) {
   process.exit(1);
 }
