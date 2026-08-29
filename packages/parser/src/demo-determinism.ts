@@ -36,10 +36,23 @@ async function main(): Promise<void> {
       ? path.resolve(projectArg)
       : defaultFixtureDirectory();
 
-  const runs = runsArg !== undefined ? Number.parseInt(runsArg, 10) : 3;
-  const effectiveRuns = Number.isFinite(runs) && runs >= 2 ? runs : 3;
+  // An out-of-range `runs` was silently replaced with 3, so `... 0` reported a
+  // successful 3-run check the caller never asked for (Fix 18 — Gap 18). Two is
+  // the minimum that can demonstrate anything: one run has nothing to compare
+  // against.
+  const runs = runsArg === undefined ? 3 : Number(runsArg);
+  if (!Number.isInteger(runs) || runs < 2) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `demo: runs must be an integer >= 2 (one run cannot demonstrate determinism), got ${JSON.stringify(runsArg)}`,
+    );
+    // eslint-disable-next-line no-console
+    console.error("usage: npm run demo:determinism -- <projectDirectory> [runs>=2]");
+    process.exitCode = 2;
+    return;
+  }
 
-  const exitCode = await runDeterminismDemo(projectDirectory, effectiveRuns);
+  const exitCode = await runDeterminismDemo(projectDirectory, runs);
   process.exitCode = exitCode;
 }
 

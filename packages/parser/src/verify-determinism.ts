@@ -157,6 +157,31 @@ export async function verifyDeterminism(
     await nodeFs.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
   }
 
+  // Stated positively (Fix 18 — Gap 18): the requested number of runs actually
+  // completed, and each produced a well-formed digest. An absence-of-mismatch
+  // test is satisfied by an empty list, which is how a zero-run check could
+  // report success having verified nothing.
+  if (runCount < 2 || completed.length !== runCount) {
+    return {
+      ok: false,
+      deterministic: false,
+      reason:
+        runCount < 2
+          ? `At least 2 runs are needed to demonstrate determinism, got ${runCount}.`
+          : `Expected ${runCount} completed runs, got ${completed.length}.`,
+      runs: completed,
+    };
+  }
+  const malformed = completed.find((r) => !/^[0-9a-f]{64}$/.test(r.digest));
+  if (malformed !== undefined) {
+    return {
+      ok: false,
+      deterministic: false,
+      reason: `Run ${malformed.run} produced a malformed digest.`,
+      runs: completed,
+    };
+  }
+
   const distinctDigests = [...new Set(completed.map((r) => r.digest))];
   if (distinctDigests.length !== 1) {
     return {

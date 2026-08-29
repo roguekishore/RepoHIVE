@@ -450,3 +450,28 @@ test("property: byte-identical graph.json across shuffled extraction order (R9.5
     { numRuns: 3 },
   );
 });
+
+// --- A determinism check must verify something (Fix 18 — Gap 18) ----------
+//
+// The verdict was "no two digests disagree", which an empty list satisfies. The
+// demo script also silently replaced an out-of-range `runs` with 3, so `... 0`
+// reported a successful 3-run check the caller never asked for.
+
+test("verifyDeterminism refuses to report success without enough runs", async () => {
+  for (const runs of [0, 1]) {
+    const result = await verifyDeterminism({
+      projectDirectory: FIXTURE_DIR,
+      runs,
+    });
+    assert.equal(result.ok, false, `runs=${runs} must not report success`);
+    assert.equal(result.deterministic, false);
+    assert.match(result.reason, /At least 2 runs/);
+  }
+});
+
+test("verifyDeterminism still confirms determinism for a real run", async () => {
+  const result = await verifyDeterminism({ projectDirectory: FIXTURE_DIR, runs: 2 });
+  assert.ok(result.ok, "the fixture must still parse deterministically");
+  assert.equal(result.runs.length, 2);
+  assert.match(result.digest, /^[0-9a-f]{64}$/);
+});
