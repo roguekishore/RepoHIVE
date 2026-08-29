@@ -11,6 +11,7 @@ import {
 } from "./hierarchy-builder.js";
 import { groupGraph } from "./orchestrator.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
+import type { RawDependencyGraph } from "@repohive/shared";
 import type { Hierarchy, HierarchyConfig } from "./types.js";
 
 /** Run the full pipeline and return the assembled hierarchy (must succeed). */
@@ -292,4 +293,130 @@ test("partitioning cascades deterministically through L2, L1, and the repository
     assert.equal(f.level, 3);
     assert.match(f.parentId ?? "", /^g_[0-9a-f]{40}$/);
   }
+});
+
+// --- Group nodes carry Region provenance (Gap 12) -------------------------
+//
+// A group id is a content hash, so without provenance a consumer can only show
+// `g_<hash>`. The ordinal is the piece it cannot derive: when a region is
+// reconstructed into several communities, or split by maxGroupSize, the sibling
+// groups share a regionId and differ only by hash.
+
+/** Group nodes carrying provenance, keyed by region. */
+function groupsByRegion(hierarchy: Hierarchy): Map<string, Array<{ id: string; ordinal: number }>> {
+  const byRegion = new Map<string, Array<{ id: string; ordinal: number }>>();
+  for (const node of hierarchy.nodes.values()) {
+    if (node.kind !== "group" || node.regionId === undefined) {
+      continue;
+    }
+    const list = byRegion.get(node.regionId) ?? [];
+    list.push({ id: node.id, ordinal: node.ordinal! });
+    byRegion.set(node.regionId, list);
+  }
+  return byRegion;
+}
+
+test("a preserved region's groups carry its regionId, ordinals starting at 0 (Gap 12)", () => {
+  const graph: RawDependencyGraph = {
+    nodes: [
+      { id: "file:p/A.java", kind: "file", packagePath: "p", directoryPath: "p" },
+      { id: "file:p/B.java", kind: "file", packagePath: "p", directoryPath: "p" },
+    ],
+    edges: [
+      {
+        source: "file:p/A.java",
+        target: "file:p/B.java",
+        importFrequency: 9,
+        methodCallFrequency: 0,
+        sharedTypeCount: 0,
+      },
+    ],
+  };
+  // Boundary 0 preserves everywhere.
+  const result = groupGraph(graph, { structuralQualityBoundary: 0 });
+  assert.ok(result.ok);
+
+  const byRegion = groupsByRegion(result.value.hierarchy);
+  const groups = byRegion.get("pkg:p");
+  assert.ok(groups !== undefined, "the preserved region must name its groups");
+  const ordinals = groups.map((g) => g.ordinal).sort((a, b) => a - b);
+  assert.equal(ordinals[0], 0, "ordinals start at 0 within each region");
+});
+
+test("repository-wrapper groups omit provenance, since they match no region", () => {
+  // Enough regions to force the Repository to wrap (maxGroupSize 2).
+  const nodes = Array.from({ length: 8 }, (_, i) => ({
+    id: `file:p${i}/F${i}.java`,
+    kind: "file" as const,
+    packagePath: `p${i}`,
+    directoryPath: `p${i}`,
+  }));
+  const result = groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
+  assert.ok(result.ok);
+
+  const wrappers = [...result.value.hierarchy.nodes.values()].filter(
+    (n) => n.kind === "group" && n.regionId === undefined,
+  );
+  assert.ok(wrappers.length > 0, "this shape must produce wrapper groups");
+  for (const wrapper of wrappers) {
+    assert.equal(wrapper.ordinal, undefined, "ordinal is omitted wherever regionId is");
+  }
+
+  // The repository node never carries provenance either.
+  const repository = result.value.hierarchy.nodes.get(result.value.hierarchy.repositoryId)!;
+  assert.equal(repository.regionId, undefined);
+});
+
+test("a size-partitioned region yields distinct ordinals per slice", () => {
+  // 6 files in one package with maxGroupSize 2 forces several slices.
+  const nodes = Array.from({ length: 6 }, (_, i) => ({
+    id: `file:p/F${i}.java`,
+    kind: "file" as const,
+    packagePath: "p",
+    directoryPath: "p",
+  }));
+  const result = groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
+  assert.ok(result.ok);
+
+  const groups = groupsByRegion(result.value.hierarchy).get("pkg:p");
+  assert.ok(groups !== undefined && groups.length > 1, "the region must split into several groups");
+  const ordinals = groups.map((g) => g.ordinal);
+  assert.equal(new Set(ordinals).size, ordinals.length, "ordinals are distinct within a region");
+});
+
+// Feature: hierarchical-repository-grouping, Property 43: Group provenance is complete and unambiguous
+test("Property 43: (regionId, ordinal) is unique and every regionId is a recorded decision", () => {
+  fc.assert(
+    fc.property(arbitraryDependencyGraph({ maxFiles: 8, maxEdges: 12 }), (graph) => {
+      const result = groupGraph(graph);
+      assert.ok(result.ok);
+      const { hierarchy, metadata } = result.value;
+
+      const decided = new Set(metadata.regionDecisions.map((d) => d.regionId));
+      const seen = new Set<string>();
+
+      for (const node of hierarchy.nodes.values()) {
+        if (node.kind !== "group" || node.regionId === undefined) {
+          continue;
+        }
+        // Every provenance points at a region the audit record explains.
+        assert.ok(decided.has(node.regionId), `unknown region ${node.regionId}`);
+        assert.ok(Number.isInteger(node.ordinal) && node.ordinal! >= 0);
+
+        // Uniqueness is what makes a consumer's label unambiguous: two sibling
+        // groups of one region must never render as the same thing.
+        const key = `${node.regionId}#${node.ordinal}`;
+        assert.ok(!seen.has(key), `duplicate provenance ${key}`);
+        seen.add(key);
+      }
+
+      // The reverse direction: every decision's groupIds exist in the tree.
+      for (const decision of metadata.regionDecisions) {
+        for (const groupId of decision.groupIds ?? []) {
+          assert.ok(hierarchy.nodes.has(groupId), `decision names a missing group ${groupId}`);
+        }
+      }
+    }),
+    { numRuns: 100 },
+  );
 });

@@ -31,6 +31,7 @@ import type {
   Hierarchy,
   HierarchyConfig,
   HierarchyNode,
+  RegionId,
   WeightedModel,
 } from "./types.js";
 
@@ -94,12 +95,36 @@ export function buildHierarchy(
   // --- Level-2 groups: the construction results, size-partitioned. ---------
   // Regions iterate in canonical order (construction preserves it).
   const level2IdsOfRegion = new Map<string, NodeId[]>();
+  // Every group node a region produces, so the audit record can name them, plus
+  // one ordinal counter per region.
+  //
+  // The counter spans *all* of a region's groups — its Level-2 sub-clusters and
+  // the Level-1 containers built over them — so that `(regionId, ordinal)` is
+  // unique across the whole hierarchy. Per-level counters would restart at 0 and
+  // make two different boxes indistinguishable to a consumer, which is the one
+  // thing the ordinal exists to prevent. It stays deterministic because regions,
+  // groups and slices all iterate in canonical order: no counter spans the run,
+  // only each region's own canonical group list.
+  const groupIdsOfRegion = new Map<RegionId, NodeId[]>();
+  const nextOrdinalOfRegion = new Map<RegionId, number>();
+  const recordGroup = (regionId: RegionId, id: NodeId): number => {
+    const list = groupIdsOfRegion.get(regionId);
+    if (list) {
+      list.push(id);
+    } else {
+      groupIdsOfRegion.set(regionId, [id]);
+    }
+    const ordinal = nextOrdinalOfRegion.get(regionId) ?? 0;
+    nextOrdinalOfRegion.set(regionId, ordinal + 1);
+    return ordinal;
+  };
+
   for (const [regionId, groups] of construction.regionGroups) {
     const level2Ids: NodeId[] = [];
     for (const group of groups) {
       for (const slice of partitionChildren(group.fileIds, maxGroupSize, minPartitionThreshold)) {
         const id = groupIdOf(slice);
-        addGroupNode(nodes, id, slice);
+        addGroupNode(nodes, id, slice, { regionId, ordinal: recordGroup(regionId, id) });
         level2Ids.push(id);
       }
     }
@@ -108,10 +133,10 @@ export function buildHierarchy(
 
   // --- Level-1 groups: one per Primary_Region, size-partitioned. -----------
   let level1Ids: NodeId[] = [];
-  for (const [, level2Ids] of level2IdsOfRegion) {
+  for (const [regionId, level2Ids] of level2IdsOfRegion) {
     for (const slice of partitionChildren(level2Ids, maxGroupSize, minPartitionThreshold)) {
       const id = groupIdOf(slice);
-      addGroupNode(nodes, id, slice);
+      addGroupNode(nodes, id, slice, { regionId, ordinal: recordGroup(regionId, id) });
       level1Ids.push(id);
     }
   }
@@ -210,16 +235,31 @@ export function buildHierarchy(
     leafEdges,
     crossGroupEdges,
     depth,
+    groupIdsOfRegion,
   });
 }
 
-function addGroupNode(nodes: Map<NodeId, HierarchyNode>, id: NodeId, childIds: readonly NodeId[]): void {
+/**
+ * Register a group node, carrying its Region provenance when it has one.
+ *
+ * The Repository-wrapping intermediate levels correspond to no region and pass
+ * no provenance; they omit both fields, which consumers must handle (Gap 12).
+ */
+function addGroupNode(
+  nodes: Map<NodeId, HierarchyNode>,
+  id: NodeId,
+  childIds: readonly NodeId[],
+  provenance?: { regionId: RegionId; ordinal: number }
+): void {
   nodes.set(id, {
     id,
     kind: "group",
     level: -1,
     parentId: null,
     childIds: sortIds(childIds),
+    ...(provenance !== undefined
+      ? { regionId: provenance.regionId, ordinal: provenance.ordinal }
+      : {}),
   });
 }
 

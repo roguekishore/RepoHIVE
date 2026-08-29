@@ -82,6 +82,15 @@ export interface RegionDecision {
   userOverridden: boolean;
   /** |score − boundary| (Req 5.4). */
   decisionConfidence: number;
+  /**
+   * The group node ids this decision produced, in canonical order (Gap 12).
+   *
+   * Joins the audit record to the tree in the decision→groups direction, so a
+   * consumer can go from "this region was reconstructed with score 0.31" to the
+   * boxes on screen — which is what makes the adaptive contribution visible
+   * rather than merely recorded. Optional so older indexes still parse.
+   */
+  groupIds?: NodeId[];
 }
 
 /** One produced group of File nodes within a Region's result. */
@@ -111,6 +120,28 @@ export interface HierarchyNode {
   parentId: NodeId | null;
   /** Sorted ascending by child id (Req 7.5). */
   childIds: NodeId[];
+  /**
+   * The Primary_Region this group came from (Gap 12). Purely additive
+   * provenance: a group id is a content hash, so without it a consumer can only
+   * show `g_<hash>` and has no way to tell which package a box represents.
+   *
+   * Omitted on the Repository node and on the intermediate wrapper groups that
+   * exist only to bound the Repository's fan-out — those correspond to no
+   * region, and consumers must handle that.
+   */
+  regionId?: RegionId;
+  /**
+   * This group's index within its region's canonical group list (Gap 12).
+   *
+   * The piece a consumer cannot derive: when a region is reconstructed into
+   * several communities, or split by `maxGroupSize` into slices, the resulting
+   * sibling groups share a `regionId` and differ only by content hash. The
+   * ordinal is a pure function of the already-canonical iteration order — no
+   * counter spans the run — so it stays deterministic.
+   *
+   * Omitted wherever `regionId` is.
+   */
+  ordinal?: number;
 }
 
 export interface CrossGroupEdge {
@@ -133,6 +164,14 @@ export interface Hierarchy {
   crossGroupEdges: CrossGroupEdge[];
   /** Levels from the Repository node to the deepest leaf (Req 9.4). */
   depth: number;
+  /**
+   * Group node ids produced per Region, in canonical order (Gap 12).
+   *
+   * In-memory only — `metadata.json` carries the same association as
+   * `regionDecisions[].groupIds`. Absent on a Hierarchy reconstructed by
+   * `parseIndex`, which rebuilds it from that field instead.
+   */
+  groupIdsOfRegion?: Map<RegionId, NodeId[]>;
 }
 
 export interface PerLevelStats {
