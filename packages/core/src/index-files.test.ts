@@ -1043,3 +1043,126 @@ test("recorded metricWeights reflect the weights actually applied (R3.7)", () =>
   assert.ok(computable.ok);
   assert.equal(computable.value.metadata.metricWeights.modularity, 1);
 });
+
+// --- Group provenance survives the round trip (Gap 12) --------------------
+
+test("regionId, ordinal and groupIds survive serialize → parse", () => {
+  const graph: RawDependencyGraph = {
+    nodes: Array.from({ length: 6 }, (_, i) => ({
+      id: `file:p${i % 2}/F${i}.java`,
+      kind: "file" as const,
+      packagePath: `p${i % 2}`,
+      directoryPath: `p${i % 2}`,
+    })),
+    edges: [
+      {
+        source: "file:p0/F0.java",
+        target: "file:p0/F2.java",
+        importFrequency: 4,
+        methodCallFrequency: 0,
+        sharedTypeCount: 0,
+      },
+    ],
+  };
+  const output = runPipeline(graph);
+
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+    const parsed = parseIndex(dir);
+    assert.ok(parsed.ok);
+
+    let checked = 0;
+    const reparsed = parsed.value.hierarchy;
+    for (const [id, before] of output.hierarchy.nodes) {
+      const after = reparsed.nodes.get(id)!;
+      assert.equal(after.regionId, before.regionId, `regionId of ${id}`);
+      assert.equal(after.ordinal, before.ordinal, `ordinal of ${id}`);
+      if (before.regionId !== undefined) {
+        checked += 1;
+      }
+    }
+    assert.ok(checked > 0, "the fixture must exercise groups that carry provenance");
+
+    // The decision → groups direction round-trips too.
+    for (const decision of parsed.value.metadata.regionDecisions) {
+      const original = output.metadata.regionDecisions.find((d) => d.regionId === decision.regionId)!;
+      assert.deepEqual(decision.groupIds, original.groupIds);
+      assert.ok((decision.groupIds ?? []).length > 0, "each decision must name its groups");
+      for (const groupId of decision.groupIds ?? []) {
+        assert.ok(parsed.value.hierarchy.nodes.has(groupId));
+      }
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an index written without provenance still parses (the fields are optional)", () => {
+  const output = runPipeline(smallGraph);
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+
+    const nodesDoc = JSON.parse(readFileSync(join(dir, "nodes.json"), "utf8")) as {
+      nodes: Array<Record<string, unknown>>;
+    };
+    for (const entry of nodesDoc.nodes) {
+      delete entry.regionId;
+      delete entry.ordinal;
+    }
+    writeFileSync(join(dir, "nodes.json"), JSON.stringify(nodesDoc), "utf8");
+
+    const metaDoc = JSON.parse(readFileSync(join(dir, "metadata.json"), "utf8")) as {
+      regionDecisions: Array<Record<string, unknown>>;
+    };
+    for (const decision of metaDoc.regionDecisions) {
+      delete decision.groupIds;
+    }
+    writeFileSync(join(dir, "metadata.json"), JSON.stringify(metaDoc), "utf8");
+
+    const parsed = parseIndex(dir);
+    assert.ok(parsed.ok, "older indexes must still parse");
+    for (const node of parsed.value.hierarchy.nodes.values()) {
+      assert.equal(node.regionId, undefined);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("half-present provenance and unknown group ids are rejected", () => {
+  const output = runPipeline(smallGraph);
+
+  const tamper = (
+    file: string,
+    mutate: (doc: Record<string, unknown>) => void,
+  ): ReturnType<typeof parseIndex> => {
+    const dir = freshIndexDir();
+    try {
+      assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+      const doc = JSON.parse(readFileSync(join(dir, file), "utf8")) as Record<string, unknown>;
+      mutate(doc);
+      writeFileSync(join(dir, file), JSON.stringify(doc), "utf8");
+      return parseIndex(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  // regionId without ordinal: an incomplete recipe is worse than none.
+  const halfPresent = tamper("nodes.json", (doc) => {
+    const entry = (doc.nodes as Array<Record<string, unknown>>).find((n) => n.regionId !== undefined)!;
+    delete entry.ordinal;
+  });
+  assert.ok(!halfPresent.ok);
+  assert.equal(halfPresent.error.code, "MALFORMED_FILE");
+
+  // A decision naming a group that is not in the tree.
+  const ghostGroup = tamper("metadata.json", (doc) => {
+    (doc.regionDecisions as Array<Record<string, unknown>>)[0]!.groupIds = ["g_ghost"];
+  });
+  assert.ok(!ghostGroup.ok);
+  assert.equal(ghostGroup.error.code, "MALFORMED_FILE");
+  assert.ok("detail" in ghostGroup.error && ghostGroup.error.detail.includes("unknown group"));
+});

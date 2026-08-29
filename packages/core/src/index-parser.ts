@@ -237,6 +237,22 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: `duplicate node entry: ${entry.id}` });
     }
     seenNodeEntries.add(entry.id);
+
+    // Region provenance is optional (Gap 12): indexes written before these
+    // fields existed must still parse.
+    if (entry.regionId !== undefined || entry.ordinal !== undefined) {
+      if (typeof entry.regionId !== "string" || !Number.isInteger(entry.ordinal)) {
+        return err({
+          code: "MALFORMED_FILE",
+          file: "nodes.json",
+          detail: `node ${entry.id} carries incomplete region provenance (regionId and ordinal go together)`,
+        });
+      }
+      const node = nodes.get(entry.id)!;
+      node.regionId = entry.regionId;
+      node.ordinal = entry.ordinal as number;
+    }
+
     if (entry.kind === "file" || entry.kind === "class" || entry.kind === "function") {
       leafAttributes.set(entry.id, {
         id: entry.id,
@@ -373,6 +389,25 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       typeof decision.decisionConfidence !== "number"
     ) {
       return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "region decision missing a required field" });
+    }
+    if (decision["groupIds"] !== undefined) {
+      const groupIds = decision["groupIds"];
+      if (!Array.isArray(groupIds) || !groupIds.every((id) => typeof id === "string")) {
+        return err({
+          code: "MALFORMED_FILE",
+          file: "metadata.json",
+          detail: `region decision ${String(decision["regionId"])} has a malformed groupIds array`,
+        });
+      }
+      for (const groupId of groupIds as string[]) {
+        if (!nodes.has(groupId)) {
+          return err({
+            code: "MALFORMED_FILE",
+            file: "metadata.json",
+            detail: `region decision ${String(decision["regionId"])} names an unknown group ${groupId}`,
+          });
+        }
+      }
     }
   }
   for (const level of metadata.perLevel as unknown as unknown[]) {

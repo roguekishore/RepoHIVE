@@ -275,11 +275,20 @@ function groupGraphUnguarded(
   if (!hierarchy.ok) {
     return hierarchy;
   }
+  // Join the audit record to the tree (Gap 12): each decision names the group
+  // nodes it produced, so a consumer can go from "this region was reconstructed
+  // with score 0.31" to the boxes on screen.
+  const groupIdsOfRegion = hierarchy.value.groupIdsOfRegion;
+  const decisions = constructed.decisions.map((decision) => {
+    const groupIds = groupIdsOfRegion?.get(decision.regionId);
+    return groupIds === undefined ? decision : { ...decision, groupIds: sortIds(groupIds) };
+  });
+
   const metadata = buildMetadata(hierarchy.value, {
     structuralQualityBoundary: config.structuralQualityBoundary,
     metricWeights: assessment.metricWeights,
     cohesionSquashConstant: assessment.cohesionSquashConstant,
-    regionDecisions: constructed.decisions,
+    regionDecisions: decisions,
     configuration: runConfigurationOf(config),
   });
 
