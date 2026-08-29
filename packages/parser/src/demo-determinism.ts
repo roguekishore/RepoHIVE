@@ -31,9 +31,12 @@ function defaultFixtureDirectory(): string {
 
 async function main(): Promise<void> {
   const [projectArg, runsArg] = process.argv.slice(2);
+  // Resolved against INIT_CWD, matching parse-cli: under `npm run --workspace`
+  // the process cwd is the *package* directory, so a relative path typed at the
+  // repository root resolved to the wrong place.
   const projectDirectory =
     projectArg !== undefined && projectArg.trim().length > 0
-      ? path.resolve(projectArg)
+      ? path.resolve(process.env["INIT_CWD"] ?? process.cwd(), projectArg)
       : defaultFixtureDirectory();
 
   // An out-of-range `runs` was silently replaced with 3, so `... 0` reported a
