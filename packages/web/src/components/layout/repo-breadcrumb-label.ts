@@ -24,7 +24,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   risk: "Risk",
   security: "Security",
   settings: "Settings",
-  "knowledge-graph": "Knowledge Graph",
+  "knowledge-graph": "Structure map",
   zoom: "Zoom Map",
   files: "Files",
 };

@@ -23,10 +23,11 @@ const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap"
 
 export const metadata: Metadata = {
   title: {
-    default: "repowise",
-    template: "%s — repowise",
+    default: "RepoHIVE",
+    template: "%s — RepoHIVE",
   },
-  description: "Open-source codebase documentation engine",
+  description:
+    "Hierarchical codebase indexing with recorded per-region preserve/reconstruct decisions",
 };
 
 export default async function RootLayout({
