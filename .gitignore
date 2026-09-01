@@ -52,6 +52,8 @@ __pycache__/
 fixtures/vantage
 fixtures/sample-java-project
 fixtures/broadleaf
+fixtures/jsoup
+fixtures/jsoup-src
 
 # Editor and tooling
 .tooling/
