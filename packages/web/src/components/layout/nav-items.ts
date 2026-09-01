@@ -115,10 +115,11 @@ export function repoNavGroups(repoId: string): NavGroup[] {
   return [
     {
       items: [
-        { label: "Knowledge Graph", href: `${base}/knowledge-graph`, icon: ScanSearch },
-        // Phase D — both read data RepoHIVE's engine produces (R9.3).
+        { label: "Structure map", href: `${base}/knowledge-graph`, icon: ScanSearch },
+        // The recorded per-region preserve/reconstruct record — the flagship
+        // surface for the adaptive contribution (viewer handoff §9).
+        { label: "Decisions", href: `${base}/decision-audit`, icon: ClipboardList },
         { label: "Flat baseline", href: `${base}/flat-baseline`, icon: Network },
-        { label: "Decision audit", href: `${base}/decision-audit`, icon: ClipboardList },
       ],
     },
   ];

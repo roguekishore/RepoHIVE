@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
 import { buildGroupPackagePrefixes } from "@/lib/repohive/zoom-labels";
+import { regionFileMembership, stripRegionScheme } from "@/lib/repohive/region-detail-adapter";
 
 /**
  * `GET /api/graph/{id}/region-decisions` — the per-Region decision record for
@@ -55,12 +56,17 @@ export async function GET(
     ? legacyGroupsByPackage()
     : null;
 
+  // File membership per region (nearest regioned ancestor, Gap 12) — a count,
+  // not a computed metric, so surfaces can size marks by region weight.
+  const membership = regionFileMembership(hierarchy);
+
   const regions = [...metadata.regionDecisions]
     .map((d) => {
       const pkg = d.regionId.startsWith("pkg:") ? d.regionId.slice("pkg:".length) : d.regionId;
       const groupIds = d.groupIds ?? derived?.get(pkg) ?? [];
       return {
         regionId: d.regionId,
+        displayName: stripRegionScheme(d.regionId),
         cohesion: d.cohesion,
         coupling: d.coupling,
         ...(d.modularity !== undefined ? { modularity: d.modularity } : {}),
@@ -69,6 +75,7 @@ export async function GET(
         automaticAction: d.automaticAction,
         userOverridden: d.userOverridden,
         decisionConfidence: d.decisionConfidence,
+        fileCount: (membership.get(d.regionId) ?? []).length,
         groupIds: [...groupIds].sort(),
       };
     })
@@ -78,6 +85,7 @@ export async function GET(
     boundary: metadata.structuralQualityBoundary,
     metricWeights: metadata.metricWeights,
     cohesionSquashConstant: metadata.cohesionSquashConstant,
+    seed: metadata.configuration?.communityDetectionSeed ?? null,
     regionCount: regions.length,
     regions,
   });
