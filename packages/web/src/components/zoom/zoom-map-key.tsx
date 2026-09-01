@@ -98,16 +98,23 @@ export function ZoomMapKey({ verb, onVerbChange, coChangeCount }: ZoomMapKeyProp
             {HEALTH_BAND_LABEL.alert} under 4.
           </dd>
         </div>
-        {/* RepoHIVE additive (Phase E, E3): the group decision badge. */}
+        {/* RepoHIVE additive (Phase E, E3): the group decision frame + badge.
+            Solid frame = preserved, dashed frame = a redrawn (reconstructed)
+            boundary — the dash is the non-colour cue at every card size. */}
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-success)] text-[9px] font-bold text-[var(--color-success)]">
-            P
-          </span>
-          <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded border border-[var(--color-warning)] text-[9px] font-bold text-[var(--color-warning)]">
-            R
-          </span>
-          <dt className="sr-only">Group decision badge</dt>
-          <dd>Group: Preserved (kept as authored) or Reconstructed (rebuilt by clustering).</dd>
+          <span
+            className="inline-flex h-3.5 w-5 rounded border border-[var(--color-success)]"
+            aria-hidden
+          />
+          <span
+            className="inline-flex h-3.5 w-5 rounded border border-dashed border-[var(--color-warning)]"
+            aria-hidden
+          />
+          <dt className="sr-only">Group decision frame</dt>
+          <dd>
+            Group frame: solid P = Preserved (kept as authored), dashed R = Reconstructed (rebuilt
+            by clustering).
+          </dd>
         </div>
       </dl>
     </div>

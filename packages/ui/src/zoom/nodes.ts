@@ -270,17 +270,43 @@ export function drawCard(
     drawPaperTexture(ctx, rect, radius, paper, fill, alpha);
   }
 
+  // Decision wash (RepoHIVE): a quiet tint of the decision hue across the card
+  // body, so the preserve/reconstruct split reads at map scale — not only once
+  // a card is wide enough for its badge.
+  if (node.decision) {
+    ctx.save();
+    roundRectPath(ctx, rect, radius);
+    ctx.globalAlpha = alpha * 0.07;
+    ctx.fillStyle =
+      node.decision === "preserve" ? palette.decisionPreserve : palette.decisionReconstruct;
+    ctx.fill();
+    ctx.restore();
+  }
+
   // Hairline border; the hovered card firms up, the selected card gets an accent
   // ring. No role color on the frame (that lives in the status dot). Re-establish
   // the rounded path first: the fill/texture passes above left their own paths.
+  //
+  // Decision frames (RepoHIVE): a group whose region was preserved keeps a
+  // solid frame in the preserve hue; a reconstructed one is drawn with a dashed
+  // frame — a redrawn boundary, literally. The dash is the non-colour cue that
+  // works at sizes where the P/R badge is gated off (R7.6).
   roundRectPath(ctx, rect, radius);
-  ctx.lineWidth = selected ? 2 : 1;
-  ctx.strokeStyle = selected
-    ? palette.accent
-    : hovered
-      ? palette.nodeBorderHover
-      : palette.nodeBorder;
-  ctx.stroke();
+  ctx.lineWidth = selected ? 2 : hovered ? 1.5 : 1;
+  if (selected) {
+    ctx.strokeStyle = palette.accent;
+    ctx.stroke();
+  } else if (node.decision) {
+    ctx.save();
+    ctx.strokeStyle =
+      node.decision === "preserve" ? palette.decisionPreserve : palette.decisionReconstruct;
+    if (node.decision === "reconstruct") ctx.setLineDash([5, 3]);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = hovered ? palette.nodeBorderHover : palette.nodeBorder;
+    ctx.stroke();
+  }
 
   // RepoHIVE additive (Phase E): blast-radius ring and related halo. Drawn as
   // extra rings over the base border so they compose with selection/hover.
