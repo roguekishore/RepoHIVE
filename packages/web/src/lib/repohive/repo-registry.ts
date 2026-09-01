@@ -16,6 +16,7 @@
  * resolver into client components.
  */
 
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 export interface RepoRegistryEntry {
@@ -29,9 +30,12 @@ export interface RepoRegistryEntry {
 
 /**
  * The fixtures RepoHIVE's engine has already indexed. Ids are stable and
- * human so links and screenshots stay reproducible.
+ * human so links and screenshots stay reproducible. An entry may be registered
+ * while its `index/` is absent on a given clone (the large fixtures are
+ * git-ignored); presence is checked per machine with {@link indexPresent}.
  */
 export const REPO_REGISTRY: readonly RepoRegistryEntry[] = [
+  { id: "jsoup", name: "jsoup", dir: "jsoup" },
   { id: "vantage", name: "vantage", dir: "vantage" },
   { id: "broadleaf", name: "broadleaf", dir: "broadleaf" },
   { id: "sample-java-project", name: "sample-java-project", dir: "sample-java-project" },
@@ -40,6 +44,15 @@ export const REPO_REGISTRY: readonly RepoRegistryEntry[] = [
 /** All registry entries, in canonical (declaration) order. */
 export function listRegistryRepos(): readonly RepoRegistryEntry[] {
   return REPO_REGISTRY;
+}
+
+/**
+ * Whether this repo's `index/` exists on this machine. The registry is a
+ * static declaration; the big fixtures are git-ignored, so any given clone may
+ * hold only a subset. Server-only (touches the filesystem).
+ */
+export function indexPresent(entry: RepoRegistryEntry): boolean {
+  return existsSync(path.join(resolveIndexDir(entry), "metadata.json"));
 }
 
 /** The entry for `id`, or `undefined` if the id is not registered. */
