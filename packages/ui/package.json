@@ -92,6 +92,8 @@
     "./present/*": "./src/present/*.tsx",
     "./zoom": "./src/zoom/index.ts",
     "./zoom/*": "./src/zoom/*.tsx",
+    "./repohive": "./src/repohive/index.ts",
+    "./repohive/*": "./src/repohive/*.tsx",
     "./settings": "./src/settings/index.ts",
     "./settings/*": "./src/settings/*.tsx",
     "./shared": "./src/shared/index.ts",
