@@ -23,11 +23,11 @@ const UI_SRC = join(__dirname, "../../../ui/src");
 const ROUTES = join(WEB_SRC, "app/repos/[id]");
 
 /**
- * Deep links we keep pointing at a redirect on purpose. `/wiki/{pageId}` is a
- * documented permanent entry point, and the repo root is where a repo card is
- * supposed to land.
+ * Deep links we keep pointing at a redirect on purpose. Empty since the
+ * shell cull (only `c4` and `zoom` survive as stubs, both landing on the real
+ * Knowledge Graph); kept as a set so a future deliberate alias has a home.
  */
-const DELIBERATE = new Set(["wiki"]);
+const DELIBERATE = new Set<string>([]);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -95,7 +95,9 @@ describe("route links", () => {
   });
 
   it("finds stubs and links at all, so a broken matcher cannot pass vacuously", () => {
-    expect(redirectOnlySegments().size).toBeGreaterThan(5);
+    // After the shell cull exactly two stubs remain — the old `/c4` and
+    // `/zoom` URLs, kept because they land on the real Knowledge Graph.
+    expect(redirectOnlySegments()).toEqual(new Set(["c4", "zoom"]));
     expect(linkedSegments([...walk(WEB_SRC), ...walk(UI_SRC)]).size).toBeGreaterThan(10);
   });
 
@@ -136,9 +138,12 @@ describe("route links", () => {
     expect(offenders.sort()).toEqual([]);
   });
 
-  it("still recognises the deep links we keep on purpose", () => {
-    // If `/wiki` stops being a redirect this allowance is dead weight, and the
-    // set should shrink rather than quietly cover a real page.
-    expect(redirectOnlySegments().has("wiki")).toBe(true);
+  it("keeps the deliberate-allowance set honest", () => {
+    // Every entry in DELIBERATE must still be a live redirect stub; a stale
+    // allowance should shrink rather than quietly cover a real page. The wiki
+    // entry died with the shell cull — its stub forwarded into the dead docs
+    // surface and was deleted.
+    const stubs = redirectOnlySegments();
+    for (const seg of DELIBERATE) expect(stubs.has(seg)).toBe(true);
   });
 });
