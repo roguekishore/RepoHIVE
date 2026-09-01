@@ -17,8 +17,7 @@
  * change fails to line up.
  */
 
-import Link from "next/link";
-import { FileCode, ScanSearch, X } from "lucide-react";
+import { ScanSearch, X } from "lucide-react";
 import type { ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
 import {
   describeCap,
@@ -32,20 +31,12 @@ import { healthBandTextColor } from "@repohive/ui/health";
 
 interface ZoomDetailPanelProps {
   node: ZoomNode;
-  repoId: string;
   /** Relations incident to this node, in either direction. */
   relations: ZoomRelation[];
   /** The verb the map is currently filtered to, or null for all of them. */
   relationVerb: string | null;
   onClose: () => void;
   onZoom: (id: string) => void;
-}
-
-/** Route to a file's own page. Segments are encoded but the slashes are kept so
- *  the `/files/[...path]` catch-all receives the real path. */
-function fileHref(repoId: string, path: string): string {
-  const encoded = path.split("/").map(encodeURIComponent).join("/");
-  return `/repos/${repoId}/files/${encoded}`;
 }
 
 const KIND_LABEL: Record<ZoomNode["kind"], string> = {
@@ -99,7 +90,6 @@ function Mark({ children }: { children: React.ReactNode }) {
 
 export function ZoomDetailPanel({
   node,
-  repoId,
   relations,
   relationVerb,
   onClose,
@@ -226,27 +216,16 @@ export function ZoomDetailPanel({
         )}
       </div>
 
-      {(node.children.length > 0 || isFile) && (
+      {node.children.length > 0 && (
         <footer className="flex flex-col gap-2 border-t border-[var(--color-border-default)] p-3">
-          {node.children.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onZoom(node.id)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent-primary)] px-3 py-2 text-[13px] font-medium text-[var(--color-text-on-accent)] hover:opacity-90"
-            >
-              <ScanSearch className="h-3.5 w-3.5" />
-              Zoom in
-            </button>
-          )}
-          {isFile && node.path && (
-            <Link
-              href={fileHref(repoId, node.path)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border-default)] px-3 py-2 text-[13px] font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-wash-hover)]"
-            >
-              <FileCode className="h-3.5 w-3.5" />
-              Open file page
-            </Link>
-          )}
+          <button
+            type="button"
+            onClick={() => onZoom(node.id)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent-primary)] px-3 py-2 text-[13px] font-medium text-[var(--color-text-on-accent)] hover:opacity-90"
+          >
+            <ScanSearch className="h-3.5 w-3.5" />
+            Zoom in
+          </button>
         </footer>
       )}
     </aside>
