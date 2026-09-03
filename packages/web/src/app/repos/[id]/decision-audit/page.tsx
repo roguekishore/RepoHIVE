@@ -28,10 +28,14 @@ import { PageShell } from "@repohive/ui/shared/page-shell";
 import { ResponsiveTable, type ResponsiveColumn } from "@repohive/ui/shared/responsive-table";
 import {
   BoundaryStrip,
+  DecisionPill,
   DecisionScatter,
   ProvenanceCard,
   RegionMorph,
   deriveRegionViews,
+  displayNumber,
+  middleElide,
+  tallyViews,
   type RegionPoint,
   type RegionView,
 } from "@repohive/ui/repohive";
@@ -41,17 +45,18 @@ import {
   type RegionDecisionsResponse,
 } from "@/lib/hooks/use-decisions";
 
-/** A number exactly as recorded — no rounding that would change a cited value. */
+/** A recorded number, rounded for display with the exact value one hover away. */
 function Num({ value }: { value: number }) {
-  return <span className="font-mono text-xs tabular-nums">{String(value)}</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums" title={String(value)}>
+      {displayNumber(value)}
+    </span>
+  );
 }
 
-function ActionPill({ action }: { action: "preserve" | "reconstruct" }) {
-  return action === "preserve" ? (
-    <span className="text-[13px] font-medium text-[var(--color-success)]">● Preserved</span>
-  ) : (
-    <span className="text-[13px] font-medium text-[var(--color-warning)]">◇ Reconstructed</span>
-  );
+/** A recorded number shown in full, where the digits are the evidence. */
+function Exact({ value }: { value: number }) {
+  return <span className="font-mono text-xs tabular-nums">{String(value)}</span>;
 }
 
 function toPoints(audit: RegionDecisionsResponse): RegionPoint[] {
@@ -148,17 +153,17 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
       priority: 1,
       sortable: true,
       render: (v) => (
-        <span className="break-all font-mono text-xs text-[var(--color-text-primary)]">
-          {v.label}
+        <span className="font-mono text-xs text-[var(--color-text-primary)]" title={v.regionId}>
+          {middleElide(v.label, 34)}
         </span>
       ),
     },
     {
       key: "action",
-      header: "Action",
+      header: "Decision",
       priority: 1,
       sortable: true,
-      render: (v) => <ActionPill action={v.action} />,
+      render: (v) => <DecisionPill state={v.recordedState} />,
     },
     {
       key: "score",
@@ -190,7 +195,19 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
       align: "right",
       priority: 3,
       sortable: true,
-      render: (v) => <Num value={v.decisionConfidence} />,
+      // A degenerate region's confidence is arithmetic over a rule-assigned
+      // score, so it is not a measurement and must not read as one.
+      render: (v) =>
+        v.degenerate ? (
+          <span
+            className="text-xs text-[var(--color-decision-degenerate)]"
+            title={`The index records ${String(v.decisionConfidence)}, but it derives from a rule-assigned score.`}
+          >
+            —
+          </span>
+        ) : (
+          <Num value={v.decisionConfidence} />
+        ),
     },
     {
       key: "files",
@@ -211,6 +228,13 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
             title={`Automatic: ${v.automaticAction}`}
           >
             overridden
+          </span>
+        ) : v.degenerate ? (
+          <span
+            className="text-xs text-[var(--color-decision-degenerate)]"
+            title="Fewer than two nodes, no internal edges, or zero intra-region strength — the assessor assigned the score by rule."
+          >
+            rule — too small to assess
           </span>
         ) : (
           <span className="text-xs text-[var(--color-text-secondary)]">measured</span>
@@ -264,27 +288,27 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
             <div className="flex gap-1.5">
               <dt className="text-[var(--color-text-tertiary)]">Quality boundary</dt>
               <dd className="tabular-nums text-[var(--color-text-primary)]">
-                <Num value={audit.boundary} />
+                <Exact value={audit.boundary} />
               </dd>
             </div>
             <div className="flex gap-1.5">
               <dt className="text-[var(--color-text-tertiary)]">Weights (cohesion / coupling)</dt>
               <dd className="tabular-nums text-[var(--color-text-primary)]">
-                <Num value={audit.metricWeights.cohesion} /> /{" "}
-                <Num value={audit.metricWeights.coupling} />
+                <Exact value={audit.metricWeights.cohesion} /> /{" "}
+                <Exact value={audit.metricWeights.coupling} />
               </dd>
             </div>
             <div className="flex gap-1.5">
               <dt className="text-[var(--color-text-tertiary)]">Cohesion squash k</dt>
               <dd className="tabular-nums text-[var(--color-text-primary)]">
-                <Num value={audit.cohesionSquashConstant} />
+                <Exact value={audit.cohesionSquashConstant} />
               </dd>
             </div>
             {audit.seed !== null && (
               <div className="flex gap-1.5">
                 <dt className="text-[var(--color-text-tertiary)]">Seed</dt>
                 <dd className="tabular-nums text-[var(--color-text-primary)]">
-                  <Num value={audit.seed} />
+                  <Exact value={audit.seed} />
                 </dd>
               </div>
             )}
@@ -293,6 +317,50 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
               <dd className="tabular-nums text-[var(--color-text-primary)]">{audit.regionCount}</dd>
             </div>
           </dl>
+
+          {/* The honest headline: assessed regions, then the unassessed
+              remainder stated separately rather than folded into reconstruct. */}
+          <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+            {(() => {
+              const t = tallyViews(views);
+              const share = t.assessed === 0 ? null : Math.round((t.preserve / t.assessed) * 100);
+              return (
+                <>
+                  <strong className="font-semibold text-[var(--color-text-primary)]">
+                    {t.assessed} of {views.length}
+                  </strong>{" "}
+                  regions were large enough to assess. Of those, the engine preserved{" "}
+                  <strong
+                    className="font-semibold"
+                    style={{ color: "var(--color-decision-preserve)" }}
+                  >
+                    {t.preserve}
+                  </strong>{" "}
+                  {share !== null && <>({share}%) </>}and rebuilt{" "}
+                  <strong
+                    className="font-semibold"
+                    style={{ color: "var(--color-decision-reconstruct)" }}
+                  >
+                    {t.reconstruct}
+                  </strong>
+                  {t.degenerate > 0 && (
+                    <>
+                      . The remaining{" "}
+                      <strong
+                        className="font-semibold"
+                        style={{ color: "var(--color-decision-degenerate)" }}
+                      >
+                        {t.degenerate}
+                      </strong>{" "}
+                      fell below the measurable threshold and were reconstructed by rule, never
+                      assessed
+                    </>
+                  )}
+                  .
+                </>
+              );
+            })()}
+          </p>
 
           {/* 1 — the boundary, draggable */}
           <section aria-label="Boundary sensitivity">

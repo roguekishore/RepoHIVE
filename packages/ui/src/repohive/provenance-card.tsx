@@ -11,6 +11,8 @@
 
 import * as React from "react";
 import { independenceOf, recomputeScore, squashCohesion } from "./decision-model";
+import { DecisionPill } from "./decision-mark";
+import { displayNumber } from "./format";
 import type { DecisionWeights, RegionView } from "./types";
 
 export interface ProvenanceGroupLink {
@@ -87,19 +89,21 @@ export function ProvenanceCard({
         <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">
           decision provenance
         </p>
-        <h3 className="mt-0.5 break-all font-serif text-lg leading-snug text-[var(--color-text-primary)]">
+        <h3
+          className="mt-0.5 break-all font-mono text-[15px] leading-snug text-[var(--color-text-primary)]"
+          title={region.regionId}
+        >
           {region.label}
         </h3>
-        <p className="mt-1 text-[13px]">
-          <span
-            className={
-              preserved ? "text-[var(--color-success)] font-medium" : "text-[var(--color-warning)] font-medium"
-            }
-          >
-            {preserved ? "● Preserved" : "◇ Reconstructed"}
-          </span>{" "}
+        <p className="mt-1.5 text-[13px]">
+          <DecisionPill state={region.recordedState} />{" "}
           <span className="text-[var(--color-text-secondary)]">
-            — {preserved ? "package boundary kept as authored" : "regrouped by dependency clustering"}
+            —{" "}
+            {region.degenerate
+              ? "below the measurable threshold; reconstructed by rule without assessment"
+              : preserved
+                ? "package boundary kept as authored"
+                : "regrouped by dependency clustering"}
           </span>
         </p>
       </header>
@@ -136,7 +140,16 @@ export function ProvenanceCard({
           → {region.automaticAction}
         </Row>
         <Row label="confidence |score−boundary|">
-          <Exact value={region.decisionConfidence} />
+          {region.degenerate ? (
+            <span
+              className="text-[var(--color-decision-degenerate)]"
+              title={`The index records ${String(region.decisionConfidence)}, but it is arithmetic over a rule-assigned score, not a measurement.`}
+            >
+              not measured
+            </span>
+          ) : (
+            <Exact value={region.decisionConfidence} />
+          )}
         </Row>
         {region.userOverridden && (
           <p className="border-t border-[var(--color-border-default)] py-1.5 text-[11px] leading-relaxed text-[var(--color-warning)]">
@@ -146,7 +159,7 @@ export function ProvenanceCard({
         )}
         {counterfactual && region.flipped && (
           <p className="border-t border-[var(--color-border-default)] py-1.5 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
-            At the slider&rsquo;s boundary of {counterfactualBoundary!.toFixed(3)} this region would
+            At the slider&rsquo;s boundary of {displayNumber(counterfactualBoundary!)} this region would
             flip to <strong>{region.effectiveAction}</strong>.
           </p>
         )}

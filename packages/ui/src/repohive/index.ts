@@ -6,17 +6,41 @@
  * NOTICE attribution for the repowise folders does not cover it.
  */
 
-export type { DecisionAction, DecisionWeights, RegionPoint, RegionView } from "./types";
+export type {
+  DecisionAction,
+  DecisionState,
+  DecisionWeights,
+  RegionPoint,
+  RegionView,
+} from "./types";
 export {
+  assessedPreserveShare,
   boundarySegment,
   deriveRegionViews,
   effectiveActionAt,
   independenceOf,
+  isDegenerate,
   recomputeScore,
   squashCohesion,
   tallyViews,
 } from "./decision-model";
 export type { BoundaryTally } from "./decision-model";
+export {
+  DISPLAY_DECIMALS,
+  displayNumber,
+  displayPercent,
+  elidePackage,
+  middleElide,
+} from "./format";
+export {
+  DECISION_GLOSS,
+  DECISION_LABEL,
+  DECISION_TOKEN,
+  DecisionGlyph,
+  DecisionLegend,
+  DecisionMarkShape,
+  DecisionPill,
+} from "./decision-mark";
 export { DecisionScatter } from "./decision-scatter";
 export type { DecisionScatterProps } from "./decision-scatter";
 export { BoundaryStrip } from "./boundary-strip";

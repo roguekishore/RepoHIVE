@@ -342,8 +342,13 @@ export function RegionMorph({
             ))}
           </g>
 
-          {/* Edges under tiles: quiet when intra-cluster, warning when the
-              endpoints live in different derived cells. */}
+          {/* Edges under the tiles. A dependency whose endpoints land in the
+              same derived cell was *captured* by the new boundary — drawn in
+              the reconstruct hue, because it is the evidence for the rebuild.
+              One that still crosses cells is *residual* coupling the
+              clustering could not remove: neutral and dashed, so it reads as
+              remaining work rather than as a fault. Amber is not used here;
+              it belongs to the quality boundary alone. */}
           <g>
             {edges.map((edge) => {
               const a = posOf(edge.source);
@@ -352,14 +357,17 @@ export function RegionMorph({
               const cross = derivedCellOf.get(edge.source) !== derivedCellOf.get(edge.target);
               return (
                 <line
-                  key={`${edge.source} ${edge.target}`}
+                  key={`${edge.source} -> ${edge.target}`}
                   x1={a.x}
                   y1={a.y}
                   x2={b.x}
                   y2={b.y}
-                  stroke={cross ? "var(--color-warning)" : "var(--color-zoom-edge)"}
+                  stroke={
+                    cross ? "var(--color-text-secondary)" : "var(--color-decision-reconstruct)"
+                  }
                   strokeWidth={1 + (edge.strength / maxStrength) * 1.75}
-                  opacity={cross ? 0.6 : 0.35}
+                  strokeDasharray={cross ? "4 3" : undefined}
+                  opacity={cross ? 0.75 : 0.45}
                 />
               );
             })}
@@ -412,8 +420,9 @@ export function RegionMorph({
         ) : (
           <>
             The author shipped these {files.length} files as one package; the dependencies separate
-            them into {derived.length} cluster{derived.length === 1 ? "" : "s"}. Amber edges are the
-            couplings that remain <em>between</em> clusters — everything else stays inside one.
+            them into {derived.length} cluster{derived.length === 1 ? "" : "s"}. Solid blue edges are
+            couplings the new boundary <em>captured</em>; dashed grey ones are residual coupling that
+            still crosses clusters.
           </>
         )}
       </figcaption>

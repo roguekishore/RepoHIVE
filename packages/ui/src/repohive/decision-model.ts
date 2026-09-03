@@ -17,10 +17,37 @@
  * canonical (regionId-ascending) order.
  */
 
-import type { DecisionAction, DecisionWeights, RegionPoint, RegionView } from "./types";
+import type {
+  DecisionAction,
+  DecisionState,
+  DecisionWeights,
+  RegionPoint,
+  RegionView,
+} from "./types";
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * Whether a region hit the engine's degenerate rule — scored by rule rather
+ * than measured.
+ *
+ * The index records no flag for this, so it is recognised by its signature:
+ * the assessor short-circuits to `degenerateScore` (0.0) for a region with
+ * fewer than two nodes, no internal edges, or zero intra-region strength, and
+ * such a region also has no intra-region strength to average, hence
+ * `cohesion === 0`. A genuinely measured region with zero cohesion would score
+ * `(1 − coupling) · w / Σw`, which is only 0 when coupling is exactly 1 —
+ * i.e. the same "everything points outward" condition — so the pair is the
+ * tightest available test and never misclassifies a measured region that has
+ * any internal structure at all.
+ *
+ * Kept as one exported predicate so every surface agrees, and so the day the
+ * engine emits an explicit flag there is exactly one place to change.
+ */
+export function isDegenerate(region: Pick<RegionPoint, "score" | "cohesion">): boolean {
+  return region.score === 0 && region.cohesion === 0;
 }
 
 /** The engine's bounded cohesion squash: c / (c + k). */
@@ -56,13 +83,14 @@ export function recomputeScore(
 /**
  * The action a region takes at `boundary`. The threshold governs only the
  * automatic decision; a user-overridden region is pinned to its recorded
- * action at every boundary.
+ * action at every boundary, and a degenerate region is pinned because its
+ * score was assigned by rule rather than measured.
  */
 export function effectiveActionAt(
-  region: Pick<RegionPoint, "score" | "action" | "userOverridden">,
+  region: Pick<RegionPoint, "score" | "cohesion" | "action" | "userOverridden">,
   boundary: number,
 ): DecisionAction {
-  if (region.userOverridden) return region.action;
+  if (region.userOverridden || isDegenerate(region)) return region.action;
   return region.score >= boundary ? "preserve" : "reconstruct";
 }
 
@@ -78,32 +106,68 @@ export function deriveRegionViews(
   return [...regions]
     .sort((a, b) => (a.regionId < b.regionId ? -1 : a.regionId > b.regionId ? 1 : 0))
     .map((region) => {
+      const degenerate = isDegenerate(region);
       const effectiveAction = effectiveActionAt(region, boundary);
       return {
         ...region,
         cohesionNorm: squashCohesion(region.cohesion, squashK),
         independence: independenceOf(region.coupling),
         effectiveAction,
-        flipped: effectiveAction !== region.action,
+        // A degenerate region cannot flip: nothing about it was measured
+        // against the boundary in the first place.
+        flipped: !degenerate && effectiveAction !== region.action,
+        degenerate,
+        state: degenerate ? "degenerate" : effectiveAction,
+        recordedState: degenerate ? "degenerate" : region.action,
       };
     });
 }
 
 export interface BoundaryTally {
+  /** Measured at or above the boundary. */
   preserve: number;
+  /** Measured below the boundary and rebuilt. */
   reconstruct: number;
+  /** Never assessed — score assigned by rule. Not an opinion. */
+  degenerate: number;
+  /** Measured regions whose action differs from the recorded one. */
   flipped: number;
+  /** Regions that were genuinely assessed (total − degenerate). */
+  assessed: number;
 }
 
-/** Counts at the current boundary, for the strip's readout. */
+/**
+ * Three-way counts at the current boundary.
+ *
+ * `preserve` and `reconstruct` count *measured* regions only; degenerate
+ * regions are reported separately so no caller can accidentally merge "measured
+ * as low quality" with "too small to measure".
+ */
 export function tallyViews(views: readonly RegionView[]): BoundaryTally {
   let preserve = 0;
+  let reconstruct = 0;
+  let degenerate = 0;
   let flipped = 0;
   for (const view of views) {
-    if (view.effectiveAction === "preserve") preserve += 1;
+    if (view.degenerate) degenerate += 1;
+    else if (view.effectiveAction === "preserve") preserve += 1;
+    else reconstruct += 1;
     if (view.flipped) flipped += 1;
   }
-  return { preserve, reconstruct: views.length - preserve, flipped };
+  return { preserve, reconstruct, degenerate, flipped, assessed: preserve + reconstruct };
+}
+
+/**
+ * The assessed-only preserve share — the adaptivity statistic.
+ *
+ * Reported over measured regions alone, because including rule-assigned
+ * reconstructions would make every repository look like it always reconstructs.
+ * Returns `null` when nothing was assessed, so callers render an absence rather
+ * than a zero that reads as a measurement.
+ */
+export function assessedPreserveShare(views: readonly RegionView[]): number | null {
+  const { preserve, assessed } = tallyViews(views);
+  return assessed === 0 ? null : preserve / assessed;
 }
 
 /**

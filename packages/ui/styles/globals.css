@@ -550,6 +550,33 @@
      tree-shake it out of @theme (same lesson as the community tokens). */
   --kg-card-texture: linear-gradient(rgba(255, 253, 248, 0.78), rgba(255, 253, 248, 0.78)),
     url("/kg-card-paper.jpg");
+
+  /* ------------------------------------------------------------------ */
+  /* RepoHIVE decision palette (LIGHT) — plain :root, NOT @theme        */
+  /* ------------------------------------------------------------------ */
+  /* The three outcomes of the adaptive grouping decision, plus the
+     boundary that produced them. These are the only saturated colours the
+     product spends on data, and they own their own token names rather
+     than borrowing the semantic status vars.
+
+     Why they are not aliases of --color-success / --color-warning:
+     reconstruct USED to resolve to --color-warning, which framed the
+     engine's most common decision as a problem. Reconstruction is a
+     success — a boundary rebuilt from measured dependencies. So
+     reconstruct is azure (blueprint, not alarm) and the amber that used
+     to carry it is now reserved for the *boundary* alone.
+
+     Degenerate is a desaturated neutral and must read as ABSENT DATA:
+     those regions were never assessed (score 0 by rule), so they are not
+     a third opinion. It sits close to the tertiary text step on purpose.
+
+     Plain :root rather than @theme because zoom/theme.ts resolves these
+     at runtime through getComputedStyle (TOKEN_SPEC), which Tailwind v4
+     cannot see — the same lesson as the community tokens above. */
+  --color-decision-preserve: #1d7a55;
+  --color-decision-reconstruct: #245e9e;
+  --color-decision-degenerate: #767d8a;
+  --color-decision-boundary: var(--color-accent-primary);
 }
 
 .dark {
@@ -561,6 +588,20 @@
      unambiguous (same pattern as color-scheme below). */
   --kg-card-texture: linear-gradient(rgba(50, 42, 62, 0.85), rgba(50, 42, 62, 0.85)),
     url("/kg-card-paper.jpg");
+}
+
+/* -------------------------------------------------------------------- */
+/* RepoHIVE decision palette (DARK) — the product's primary theme         */
+/* -------------------------------------------------------------------- */
+/* Brighter, higher-chroma on near-black so the data is the only saturated
+   thing on screen. Degenerate is lifted above the proposal's #6B7280 to
+   clear 4.5:1 on --color-bg-root for the label text that uses it; it stays
+   fully desaturated, so it still reads as absent beside emerald and azure.
+   Declared after the light :root block so the cascade resolves correctly. */
+.dark {
+  --color-decision-preserve: #3fcf8e;
+  --color-decision-reconstruct: #58a6ff;
+  --color-decision-degenerate: #8a929e;
 }
 
 /* -------------------------------------------------------------------- */

@@ -54,13 +54,19 @@ export interface ZoomPalette {
   /** Neutral ink for an unscored file/subtree (health is sparse). */
   healthNeutral: string;
   /**
-   * RepoHIVE additive (Phase E). Decision-encoding inks for the group badge:
-   * preserved regions vs reconstructed ones. Reuse the success/warning tokens
-   * (green = kept, amber = rebuilt) — health is never drawn in this viewer, so
-   * there is no clash.
+   * RepoHIVE additive. Decision-encoding inks for group cards: the region's
+   * boundary was preserved as authored, rebuilt from measured dependencies, or
+   * never assessed at all (degenerate — score 0 by rule).
+   *
+   * These own dedicated `--color-decision-*` tokens rather than borrowing
+   * success/warning: reconstruct previously resolved to the warning amber,
+   * which framed the engine's most common decision as a fault. Amber now marks
+   * only the boundary itself.
    */
   decisionPreserve: string;
   decisionReconstruct: string;
+  /** Desaturated neutral for a region below the measurable threshold. */
+  decisionDegenerate: string;
 }
 
 /** Map each palette slot to its design-system token. */
@@ -92,8 +98,9 @@ const TOKEN_SPEC: Record<keyof ZoomPalette, string> = {
   healthWarning: "--color-warning",
   healthHealthy: "--color-success",
   healthNeutral: "--color-text-tertiary",
-  decisionPreserve: "--color-success",
-  decisionReconstruct: "--color-warning",
+  decisionPreserve: "--color-decision-preserve",
+  decisionReconstruct: "--color-decision-reconstruct",
+  decisionDegenerate: "--color-decision-degenerate",
 };
 
 /** CSS named-color fallbacks (lint-safe, only hit before tokens resolve). */
@@ -122,7 +129,8 @@ const FALLBACK: ZoomPalette = {
   healthHealthy: "green",
   healthNeutral: "gray",
   decisionPreserve: "seagreen",
-  decisionReconstruct: "goldenrod",
+  decisionReconstruct: "steelblue",
+  decisionDegenerate: "gray",
 };
 
 /** Resolve the live palette from the document theme. Call on the client only. */
