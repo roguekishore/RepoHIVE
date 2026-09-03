@@ -3,9 +3,10 @@
 /**
  * Architecture — `/repos/[id]/architecture`.
  *
- * The three recorded artifacts that describe the hierarchy the engine built,
- * rather than the decisions behind it: how each level is populated, which
- * groups depend on which, and why re-running produces the same result.
+ * The recorded artifacts that describe the hierarchy the engine built, rather
+ * than the decisions behind it: how each level is populated, which groups
+ * depend on which, how far the authored packages were split, and why re-running
+ * produces the same result.
  *
  * This replaces the vendored architecture page, whose Symbols / Dependencies /
  * Coupling tabs fetched endpoints this app does not serve.
@@ -18,11 +19,13 @@ import { parseAsInteger, useQueryState } from "nuqs";
 import { PageShell } from "@repohive/ui/shared/page-shell";
 import {
   DeterminismPanel,
+  Fragmentation,
   GroupDsm,
   LevelFlow,
   type DeterminismPanelProps,
   type DsmEntryView,
   type DsmGroupView,
+  type FragmentedRegionView,
   type LevelFlowRowData,
 } from "@repohive/ui/repohive";
 
@@ -38,6 +41,12 @@ interface ArchitectureResponse {
     shownEdges: number;
     totalEdges: number;
     level: number;
+  };
+  fragmentation: {
+    regions: FragmentedRegionView[];
+    totalReconstructed: number;
+    omittedRegions: number;
+    maxSplit: number;
   };
   determinism: Omit<DeterminismPanelProps, "configuration"> & {
     configuration: DeterminismPanelProps["configuration"];
@@ -70,7 +79,7 @@ export default function ArchitecturePage({ params }: { params: Promise<{ id: str
     <PageShell
       title="Architecture"
       icon={<Boxes className="h-5 w-5 text-[var(--color-accent-primary)]" />}
-      description="How the constructed hierarchy is populated, which groups depend on which, and why a re-run reproduces it exactly."
+      description="How the constructed hierarchy is populated, which groups depend on which, how far the authored packages were split, and why a re-run reproduces it exactly."
       maxWidth="wide"
     >
       {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">Reading the index…</p>}
@@ -130,6 +139,22 @@ export default function ArchitecturePage({ params }: { params: Promise<{ id: str
               omittedGroups={data.dsm.omittedGroups}
               shownEdges={data.dsm.shownEdges}
               totalEdges={data.dsm.totalEdges}
+            />
+          </section>
+
+          <section aria-label="Fragmentation">
+            <h2 className="mb-1 text-sm font-semibold text-[var(--color-text-primary)]">
+              How far the authored packages were split
+            </h2>
+            <p className="mb-3 max-w-[74ch] text-xs text-[var(--color-text-secondary)]">
+              Where a package&rsquo;s boundary was rebuilt, this is how much the dependencies
+              disagreed with it: one authored unit in, several dependency clusters out.
+            </p>
+            <Fragmentation
+              regions={data.fragmentation.regions}
+              totalReconstructed={data.fragmentation.totalReconstructed}
+              omittedRegions={data.fragmentation.omittedRegions}
+              maxSplit={data.fragmentation.maxSplit}
             />
           </section>
 

@@ -338,3 +338,122 @@ export function adaptDeterminism(
     distinctIds: new Set(groups.map((g) => g.id)).size,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Fragmentation — how far each authored package was split             */
+/* ------------------------------------------------------------------ */
+
+export interface FragmentedRegion {
+  regionId: string;
+  label: string;
+  /** Files the author put in this one package. */
+  files: number;
+  /** Groups the dependencies split them into. */
+  groupCount: number;
+  /** File count per produced group, descending then canonical. */
+  groupSizes: number[];
+  /** Share of the region's files in its largest derived group. */
+  largestShare: number;
+  score: number;
+}
+
+export interface Fragmentation {
+  regions: FragmentedRegion[];
+  /** Measured-reconstruct regions in the index (before any budget). */
+  totalReconstructed: number;
+  omittedRegions: number;
+  /** The single most-split region's group count. */
+  maxSplit: number;
+}
+
+/**
+ * Per measured-reconstruct region: one authored package in, N dependency
+ * clusters out.
+ *
+ * This is the inverse of the "group purity" question, and the inverse is the
+ * only direction the data supports. A Region *is* an authored package
+ * (`pkg:<path>`) and reconstruction partitions strictly within a region, so a
+ * produced group can never contain files from two packages — measured across
+ * both fixtures, 0 of 1,182 reconstructed groups draw from more than one.
+ * Charting packages→groups as a mixing flow would therefore assert something
+ * the engine cannot produce.
+ *
+ * What it *does* produce is splitting, and that is the evidence the authored
+ * boundary was misleading: the author declared these files one unit, and the
+ * dependencies say they are several. Degenerate regions are excluded — they
+ * were never assessed, so their split says nothing about structure.
+ */
+export function adaptFragmentation(
+  hierarchy: Hierarchy,
+  metadata: Metadata,
+  budget = 24,
+): Fragmentation {
+  const files = new Map<string, number>();
+  for (const node of [...hierarchy.nodes.values()].sort((a, b) => b.level - a.level)) {
+    if (node.kind === "file") {
+      files.set(node.id, 1);
+      continue;
+    }
+    let sum = 0;
+    for (const childId of node.childIds) sum += files.get(childId) ?? 0;
+    files.set(node.id, sum);
+  }
+
+  const groupsOfRegion = new Map<string, string[]>();
+  for (const node of hierarchy.nodes.values()) {
+    if (node.kind !== "group" || node.regionId === undefined) continue;
+    const list = groupsOfRegion.get(node.regionId);
+    if (list) list.push(node.id);
+    else groupsOfRegion.set(node.regionId, [node.id]);
+  }
+
+  const all: FragmentedRegion[] = [];
+  for (const decision of metadata.regionDecisions) {
+    const degenerate = decision.score === 0 && decision.cohesion === 0;
+    if (degenerate || decision.action !== "reconstruct") continue;
+
+    // Prefer the recorded groupIds; fall back to the tree when absent (an
+    // index written before Gap 12 recorded them).
+    const groupIds = decision.groupIds ?? groupsOfRegion.get(decision.regionId) ?? [];
+    // Only the leaf-most groups of the region hold files directly; taking every
+    // group would double-count a region whose groups nest. Keep the deepest.
+    const levels = groupIds
+      .map((id) => hierarchy.nodes.get(id)?.level)
+      .filter((level): level is number => level !== undefined);
+    const deepest = levels.length > 0 ? Math.max(...levels) : 0;
+    const leafGroups = groupIds.filter((id) => hierarchy.nodes.get(id)?.level === deepest);
+    if (leafGroups.length < 2) continue;
+
+    const groupSizes = leafGroups
+      .map((id) => files.get(id) ?? 0)
+      .sort((a, b) => b - a);
+    const total = groupSizes.reduce((sum, n) => sum + n, 0);
+    if (total === 0) continue;
+
+    all.push({
+      regionId: decision.regionId,
+      label: stripRegionScheme(decision.regionId),
+      files: total,
+      groupCount: leafGroups.length,
+      groupSizes,
+      largestShare: (groupSizes[0] ?? 0) / total,
+      score: decision.score,
+    });
+  }
+
+  // Most-split first — that is the strongest evidence — then most files, then
+  // canonical id so the order is stable.
+  all.sort(
+    (a, b) =>
+      b.groupCount - a.groupCount ||
+      b.files - a.files ||
+      (a.regionId < b.regionId ? -1 : a.regionId > b.regionId ? 1 : 0),
+  );
+
+  return {
+    regions: all.slice(0, budget),
+    totalReconstructed: all.length,
+    omittedRegions: Math.max(0, all.length - budget),
+    maxSplit: all.reduce((m, r) => Math.max(m, r.groupCount), 0),
+  };
+}

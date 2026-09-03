@@ -49,6 +49,8 @@ export { ProvenanceCard } from "./provenance-card";
 export type { ProvenanceCardProps, ProvenanceGroupLink } from "./provenance-card";
 export { AdaptivityComparison, ScoreSpread } from "./adaptivity-comparison";
 export type { AdaptivityComparisonProps, AdaptivityRepoView } from "./adaptivity-comparison";
+export { Fragmentation } from "./fragmentation";
+export type { FragmentationProps, FragmentedRegionView } from "./fragmentation";
 export { LevelFlow } from "./level-flow";
 export type { LevelFlowRowData } from "./level-flow";
 export { GroupDsm } from "./group-dsm";

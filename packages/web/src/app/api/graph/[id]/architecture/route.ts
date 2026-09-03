@@ -3,6 +3,7 @@ import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
 import {
   adaptDeterminism,
+  adaptFragmentation,
   adaptGroupDsm,
   adaptLevelFlow,
 } from "@/lib/repohive/architecture-adapter";
@@ -42,6 +43,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   return NextResponse.json({
     levels: adaptLevelFlow(metadata),
     dsm: adaptGroupDsm(hierarchy, metadata, level),
+    fragmentation: adaptFragmentation(hierarchy, metadata),
     determinism: adaptDeterminism(hierarchy, metadata),
     availableLevels: metadata.perLevel
       .filter((row) => row.groupNodeCount > 1)

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Hierarchy, HierarchyNode, Metadata } from "@repohive/core";
 import {
   adaptDeterminism,
+  adaptFragmentation,
   adaptGroupDsm,
   adaptLevelFlow,
   chooseDsmLevel,
@@ -221,5 +222,54 @@ describe("adaptDeterminism", () => {
     const evidence = adaptDeterminism(buildHierarchy(), metadata as Metadata);
     expect(evidence.configuration).toBeNull();
     expect(evidence.seed).toBeNull();
+  });
+});
+
+describe("adaptFragmentation", () => {
+  it("reports one authored package in, N clusters out", () => {
+    const frag = adaptFragmentation(buildHierarchy(), buildMetadata());
+    // pkg:a is preserved and pkg:b is degenerate, so neither qualifies: only a
+    // measured *reconstruct* region counts as evidence of disagreement.
+    expect(frag.regions).toHaveLength(0);
+    expect(frag.totalReconstructed).toBe(0);
+  });
+
+  it("excludes preserved and rule-assigned regions from the evidence", () => {
+    // Make pkg:a a measured reconstruct: it then qualifies, with its 2 groups.
+    const metadata = buildMetadata();
+    metadata.regionDecisions[0]!.action = "reconstruct";
+    metadata.regionDecisions[0]!.automaticAction = "reconstruct";
+    metadata.regionDecisions[0]!.score = 0.31;
+    const frag = adaptFragmentation(buildHierarchy(), metadata);
+    expect(frag.regions.map((r) => r.regionId)).toEqual(["pkg:a"]);
+    expect(frag.regions[0]!.groupCount).toBe(2);
+    expect(frag.regions[0]!.files).toBe(2);
+    expect(frag.regions[0]!.groupSizes).toEqual([1, 1]);
+    expect(frag.maxSplit).toBe(2);
+    // pkg:b is degenerate — never assessed — so its split is not evidence.
+    expect(frag.regions.some((r) => r.regionId === "pkg:b")).toBe(false);
+  });
+
+  it("orders by split factor and reports what the budget dropped", () => {
+    const metadata = buildMetadata();
+    for (const decision of metadata.regionDecisions) {
+      decision.action = "reconstruct";
+      decision.automaticAction = "reconstruct";
+      decision.score = 0.3;
+      decision.cohesion = 1; // lift both out of the degenerate signature
+    }
+    const frag = adaptFragmentation(buildHierarchy(), metadata, 1);
+    expect(frag.totalReconstructed).toBe(2);
+    expect(frag.regions).toHaveLength(1);
+    expect(frag.omittedRegions).toBe(1);
+  });
+
+  it("is deterministic", () => {
+    const metadata = buildMetadata();
+    metadata.regionDecisions[0]!.action = "reconstruct";
+    metadata.regionDecisions[0]!.score = 0.31;
+    expect(adaptFragmentation(buildHierarchy(), metadata)).toEqual(
+      adaptFragmentation(buildHierarchy(), metadata),
+    );
   });
 });
