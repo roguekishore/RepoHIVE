@@ -239,7 +239,7 @@ export default function DecisionsPage({ params }: { params: Promise<{ id: string
     <PageShell
       title="Decisions"
       icon={<ClipboardList className="h-5 w-5 text-[var(--color-accent-primary)]" />}
-      description="Every region was measured and its boundary either preserved or reconstructed. Each decision below is read from the recorded index — drag the boundary to test its sensitivity, select a region to see the working."
+      description="Regions large enough to assess were measured and their boundaries preserved or reconstructed; regions below the measurable threshold score 0 by rule and are reconstructed without assessment. Every value below is read from the recorded index — drag the boundary to test sensitivity, select a region to see the working."
     >
       {isLoading && (
         <p className="text-sm text-[var(--color-text-secondary)]">Loading the decision record…</p>
