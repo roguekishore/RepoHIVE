@@ -120,6 +120,8 @@ export function repoNavGroups(repoId: string): NavGroup[] {
     {
       items: [
         { label: "Structure map", href: `${base}/knowledge-graph`, icon: ScanSearch },
+        // The same tree at full scale: depth as radius, decision as colour.
+        { label: "Hierarchy", href: `${base}/hierarchy`, icon: Network },
         // The recorded per-region preserve/reconstruct record — the flagship
         // surface for the adaptive contribution (viewer handoff §9).
         { label: "Decisions", href: `${base}/decision-audit`, icon: ClipboardList },
