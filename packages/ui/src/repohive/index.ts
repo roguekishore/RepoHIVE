@@ -47,5 +47,7 @@ export { BoundaryStrip } from "./boundary-strip";
 export type { BoundaryStripProps } from "./boundary-strip";
 export { ProvenanceCard } from "./provenance-card";
 export type { ProvenanceCardProps, ProvenanceGroupLink } from "./provenance-card";
+export { AdaptivityComparison, ScoreSpread } from "./adaptivity-comparison";
+export type { AdaptivityComparisonProps, AdaptivityRepoView } from "./adaptivity-comparison";
 export { RegionMorph } from "./region-morph";
 export type { MorphCell, MorphEdge, MorphFile, RegionMorphProps } from "./region-morph";

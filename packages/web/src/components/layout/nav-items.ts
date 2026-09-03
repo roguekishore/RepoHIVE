@@ -16,6 +16,7 @@ import {
   DollarSign,
   FolderTree,
   GitCommitHorizontal,
+  GitCompare,
   GitMerge,
   HeartPulse,
   LayoutDashboard,
@@ -47,6 +48,9 @@ export interface NavGroup {
 
 export const GLOBAL_NAV: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  // Cross-repository, so it cannot be repo-scoped: it compares the assessed
+  // preserve rate of every indexed repository against the others.
+  { label: "Adaptivity", href: "/adaptivity", icon: GitCompare },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
