@@ -3,213 +3,156 @@
 /**
  * Architecture — `/repos/[id]/architecture`.
  *
- * Tabs are DATASETS, not zoom levels:
- *   - Map       — the dependency graph, at community or file scope
- *   - Coupling  — files that tend to change together
- *   - Packages  — the declared third-party dependency registry
- *   - Symbols   — the searchable symbol index
+ * The three recorded artifacts that describe the hierarchy the engine built,
+ * rather than the decisions behind it: how each level is populated, which
+ * groups depend on which, and why re-running produces the same result.
  *
- * How zoomed out the graph is — communities vs files — is a different axis and
- * has exactly one control, `GraphScopeSwitcher`, in the section header beside
- * the graph. It used to be steered from here *and* from a pill cluster floating
- * on the canvas, which put "Communities" on screen twice and left "Explore" as
- * a tab meaning "the graph, but not communities".
- *
- * The tab named "Packages" was "Dependencies", which collided with the graph
- * itself: the Map tab *is* the dependency graph, so a sibling tab called
- * Dependencies read as the same thing at a different zoom. It lists declared
- * third-party packages, so it says that.
- *
- * ## URL state
- *
- * One param per axis, no two params saying the same thing:
- *   - `?view=`   communities | files | coupling | packages | symbols
- *   - `?signal=` dead | hot — which overlay is lit on the graph
- *   - `?module=` a path prefix the file scope is filtered to
- *
- * `?view=` and `?viewMode=` used to encode the same axis twice — `view=explore`
- * and `viewMode=full` both meant "the file graph", and they could disagree.
- * Scope now lives in `?view=` and nothing else carries it. Old links keep
- * working: the legacy spellings are aliased below, and a legacy `?viewMode=` is
- * translated into `?view=`/`?signal=` on first read.
- *
- * The curated layered view ("Knowledge Graph") is a separate top-level route
- * (`/knowledge-graph`); the legacy `?view=layers` alias redirects there.
+ * This replaces the vendored architecture page, whose Symbols / Dependencies /
+ * Coupling tabs fetched endpoints this app does not serve.
  */
 
-import { use, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQueryState, parseAsStringLiteral } from "nuqs";
-import { Code2 } from "lucide-react";
-import { ViewTabs } from "@repohive/ui/shared/view-tabs";
-import { GraphView } from "@/components/architecture/graph-view";
-import { DependenciesView } from "@/components/architecture/dependencies-view";
-import { SymbolTableWrapper as SymbolTable } from "@/components/symbols/symbol-table-wrapper";
-import { SymbolIndexHeader } from "@repohive/ui/symbols";
-import { COUPLING_DISCLAIMER } from "@repohive/ui/coupling";
-import { CouplingTab } from "@/components/coupling/coupling-tab";
+import { use } from "react";
+import useSWR from "swr";
+import { Boxes } from "lucide-react";
+import { parseAsInteger, useQueryState } from "nuqs";
+import { PageShell } from "@repohive/ui/shared/page-shell";
+import {
+  DeterminismPanel,
+  GroupDsm,
+  LevelFlow,
+  type DeterminismPanelProps,
+  type DsmEntryView,
+  type DsmGroupView,
+  type LevelFlowRowData,
+} from "@repohive/ui/repohive";
 
-// The curated layered view now lives under the dedicated Knowledge Graph route.
-const KNOWLEDGE_GRAPH_VIEWS = new Set(["layers"]);
+interface ArchitectureResponse {
+  levels: LevelFlowRowData[];
+  dsm: {
+    groups: DsmGroupView[];
+    entries: DsmEntryView[];
+    blocks: Array<{ regionId: string; label: string; start: number; size: number }>;
+    maxWeight: number;
+    totalGroups: number;
+    omittedGroups: number;
+    shownEdges: number;
+    totalEdges: number;
+    level: number;
+  };
+  determinism: Omit<DeterminismPanelProps, "configuration"> & {
+    configuration: DeterminismPanelProps["configuration"];
+  };
+  availableLevels: Array<{ level: number; groupNodeCount: number }>;
+}
 
-/** Canonical `?view=` values. The first two are both the Map tab. */
-const CANONICAL = ["communities", "files", "coupling", "packages", "symbols"] as const;
-type CanonicalView = (typeof CANONICAL)[number];
-
-/** Everything `?view=` accepts, canonical values plus legacy spellings. */
-const VIEWS = [...CANONICAL, "map", "explore", "deps", "graph", "layers"] as const;
-type ArchView = (typeof VIEWS)[number];
-
-/** Legacy `?view=` spellings → canonical. `graph` predates the tab split and
- *  `explore` was the file-graph half of the old Map/Explore pair. */
-const VIEW_ALIASES: Record<string, CanonicalView> = {
-  map: "communities",
-  graph: "communities",
-  explore: "files",
-  deps: "packages",
-};
-
-/** Legacy `?viewMode=` values → the `?view=` + `?signal=` they now mean. */
-const LEGACY_VIEW_MODES: Record<string, { view: CanonicalView; signal?: "dead" | "hot" }> = {
-  architecture: { view: "communities" },
-  // The modules scope is gone; its nearest honest destination is the file
-  // graph, where "modules" is now a filter rather than a separate canvas.
-  module: { view: "files" },
-  full: { view: "files" },
-  dead: { view: "files", signal: "dead" },
-  hotfiles: { view: "files", signal: "hot" },
-  // "unified" lit dead AND hot at once; the node filter is exclusive now, so
-  // it resolves to the one the old toolbar rendered as active.
-  unified: { view: "files", signal: "dead" },
-};
-
-// Which tab a canonical view renders under. Both graph scopes are the Map tab.
-const TAB_FOR_VIEW: Record<CanonicalView, string> = {
-  communities: "map",
-  files: "map",
-  coupling: "coupling",
-  packages: "packages",
-  symbols: "symbols",
-};
-
-const TABS: { id: string; label: string }[] = [
-  { id: "map", label: "Map" },
-  { id: "coupling", label: "Coupling" },
-  { id: "packages", label: "Packages" },
-  { id: "symbols", label: "Symbols" },
-];
-
-/** Landing view when a tab is clicked. Map opens on communities — the whole
- *  repo at a size you can read, rather than 1,500 circles. */
-const DEFAULT_VIEW_FOR_TAB: Record<string, CanonicalView> = {
-  map: "communities",
-  coupling: "coupling",
-  packages: "packages",
-  symbols: "symbols",
-};
-
-export default function ArchitecturePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id: repoId } = use(params);
-  const router = useRouter();
-  const [rawView, setView] = useQueryState(
-    "view",
-    parseAsStringLiteral(VIEWS).withDefault("communities"),
-  );
-  const [viewModeParam, setViewModeParam] = useQueryState("viewMode");
-  const [, setSignal] = useQueryState("signal");
-  const [, setModule] = useQueryState("module");
-  const [, setFocus] = useQueryState("focus");
-
-  // The curated layers view now lives at /knowledge-graph. `?view=layers`
-  // redirects there so shared links keep working.
-  const redirectsToKnowledgeGraph = KNOWLEDGE_GRAPH_VIEWS.has(rawView);
-  useEffect(() => {
-    if (redirectsToKnowledgeGraph) {
-      router.replace(`/repos/${repoId}/knowledge-graph`);
-    }
-  }, [redirectsToKnowledgeGraph, repoId, router]);
-
-  // Translate a legacy `?viewMode=` once, then drop it. Doing this as an effect
-  // (rather than reading it every render) means the URL converges on the new
-  // shape instead of carrying both spellings forever.
-  const legacy = viewModeParam ? LEGACY_VIEW_MODES[viewModeParam] : undefined;
-  useEffect(() => {
-    if (!legacy) return;
-    void setView(legacy.view);
-    void setSignal(legacy.signal ?? null);
-    void setViewModeParam(null);
-  }, [legacy, setView, setSignal, setViewModeParam]);
-
-  const view: CanonicalView =
-    legacy?.view ?? VIEW_ALIASES[rawView] ?? (rawView as CanonicalView);
-  const activeTab = TAB_FOR_VIEW[view] ?? "map";
-
-  // Leaving a tab drops the params that only meant something inside it, so the
-  // URL never carries a `signal=hot` into the Packages table where nothing
-  // reads it and nothing shows it.
-  const handleTabChange = useCallback(
-    (id: string) => {
-      void setView(DEFAULT_VIEW_FOR_TAB[id] ?? "communities");
-      if (id !== "coupling") void setFocus(null);
-      if (id !== "map") {
-        void setSignal(null);
-        void setModule(null);
-      }
-    },
-    [setView, setFocus, setSignal, setModule],
-  );
-
-  const handleScopeChange = useCallback(
-    (next: "communities" | "files") => {
-      void setView(next);
-    },
-    [setView],
-  );
-
-  if (redirectsToKnowledgeGraph) {
-    return null;
+async function fetchJson(url: string): Promise<ArchitectureResponse> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(body.detail ?? `Request failed (${res.status}).`);
   }
+  return res.json() as Promise<ArchitectureResponse>;
+}
+
+export default function ArchitecturePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: repoId } = use(params);
+  const [level, setLevel] = useQueryState(
+    "level",
+    parseAsInteger.withOptions({ history: "replace", shallow: true }),
+  );
+  const { data, error, isLoading } = useSWR<ArchitectureResponse>(
+    `/api/graph/${repoId}/architecture${level === null ? "" : `?level=${level}`}`,
+    fetchJson,
+    { revalidateOnFocus: false, revalidateOnReconnect: false },
+  );
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 px-4 pt-3 sm:px-6">
-        <ViewTabs tabs={TABS} value={activeTab} onValueChange={handleTabChange} />
-      </div>
+    <PageShell
+      title="Architecture"
+      icon={<Boxes className="h-5 w-5 text-[var(--color-accent-primary)]" />}
+      description="How the constructed hierarchy is populated, which groups depend on which, and why a re-run reproduces it exactly."
+      maxWidth="wide"
+    >
+      {isLoading && <p className="text-sm text-[var(--color-text-secondary)]">Reading the index…</p>}
+      {error && !isLoading && (
+        <p className="text-sm text-[var(--color-error)]">
+          {(error as Error).message ?? "Could not read the index."}
+        </p>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        {activeTab === "map" && (
-          <GraphView
-            repoId={repoId}
-            scope={view === "files" ? "files" : "communities"}
-            onScopeChange={handleScopeChange}
-          />
-        )}
-        {activeTab === "packages" && <DependenciesView repoId={repoId} />}
-        {activeTab === "symbols" && (
-          <div className="max-w-[1600px] space-y-6 p-4 sm:p-6">
-            <SymbolIndexHeader />
-            <SymbolTable repoId={repoId} />
-          </div>
-        )}
-        {activeTab === "coupling" && (
-          <div className="mx-auto max-w-[1100px] p-4 sm:p-6">
-            <div className="mb-2">
-              <h1 className="mb-1 flex items-center gap-2 text-xl font-semibold text-[var(--color-text-primary)]">
-                <Code2 className="h-5 w-5 text-[var(--color-accent-primary)]" />
-                Change coupling
-              </h1>
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                {COUPLING_DISCLAIMER}
-              </p>
+      {data && !isLoading && (
+        <>
+          <section aria-label="Per-level flow">
+            <h2 className="mb-1 text-sm font-semibold text-[var(--color-text-primary)]">
+              How each level is populated
+            </h2>
+            <p className="mb-3 max-w-[74ch] text-xs text-[var(--color-text-secondary)]">
+              The hierarchy narrows from the leaves up: every dependency edge lives at the leaf
+              level, and each level above aggregates them into fewer, heavier cross-group edges.
+            </p>
+            <LevelFlow rows={data.levels} />
+          </section>
+
+          <section aria-label="Group dependency-structure matrix">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                Which groups depend on which
+              </h2>
+              {data.availableLevels.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">level</span>
+                  {data.availableLevels.map((option) => (
+                    <button
+                      key={option.level}
+                      type="button"
+                      onClick={() => void setLevel(option.level === data.dsm.level ? null : option.level)}
+                      aria-pressed={option.level === data.dsm.level}
+                      title={`${option.groupNodeCount} groups at level ${option.level}`}
+                      className={`rounded border px-2 py-0.5 font-mono text-[11px] tabular-nums transition-colors ${
+                        option.level === data.dsm.level
+                          ? "border-[var(--color-decision-boundary)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)]"
+                          : "border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]"
+                      }`}
+                    >
+                      L{option.level}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <CouplingTab repoId={repoId} />
-          </div>
-        )}
-      </div>
-    </div>
+            <GroupDsm
+              groups={data.dsm.groups}
+              entries={data.dsm.entries}
+              blocks={data.dsm.blocks}
+              maxWeight={data.dsm.maxWeight}
+              level={data.dsm.level}
+              totalGroups={data.dsm.totalGroups}
+              omittedGroups={data.dsm.omittedGroups}
+              shownEdges={data.dsm.shownEdges}
+              totalEdges={data.dsm.totalEdges}
+            />
+          </section>
+
+          <section aria-label="Determinism">
+            <h2 className="mb-1 text-sm font-semibold text-[var(--color-text-primary)]">
+              Why a re-run gives the same answer
+            </h2>
+            <p className="mb-3 max-w-[74ch] text-xs text-[var(--color-text-secondary)]">
+              Determinism is the property that makes every other number on these surfaces citable.
+              Here is the mechanism, not the assertion.
+            </p>
+            <DeterminismPanel
+              scheme={data.determinism.scheme}
+              repositoryId={data.determinism.repositoryId}
+              samples={data.determinism.samples}
+              totalGroups={data.determinism.totalGroups}
+              distinctIds={data.determinism.distinctIds}
+              seed={data.determinism.seed}
+              configuration={data.determinism.configuration}
+            />
+          </section>
+        </>
+      )}
+    </PageShell>
   );
 }

@@ -125,6 +125,8 @@ export function repoNavGroups(repoId: string): NavGroup[] {
         // The recorded per-region preserve/reconstruct record — the flagship
         // surface for the adaptive contribution (viewer handoff §9).
         { label: "Decisions", href: `${base}/decision-audit`, icon: ClipboardList },
+        // The built hierarchy itself: level flow, group DSM, determinism.
+        { label: "Architecture", href: `${base}/architecture`, icon: Boxes },
         { label: "Flat baseline", href: `${base}/flat-baseline`, icon: Network },
       ],
     },
