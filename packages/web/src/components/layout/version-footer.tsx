@@ -23,7 +23,7 @@ export function VersionFooter() {
         onClick={() => setShowWhatsNew(true)}
         className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
       >
-        <span>repowise{version ? ` v${version}` : ""}</span>
+        <span>RepoHIVE{version ? ` v${version}` : ""}</span>
         {updateAvailable && (
           <span
             className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent-primary)]"

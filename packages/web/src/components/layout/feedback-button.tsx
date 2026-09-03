@@ -26,7 +26,7 @@ const MAX_LENGTH = 4000;
 /**
  * Sidebar-footer feedback entry point for the self-hosted dashboard. Opens a
  * categorised dialog; submissions POST to the local server's `/api/feedback`,
- * which forwards them to the Repowise maintainers. Works without an account.
+ * which forwards them to the RepoHIVE maintainers. Works without an account.
  */
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
@@ -76,17 +76,17 @@ export function FeedbackButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Help us improve Repowise"
+        aria-label="Help us improve RepoHIVE"
         className="flex w-full items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-accent-primary)]/50 hover:bg-[var(--color-accent-muted)] hover:text-[var(--color-text-primary)]"
       >
         <MessageSquarePlus className="h-4 w-4 shrink-0 text-[var(--color-accent-primary)]" />
-        <span>Help us improve Repowise</span>
+        <span>Help us improve RepoHIVE</span>
       </button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Help us improve Repowise</DialogTitle>
+            <DialogTitle>Help us improve RepoHIVE</DialogTitle>
             <DialogDescription>
               Found a bug or have an idea? It goes straight to the maintainers, and we read every
               message. It&apos;s anonymous by default — no account needed.

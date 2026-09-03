@@ -58,7 +58,7 @@ export function ReindexHintBanner({ repoId }: ReindexHintBannerProps) {
         aria-hidden="true"
       />
       <div className="flex-1 text-[var(--color-text-primary)]">
-        This index was built by an older repowise. It still works, but a reindex is
+        This index was built by an older RepoHIVE. It still works, but a reindex is
         recommended to pick up the latest format.
         {command && (
           <>

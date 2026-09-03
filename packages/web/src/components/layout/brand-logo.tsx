@@ -22,7 +22,7 @@ export function BrandLogo({
     <>
       <Image
         src="/repowise-logo-light.png"
-        alt="repowise"
+        alt="RepoHIVE"
         width={size}
         height={size}
         className={cn(shared, "dark:hidden")}

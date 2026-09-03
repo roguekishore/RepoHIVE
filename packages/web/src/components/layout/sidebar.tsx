@@ -116,7 +116,7 @@ export function Sidebar({ repos = [], activeRepoId, workspace }: SidebarProps) {
         <BrandLogo size={28} />
         {!isIconOnly && (
           <span className="text-base font-semibold text-[var(--color-text-primary)] tracking-tight flex-1 truncate">
-            repowise
+            RepoHIVE
           </span>
         )}
         <button

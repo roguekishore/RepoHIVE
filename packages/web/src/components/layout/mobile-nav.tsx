@@ -82,7 +82,7 @@ export function MobileNav({ repos = [], workspace }: MobileNavProps) {
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <BrandLogo size={24} />
         <span className="text-base font-semibold text-[var(--color-text-primary)] tracking-tight truncate">
-          repowise
+          RepoHIVE
         </span>
       </div>
       <Button
@@ -101,7 +101,7 @@ export function MobileNav({ repos = [], workspace }: MobileNavProps) {
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="border-b border-[var(--color-border-default)] h-14 flex-row items-center gap-3 py-0 px-4">
             <BrandLogo size={28} />
-            <SheetTitle className="text-base">repowise</SheetTitle>
+            <SheetTitle className="text-base">RepoHIVE</SheetTitle>
           </SheetHeader>
 
           <ScrollArea className="flex-1">

@@ -51,7 +51,7 @@ export function UpgradeBanner() {
           aria-hidden="true"
         />
         <p className="flex-1 text-[var(--color-text-primary)]">
-          repowise <span className="font-medium">v{latest}</span> is available
+          RepoHIVE <span className="font-medium">v{latest}</span> is available
           {meta?.server_version ? (
             <span className="text-[var(--color-text-tertiary)]"> (you have v{meta.server_version})</span>
           ) : null}
