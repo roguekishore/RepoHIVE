@@ -57,3 +57,6 @@ fixtures/jsoup-src
 
 # Editor and tooling
 .tooling/
+
+# Context
+context/
