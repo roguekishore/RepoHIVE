@@ -86,10 +86,11 @@ export interface ParseSuccess {
    * `graph.json` back off disk.
    *
    * It is the exact document `outputPath` contains: the same normalized,
-   * endpoint-swept nodes and edges, in the same canonical order the serializer
-   * emitted them, so consuming this instead of the file cannot change any
-   * downstream result. `graph.json` is written either way - it is the committed
-   * artifact layout and the input to a `group`-only re-run.
+   * endpoint-swept nodes and edges, in the same canonical order and with the
+   * same property order the serializer emitted, so consuming this instead of
+   * the file cannot change any downstream result. `graph.json` is written
+   * either way - it is the committed artifact layout and the input to a
+   * `group`-only re-run.
    *
    * Optional because the field is additive: a caller that ignores it keeps the
    * read-back path, and a `GraphSerializer` stub may omit it.
