@@ -37,9 +37,12 @@ scope):
   is always `false` until the snapshot-id seam can decide "current" correctly.
   A wrong skip would silently serve a stale index; a redundant parse only costs
   seconds.
-- **`concurrency` is accepted but inert in this release.** It is validated (an
-  integer >= 1) and reserved for the parser read prefetch, which is wired up in
-  a follow-up change. It is an internal knob, not a CLI flag.
+- **`concurrency` drives the parser's read prefetch.** It is validated (an
+  integer >= 1, else `INVALID_OPTIONS` before any work) and passed through to
+  the parser, which reads that many source files at a time before extracting;
+  omit it for the parser's default of 16. It is a performance knob only —
+  extraction still runs in canonical order over the prefetched sources, so the
+  value cannot reach any artifact. Internal knob, not a CLI flag.
 - **Progress is coarse in v1**: `start`/`complete` at stage boundaries via
   `options.onProgress`. The `"progress"` kind with `completed`/`total` is
   declared but not yet emitted; per-item events land later with no signature
