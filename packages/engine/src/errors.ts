@@ -54,10 +54,10 @@ export interface EngineDurations {
   /** Milliseconds spent in the parse stage (the `deps.parse` call). */
   parse: number;
   /**
-   * Milliseconds spent in the group stage. In v1 this includes reading
-   * `graph.json` back from disk when the parse stage returned no in-memory
-   * graph; once the parser hands the graph over in memory, that read-back cost
-   * disappears from this figure with no field change.
+   * Milliseconds spent in the group stage, including acquiring its input. With
+   * the default pipeline that input arrives in memory from the parse stage, so
+   * this figure is grouping and serialization only; it additionally covers the
+   * `graph.json` read-back when a `parse` dependency returns no in-memory graph.
    */
   group: number;
   /** Milliseconds for the whole `indexProject` call. Always >= parse + group. */

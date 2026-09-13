@@ -26,6 +26,10 @@
  * Writing is deferred until every file has been parsed (R10.3): the serializer
  * is only reached after the extract loop completes and the error gate passes.
  *
+ * On success the {@link ParseSuccess} also carries the written graph in memory
+ * (`graph`), so an in-process consumer can skip reading `graph.json` back. The
+ * file is written either way.
+ *
  * All collaborators are injected via {@link ParseDeps} so the error-gate
  * behavior can be tested deterministically without touching the real
  * filesystem or the Tree-Sitter runtime; the defaults wire the real pipeline
