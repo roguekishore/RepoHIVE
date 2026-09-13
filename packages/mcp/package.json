@@ -21,6 +21,9 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
+    "fixture": "node ./dist/make-fixture.js",
+    "pretest": "node ./dist/make-fixture.js",
+    "test": "node --test dist/store.test.js dist/tools.test.js",
     "start": "node ./dist/server.js"
   },
   "dependencies": {
