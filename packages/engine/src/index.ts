@@ -16,6 +16,16 @@
  * never import from `cli`, `web`, `ui`, `api-client`, or `types`.
  */
 
+// The one public operation, its options, and its injectable collaborators.
+export { defaultEngineDeps, indexProject } from "./orchestrator.js";
+export type {
+  EngineDeps,
+  EngineOptions,
+  EngineParseSuccess,
+  EngineProgressEvent,
+  EngineProgressKind,
+} from "./orchestrator.js";
+
 // Result and error model: a third result type discriminated by stage, carrying
 // the parser's and the core's error shapes through unmodified.
 export { describeEngineError, describeEngineFailure } from "./errors.js";
@@ -28,3 +38,18 @@ export type {
   EngineStage,
   EngineSuccess,
 } from "./errors.js";
+
+// Re-export the stage packages' public types that appear in this package's own
+// signatures, so a consumer can type every part of an EngineResult without
+// separate imports (the same convenience the parser extends for the shared
+// contract). Consumers needing stage behavior (e.g. core's describeError or
+// parseIndex) still import the stage package directly — that is allowed for
+// every consumer allowed to import this one.
+export type { ParseError, ParseErrorReason, ParseOptions, ParseSuccess } from "@repohive/parser";
+export type { GroupingError, GroupingOutput, PartialGroupingConfig } from "@repohive/core";
+export type {
+  DependencyEdge,
+  GraphNode,
+  NodeId,
+  RawDependencyGraph,
+} from "@repohive/shared";
