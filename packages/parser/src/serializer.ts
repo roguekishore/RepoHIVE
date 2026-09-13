@@ -124,16 +124,25 @@ function normalizeFrequency(value: number): number {
  * - `definedInFile`: omitted on `file` nodes and preserved on `class` /
  *   `function` nodes.
  * - `strength` never exists on a node; frequency handling is edge-only.
+ *
+ * Properties are inserted in the order the canonical stringifier emits them
+ * (`id`, `kind`, `packagePath`, `directoryPath`, `definedInFile`). Emission
+ * does not depend on this — `stringifyNode` writes a fixed key order whatever
+ * it is handed — but it makes the in-memory handoff in
+ * {@link ParseSuccess.graph} match the written document down to property
+ * order, so re-stringifying the handoff cannot produce different bytes.
  */
 function normalizeNode(node: GraphNode): GraphNode {
-  const normalized: GraphNode = {
-    id: node.id,
-    kind: node.kind,
-    directoryPath: node.directoryPath,
-  };
-  if (node.packagePath !== undefined && node.packagePath !== "") {
-    normalized.packagePath = node.packagePath;
-  }
+  const hasPackagePath =
+    node.packagePath !== undefined && node.packagePath !== "";
+  const normalized: GraphNode = hasPackagePath
+    ? {
+        id: node.id,
+        kind: node.kind,
+        packagePath: node.packagePath,
+        directoryPath: node.directoryPath,
+      }
+    : { id: node.id, kind: node.kind, directoryPath: node.directoryPath };
   if (node.kind !== "file" && node.definedInFile !== undefined) {
     normalized.definedInFile = node.definedInFile;
   }
