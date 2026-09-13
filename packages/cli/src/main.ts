@@ -17,6 +17,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXIT_OK, EXIT_USAGE } from "./exit-codes.js";
 import { GROUP_SUMMARY, main as runGroup } from "./group.js";
+import { INDEX_SUMMARY, main as runIndex } from "./index-command.js";
 import { consoleIo, type CliIo } from "./io.js";
 import { emitJson, usageFailureDocument, wantsJson, type CommandName } from "./json.js";
 import { PARSE_SUMMARY, main as runParse } from "./parse.js";
@@ -39,6 +40,7 @@ export interface CliCommand {
  * for a different spelling of a command that is simply not here yet.
  */
 const COMMANDS: readonly CliCommand[] = [
+  { name: "index", summary: INDEX_SUMMARY, run: runIndex },
   { name: "parse", summary: PARSE_SUMMARY, run: runParse },
   { name: "group", summary: GROUP_SUMMARY, run: runGroup },
 ];

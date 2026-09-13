@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/main.test.js && node --test dist/group.test.js && node --test dist/parse.test.js"
+    "test": "node --test dist/main.test.js && node --test dist/index-command.test.js && node --test dist/parse.test.js && node --test dist/group.test.js"
   },
   "dependencies": {
     "@repohive/shared": "0.0.0",
