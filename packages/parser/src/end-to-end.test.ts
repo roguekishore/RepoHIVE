@@ -26,6 +26,7 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import * as nodeFs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -273,7 +274,9 @@ function realDeps(collector?: SourceFileCollector): ParseDeps {
   return {
     validator: createInputValidator(),
     collector: collector ?? createSourceFileCollector(),
-    createExtractor: () => createAstExtractor(),
+    // Wire the extractor to the orchestrator's prefetched reader, so these
+    // end-to-end runs exercise the real read path rather than bypassing it.
+    createExtractor: (readFile) => createAstExtractor({ readFile }),
     symbolTableBuilder: createSymbolTableBuilder(),
     stitcher: createStitcher(),
     serializer: createGraphSerializer(),
@@ -332,6 +335,95 @@ before(async () => {
 
 after(async () => {
   await nodeFs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {});
+});
+
+/**
+ * Behavioral-compatibility gate for the prefetch (step 3).
+ *
+ * A file the prefetch cannot read must produce EXACTLY the failure a direct
+ * per-file read failure produced before the prefetch existed — same reason,
+ * message and path, in the same position — not a new error shape. Both halves
+ * of the comparison run the real Tree-Sitter extractor over the real fixture;
+ * only where the read fails differs:
+ *
+ * - "old": the extractor's own `readFile` throws, the pre-prefetch wiring,
+ *   still reachable because `createExtractor` may ignore the reader it is
+ *   handed.
+ * - "new": the prefetch's `readSource` rejects, so the file is absent from the
+ *   map and the memory reader throws when extraction reaches it.
+ */
+test("a prefetch read failure is indistinguishable from a direct read failure", async () => {
+  // Two files, failing in the opposite order to canonical: Main.java is made to
+  // fail slowly and Account.java fast, while canonical order puts
+  // src/com/example/app/Main.java before src/com/example/model/Account.java.
+  const slowFailure = "Main.java";
+  const fastFailure = "Account.java";
+  const fails = (absolutePath: string): string | undefined => {
+    const name = path.basename(absolutePath);
+    return name === slowFailure || name === fastFailure ? name : undefined;
+  };
+
+  // Old wiring: the extractor reads from disk itself and throws for those two.
+  const oldRun = await parseProject(
+    { projectDirectory: FIXTURE_DIR, outputPath: path.join(tmpRoot, "old.json") },
+    {
+      ...realDeps(),
+      createExtractor: () =>
+        createAstExtractor({
+          readFile: (absolutePath) => {
+            if (fails(absolutePath) !== undefined) {
+              throw new Error("simulated read failure");
+            }
+            return readFileSync(absolutePath, "utf8");
+          },
+        }),
+    },
+  );
+
+  // New wiring: the default extractor over the prefetched map, with the
+  // prefetch itself failing on the same two files, in a completion order that
+  // is the reverse of canonical order.
+  const newRun = await parseProject(
+    { projectDirectory: FIXTURE_DIR, outputPath: path.join(tmpRoot, "new.json") },
+    {
+      ...realDeps(),
+      readSource: async (absolutePath) => {
+        const failing = fails(absolutePath);
+        if (failing === slowFailure) {
+          await Promise.resolve();
+          await Promise.resolve();
+          throw new Error("simulated slow read failure");
+        }
+        if (failing === fastFailure) {
+          throw new Error("simulated fast read failure");
+        }
+        return nodeFs.readFile(absolutePath, "utf8");
+      },
+    },
+  );
+
+  assert.ok(!oldRun.ok, "the old wiring must fail on unreadable files");
+  assert.ok(!newRun.ok, "the prefetch wiring must fail on unreadable files");
+  assert.deepEqual(
+    newRun.errors,
+    oldRun.errors,
+    "prefetch read failures must surface exactly as direct read failures did",
+  );
+  // And concretely: the canonical order, regardless of which read failed first.
+  assert.deepEqual(
+    newRun.errors.map((e) => [e.reason, e.path]),
+    [
+      ["file-unreadable", "src/com/example/app/Main.java"],
+      ["file-unreadable", "src/com/example/model/Account.java"],
+    ],
+  );
+  // R10.4 unchanged: recorded errors gate the write, so neither run wrote.
+  for (const name of ["old.json", "new.json"]) {
+    await assert.rejects(
+      () => nodeFs.stat(path.join(tmpRoot, name)),
+      "no output is written when per-file errors were recorded",
+    );
+  }
 });
 
 test("fixture exists and contains Java sources", async () => {

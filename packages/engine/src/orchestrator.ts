@@ -125,11 +125,15 @@ export interface EngineOptions {
    */
   grouping?: PartialGroupingConfig;
   /**
-   * Parse-stage read concurrency (an internal knob, deliberately NOT a CLI
-   * flag in v1). Validated now — an integer >= 1 — so a nonsense value fails
-   * today rather than when the knob becomes live. **Accepted but inert in this
-   * release**: the parser prefetch it drives is wired up in a follow-up change
-   * on this package's branch; until then the value has no effect.
+   * Parse-stage read concurrency: how many source files the parser reads at a
+   * time in its prefetch step. An internal knob, deliberately NOT a CLI flag in
+   * v1. Omitted → the parser's default (16). Validated here as an integer >= 1,
+   * so a nonsense value is an `INVALID_OPTIONS` failure before any work starts
+   * rather than something the parser silently ignores.
+   *
+   * Performance only. Reads dominate a cold parse and parallelize about 6.8x
+   * (measured 2026-08-27 over 2985 files); the value cannot affect any artifact
+   * because the parser extracts in canonical order from the prefetched map.
    */
   concurrency?: number;
   /**
@@ -330,6 +334,11 @@ async function indexProjectUnguarded(
     outputPath: graphPath,
     ...(options.excludedSegments !== undefined
       ? { excludedSegments: options.excludedSegments }
+      : {}),
+    // Omitted rather than passed as an explicit undefined, so the parser's own
+    // default applies instead of this package re-declaring it.
+    ...(options.concurrency !== undefined
+      ? { concurrency: options.concurrency }
       : {}),
   });
   const parseMs = deps.now() - parseStartedAt;
