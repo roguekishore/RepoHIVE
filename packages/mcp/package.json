@@ -1,0 +1,32 @@
+{
+  "name": "@repohive/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RepoHIVE MCP server — read-only Model Context Protocol access to a produced index/ for AI agents.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@repohive/core": "0.0.0",
+    "@repohive/shared": "0.0.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@repohive/parser": "0.0.0"
+  },
+  "license": "AGPL-3.0-or-later"
+}
