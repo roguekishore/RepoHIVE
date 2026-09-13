@@ -1,34 +1,54 @@
 /**
- * TEMPORARY demo wrapper — `npm run group -- <graph.json | dir> [outDir]`.
+ * `repohive group` — stage 2 alone: a `graph.json` to the five-file `index/`.
  *
- * Same status as the parser's parse-cli: a temporary demo convenience,
- * replaced by the packaged CLI later (architecture
- * engine-vs-ecosystem line). Relative paths resolve against INIT_CWD so the
- * root `npm run group` script behaves like a plain command.
+ * Moved here from `packages/core/src/group-cli.ts`, where it was a temporary
+ * demo wrapper on the wrong side of the engine/ecosystem boundary. The flag
+ * surface, the routing of every value through the core's `validateConfig`, the
+ * rejection of unknown flags and extra positionals, and the testable
+ * `main(argv, io) -> exit code` are carried over unchanged; what changed is
+ * only what had to:
  *
- * It nonetheless carries flag parsing, because Req 4.4 requires the
- * Structural_Quality_Boundary to be varied across runs *without code changes*
- * so a sensitivity analysis can be run — and that requirement sits in the
- * algorithm spec, so it is Phase-1 scope regardless of which wrapper exposes it
- * (Gap 20). Every parsed value goes through `validateConfig`, so the CLI cannot
- * become a second injection route for the values Gap 9 rejects.
+ * - relative paths resolve against `process.cwd()`, never `INIT_CWD`;
+ * - the `process.argv[1].endsWith("group-cli.js")` self-execution guard is
+ *   gone, because `cli.ts` invokes dispatch unconditionally under the shim;
+ * - `--json` prints the result as a document instead of prose.
  *
- * `main` takes its argv as a parameter and returns an exit code so the whole
- * surface is testable without spawning a process.
+ * It keeps its full flag surface because algorithm spec Req 4.4 requires the
+ * structural-quality boundary to be varied across runs *without code changes*
+ * so a sensitivity analysis can be run. Every parsed value still goes through
+ * `validateConfig` inside the core, so the CLI cannot become a second injection
+ * route for the values that gate rejects.
  */
 
-import { statSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { describeError } from "./errors.js";
-import { groupGraphToIndex, readGraphFile, type PartialGroupingConfig } from "./orchestrator.js";
-import type { Action, RegionId } from "./types.js";
+import { existsSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import {
+  describeError,
+  groupGraphToIndex,
+  readGraphFile,
+  type Action,
+  type PartialGroupingConfig,
+  type RegionId,
+} from "@repohive/core";
+import { EXIT_FAILURE, EXIT_OK, EXIT_USAGE } from "./exit-codes.js";
+import { consoleIo, type CliIo } from "./io.js";
+import {
+  emitJson,
+  groupFailureDocument,
+  successDocument,
+  usageFailureDocument,
+  type JsonDurations,
+} from "./json.js";
+import { resolveFromCwd } from "./paths.js";
+
+export const GROUP_SUMMARY = "stage 2 alone: a graph.json to the five-file index/";
 
 const USAGE = `RepoHIVE group — adaptive hierarchical grouping
 
-usage: npm run group -- <graph.json | project-dir> [outDir] [options]
+usage: repohive group <graph.json | dir> [outDir] [options]
 
 options:
-  --out <dir>                     output directory (same as the positional)
+  --out <dir>                     directory to write the five index files into
   --boundary <n>                  structural-quality decision boundary
   --seed <int>                    community-detection seed
   --max-group-size <int>          maximum children per group node
@@ -41,7 +61,13 @@ options:
   --compute-modularity            compute Newman Q as a secondary signal
   --preserve <regionId>           force preserve for a region (repeatable)
   --reconstruct <regionId>        force reconstruct for a region (repeatable)
-  --help                          show this message`;
+  --json                          machine-readable output on stdout
+  --help                          show this message
+
+a directory argument resolves to <dir>/.repohive/graph.json when that exists,
+otherwise to <dir>/graph.json. the default output directory is a sibling
+index/ of the graph file, so grouping .repohive/graph.json writes
+.repohive/index/.`;
 
 /** Flags taking a numeric value, mapped onto their config location. */
 const NUMERIC_FLAGS = {
@@ -61,6 +87,7 @@ type NumericFlag = keyof typeof NUMERIC_FLAGS;
 export interface ParsedArgs {
   input: string;
   outDir?: string;
+  json: boolean;
   config: PartialGroupingConfig;
 }
 
@@ -68,6 +95,22 @@ export type ArgsResult =
   | { ok: true; value: ParsedArgs }
   | { ok: true; help: true }
   | { ok: false; message: string };
+
+/** The five index files and the grouping counts a successful run reports. */
+export interface GroupResultJson {
+  graphPath: string;
+  indexDirectory: string;
+  regionCount: number;
+  preserveCount: number;
+  reconstructCount: number;
+  structuralQualityBoundary: number;
+  /** Nodes in the built hierarchy, not nodes in the input graph. */
+  hierarchyNodeCount: number;
+  hierarchyDepth: number;
+  leafEdgeCount: number;
+  crossGroupEdgeCount: number;
+  durationMs: JsonDurations;
+}
 
 function isNumericFlag(token: string): token is NumericFlag {
   return Object.prototype.hasOwnProperty.call(NUMERIC_FLAGS, token);
@@ -77,15 +120,17 @@ function isNumericFlag(token: string): token is NumericFlag {
  * Parse the CLI arguments into a partial config.
  *
  * Unknown flags and extra positionals are errors: silently ignoring them (the
- * previous behaviour) turns a typo in a sweep into a run at default parameters
- * that *looks* successful, which is the worst possible outcome for an
- * experiment whose whole point is varying one parameter.
+ * behaviour before this argument surface existed) turns a typo in a sweep into
+ * a run at default parameters that *looks* successful, which is the worst
+ * possible outcome for an experiment whose whole point is varying one
+ * parameter.
  */
 export function parseGroupArgs(argv: readonly string[]): ArgsResult {
   const positionals: string[] = [];
   const numbers = new Map<NumericFlag, number>();
   const overrides = new Map<RegionId, Action>();
   let computeModularity = false;
+  let json = false;
   let outFlag: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
@@ -93,6 +138,11 @@ export function parseGroupArgs(argv: readonly string[]): ArgsResult {
 
     if (token === "--help" || token === "-h") {
       return { ok: true, help: true };
+    }
+
+    if (token === "--json") {
+      json = true;
+      continue;
     }
 
     if (token === "--compute-modularity") {
@@ -196,77 +246,120 @@ export function parseGroupArgs(argv: readonly string[]): ArgsResult {
     value: {
       input: positionals[0]!,
       ...(outDir !== undefined ? { outDir } : {}),
+      json,
       config,
     },
   };
 }
 
-function resolveAgainstInvocationDir(path: string): string {
-  if (isAbsolute(path)) {
-    return path;
-  }
-  const base = process.env["INIT_CWD"] ?? process.cwd();
-  return resolve(base, path);
+/**
+ * Locate the graph file a directory argument means.
+ *
+ * `.repohive/graph.json` first, because that is where `repohive index` and
+ * `repohive parse` write it, then `<dir>/graph.json`, which is where the
+ * pre-`.repohive` layout put it and what the demo scripts still produce. A
+ * directory holding neither falls through to the second path so the failure
+ * reported is "graph.json not found", not "you gave me a directory".
+ */
+function graphFileWithin(directory: string): string {
+  const underOutputRoot = join(directory, ".repohive", "graph.json");
+  return existsSync(underOutputRoot) ? underOutputRoot : join(directory, "graph.json");
 }
-
-export interface CliIo {
-  log(message: string): void;
-  error(message: string): void;
-}
-
-const consoleIo: CliIo = {
-  // eslint-disable-next-line no-console
-  log: (message) => console.log(message),
-  // eslint-disable-next-line no-console
-  error: (message) => console.error(message),
-};
 
 /** Run the grouping CLI. Returns the process exit code. */
 export function main(argv: readonly string[], io: CliIo = consoleIo): number {
+  const startedAt = performance.now();
   const parsed = parseGroupArgs(argv);
+  const json = parsed.ok && "value" in parsed ? parsed.value.json : argv.includes("--json");
+
   if (!parsed.ok) {
+    if (json) {
+      emitJson(io, usageFailureDocument("group", parsed.message));
+      return EXIT_USAGE;
+    }
     io.error(`group: ${parsed.message}`);
     io.error(USAGE);
-    return 2;
+    return EXIT_USAGE;
   }
   if ("help" in parsed) {
     io.log(USAGE);
-    return 0;
+    return EXIT_OK;
   }
 
-  let graphPath = resolveAgainstInvocationDir(parsed.value.input);
+  let graphPath = resolveFromCwd(parsed.value.input);
   try {
     if (statSync(graphPath).isDirectory()) {
-      graphPath = join(graphPath, "graph.json");
+      graphPath = graphFileWithin(graphPath);
     }
   } catch {
-    io.error(`group: path not found: ${graphPath}`);
-    return 2;
+    // The named path does not exist at all, so the command line never became a
+    // runnable request: a usage error, not a run that failed.
+    const message = `path not found: ${graphPath}`;
+    if (json) {
+      emitJson(io, usageFailureDocument("group", message));
+      return EXIT_USAGE;
+    }
+    io.error(`group: ${message}`);
+    return EXIT_USAGE;
   }
 
   // Derived from the graph file's *directory*, so an input whose name does not
   // end in `.json` still produces a sibling `index/` rather than a path under
-  // the file itself (Gap 20).
+  // the file itself.
   const outDir =
     parsed.value.outDir !== undefined
-      ? resolveAgainstInvocationDir(parsed.value.outDir)
+      ? resolveFromCwd(parsed.value.outDir)
       : join(dirname(graphPath), "index");
 
+  const groupStartedAt = performance.now();
   const graph = readGraphFile(graphPath);
   if (!graph.ok) {
-    io.error(`group: ${describeError(graph.error)}`);
-    return 1;
+    const message = describeError(graph.error);
+    if (json) {
+      emitJson(io, groupFailureDocument("group", message, graph.error, graphPath));
+      return EXIT_FAILURE;
+    }
+    io.error(`group: ${message}`);
+    return EXIT_FAILURE;
   }
 
   const result = groupGraphToIndex(graph.value, outDir, parsed.value.config);
   if (!result.ok) {
-    io.error(`group: ${describeError(result.error)}`);
-    return 1;
+    const message = describeError(result.error);
+    if (json) {
+      emitJson(io, groupFailureDocument("group", message, result.error, graphPath));
+      return EXIT_FAILURE;
+    }
+    io.error(`group: ${message}`);
+    return EXIT_FAILURE;
   }
 
   const { hierarchy, metadata } = result.value;
   const preserved = metadata.regionDecisions.filter((d) => d.action === "preserve").length;
   const reconstructed = metadata.regionDecisions.length - preserved;
+  const finishedAt = performance.now();
+
+  if (json) {
+    const value: GroupResultJson = {
+      graphPath,
+      indexDirectory: outDir,
+      regionCount: metadata.regionDecisions.length,
+      preserveCount: preserved,
+      reconstructCount: reconstructed,
+      structuralQualityBoundary: metadata.structuralQualityBoundary,
+      hierarchyNodeCount: metadata.nodeCount,
+      hierarchyDepth: hierarchy.depth,
+      leafEdgeCount: hierarchy.leafEdges.length,
+      crossGroupEdgeCount: hierarchy.crossGroupEdges.length,
+      durationMs: {
+        group: finishedAt - groupStartedAt,
+        total: finishedAt - startedAt,
+      },
+    };
+    emitJson(io, successDocument("group", value));
+    return EXIT_OK;
+  }
+
   io.log("RepoHIVE group — adaptive hierarchical grouping");
   io.log(`  input    : ${graphPath}`);
   io.log(
@@ -277,10 +370,5 @@ export function main(argv: readonly string[], io: CliIo = consoleIo): number {
   io.log(`  edges    : ${hierarchy.leafEdges.length} leaf + ${hierarchy.crossGroupEdges.length} cross-group`);
   io.log(`  output   : ${outDir}`);
   io.log("  result   : OK");
-  return 0;
-}
-
-// Executed only when run as a script, not when imported by a test.
-if (process.argv[1]?.endsWith("group-cli.js")) {
-  process.exitCode = main(process.argv.slice(2));
+  return EXIT_OK;
 }

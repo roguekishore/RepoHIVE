@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXIT_OK, EXIT_USAGE } from "./exit-codes.js";
+import { GROUP_SUMMARY, main as runGroup } from "./group.js";
 import { consoleIo, type CliIo } from "./io.js";
 import { emitJson, usageFailureDocument, wantsJson, type CommandName } from "./json.js";
 
@@ -36,7 +37,9 @@ export interface CliCommand {
  * would wrongly suggest the name is undecided, and would send someone looking
  * for a different spelling of a command that is simply not here yet.
  */
-const COMMANDS: readonly CliCommand[] = [];
+const COMMANDS: readonly CliCommand[] = [
+  { name: "group", summary: GROUP_SUMMARY, run: runGroup },
+];
 
 /** What `repohive view` says until the viewer ships. */
 export const VIEW_DEFERRED_MESSAGE =

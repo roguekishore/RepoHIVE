@@ -1,27 +1,38 @@
 /**
- * Tests for the group CLI's argument surface (Gap 20).
+ * Tests for the group command's argument surface.
  *
- * `group-cli` accepted exactly two positionals and passed no config, so every
- * run used DEFAULT_GROUPING_CONFIG — and Req 4.4 requires the boundary to be
- * varied across runs *without code changes* so a sensitivity analysis can be
- * run. Extra positionals were silently ignored, which would turn a typo in a
- * sweep into a default-parameter run that looks successful.
+ * Moved here with the command from `packages/core/src/group-cli.test.ts`. The
+ * original assertions are unchanged: `group-cli` once accepted exactly two
+ * positionals and passed no config, so every run used
+ * DEFAULT_GROUPING_CONFIG, and Req 4.4 requires the boundary to be varied
+ * across runs *without code changes* so a sensitivity analysis can be run.
+ * Extra positionals were silently ignored, which would turn a typo in a sweep
+ * into a default-parameter run that looks successful.
+ *
+ * Added with the move: the `--json` document, and the `.repohive/graph.json`
+ * resolution that lets `repohive index` output be re-grouped by directory.
  */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseIndex } from "@repohive/core";
 import type { RawDependencyGraph } from "@repohive/shared";
-import { main, parseGroupArgs } from "./group-cli.js";
-import { parseIndex } from "./index-parser.js";
+import { main, parseGroupArgs } from "./group.js";
 
 /** Collect CLI output instead of writing to the console. */
 function captureIo(): { io: { log(m: string): void; error(m: string): void }; out: string[]; errs: string[] } {
   const out: string[] = [];
   const errs: string[] = [];
   return { io: { log: (m) => out.push(m), error: (m) => errs.push(m) }, out, errs };
+}
+
+/** Assert that stdout held exactly one JSON document, and return it. */
+function soleJsonDocument(out: readonly string[]): Record<string, unknown> {
+  assert.equal(out.length, 1, `expected one stdout document, got ${out.length}`);
+  return JSON.parse(out[0]!) as Record<string, unknown>;
 }
 
 const graph: RawDependencyGraph = {
@@ -161,7 +172,7 @@ test("the boundary flag actually changes the decisions — Req 4.4 without code 
   try {
     const runAt = (boundary: string): string[] => {
       const outDir = join(project.dir, `index-${boundary}`);
-      const { io, out } = captureIo();
+      const { io } = captureIo();
       assert.equal(main([project.graphPath, outDir, "--boundary", boundary], io), 0);
       const parsed = parseIndex(outDir);
       assert.ok(parsed.ok);
@@ -183,7 +194,7 @@ test("an invalid parameter is rejected through validateConfig and writes nothing
     const outDir = join(project.dir, "index");
     const { io, errs } = captureIo();
     // Legal as a number, illegal as a config value — the CLI must not become a
-    // second injection route for what Gap 9's gate rejects.
+    // second injection route for what the core's config gate rejects.
     assert.equal(main([project.graphPath, outDir, "--squash-k", "0"], io), 1);
     assert.ok(errs.some((line) => line.includes("cohesionSquashConstant")));
     assert.ok(!readdirSync(project.dir).includes("index"));
@@ -222,4 +233,78 @@ test("a nonexistent input path exits 2 without touching the filesystem", () => {
   const { io, errs } = captureIo();
   assert.equal(main([join(tmpdir(), "repohive-does-not-exist-at-all")], io), 2);
   assert.ok(errs.some((line) => line.includes("path not found")));
+});
+
+// --- Added with the move ---------------------------------------------------
+
+test("a directory argument prefers .repohive/graph.json over a sibling one", () => {
+  const dir = mkdtempSync(join(tmpdir(), "repohive-cli-layout-"));
+  try {
+    mkdirSync(join(dir, ".repohive"));
+    writeFileSync(join(dir, ".repohive", "graph.json"), JSON.stringify(graph), "utf8");
+    const { io, out } = captureIo();
+    assert.equal(main([dir], io), 0);
+    // Grouping the output root writes the index beside the graph it came from.
+    assert.ok(out.some((line) => line.includes(join(dir, ".repohive", "index"))), out.join("\n"));
+    assert.ok(parseIndex(join(dir, ".repohive", "index")).ok);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--json reports the grouping counts and writes nothing to stderr", () => {
+  const project = tempProject();
+  try {
+    const outDir = join(project.dir, "index");
+    const { io, out, errs } = captureIo();
+    assert.equal(main([project.graphPath, outDir, "--json"], io), 0);
+    assert.equal(errs.length, 0, "a --json run writes only to stdout");
+
+    const document = soleJsonDocument(out);
+    assert.equal(document["schemaVersion"], 1);
+    assert.equal(document["command"], "group");
+    assert.equal(document["ok"], true);
+
+    const result = document["result"] as Record<string, unknown>;
+    assert.equal(result["graphPath"], project.graphPath);
+    assert.equal(result["indexDirectory"], outDir);
+    assert.equal(result["regionCount"], 2, "packages p and q");
+    assert.equal(
+      Number(result["preserveCount"]) + Number(result["reconstructCount"]),
+      result["regionCount"],
+    );
+    assert.equal(typeof result["hierarchyNodeCount"], "number");
+    assert.equal(typeof result["hierarchyDepth"], "number");
+    assert.equal(typeof result["structuralQualityBoundary"], "number");
+    const durations = result["durationMs"] as Record<string, number>;
+    assert.ok(durations["total"]! >= durations["group"]!);
+  } finally {
+    project.cleanup();
+  }
+});
+
+test("--json renders a usage error and a failed run as documents", () => {
+  const usage = captureIo();
+  assert.equal(main(["--json", "--bogus"], usage.io), 2);
+  const usageDocument = soleJsonDocument(usage.out);
+  assert.equal(usageDocument["ok"], false);
+  assert.equal(usageDocument["stage"], "usage");
+  assert.equal(usageDocument["command"], "group");
+  assert.equal(usage.errs.length, 0);
+
+  const project = tempProject();
+  try {
+    const failed = captureIo();
+    assert.equal(main([project.graphPath, "--squash-k", "0", "--json"], failed.io), 1);
+    const document = soleJsonDocument(failed.out);
+    assert.equal(document["ok"], false);
+    assert.equal(document["stage"], "group");
+    assert.equal(document["graphPath"], project.graphPath);
+    // The core's own error, passed through rather than reshaped.
+    assert.equal((document["error"] as Record<string, unknown>)["code"], "INVALID_CONFIG");
+    assert.match(String(document["message"]), /cohesionSquashConstant/);
+    assert.equal(failed.errs.length, 0);
+  } finally {
+    project.cleanup();
+  }
 });
