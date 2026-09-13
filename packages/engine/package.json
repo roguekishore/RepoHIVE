@@ -17,7 +17,9 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/orchestrator.test.js && node --test dist/errors.test.js && node --test dist/deps.test.js",
+    "test:integration": "node --test dist/integration.test.js"
   },
   "dependencies": {
     "@repohive/shared": "0.0.0",
