@@ -1,0 +1,25 @@
+{
+  "name": "repohive",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RepoHIVE command line interface — index, parse and group a Java project into .repohive/.",
+  "type": "module",
+  "bin": {
+    "repohive": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/main.test.js"
+  },
+  "dependencies": {
+    "@repohive/shared": "0.0.0",
+    "@repohive/parser": "0.0.0",
+    "@repohive/core": "0.0.0",
+    "@repohive/engine": "0.0.0"
+  },
+  "license": "AGPL-3.0-or-later"
+}
