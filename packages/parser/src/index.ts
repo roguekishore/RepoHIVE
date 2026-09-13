@@ -11,6 +11,11 @@
 export { parseProject } from "./orchestrator.js";
 export type { ParseOptions, ParseDeps } from "./orchestrator.js";
 
+// The collector's default exclusion list, exported so a consumer building an
+// `excludedSegments` set can add to it rather than restate it. Consumers that
+// restate it drift from it silently the next time an entry is added.
+export { DEFAULT_EXCLUDED_SEGMENTS } from "./source-collector.js";
+
 // Determinism verification harness (R9): reusable from property tests and the
 // `npm run demo:determinism` aid.
 export {

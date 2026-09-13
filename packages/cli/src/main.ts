@@ -19,6 +19,7 @@ import { EXIT_OK, EXIT_USAGE } from "./exit-codes.js";
 import { GROUP_SUMMARY, main as runGroup } from "./group.js";
 import { consoleIo, type CliIo } from "./io.js";
 import { emitJson, usageFailureDocument, wantsJson, type CommandName } from "./json.js";
+import { PARSE_SUMMARY, main as runParse } from "./parse.js";
 
 /** One dispatchable command. `run` returns the process exit code. */
 export interface CliCommand {
@@ -38,6 +39,7 @@ export interface CliCommand {
  * for a different spelling of a command that is simply not here yet.
  */
 const COMMANDS: readonly CliCommand[] = [
+  { name: "parse", summary: PARSE_SUMMARY, run: runParse },
   { name: "group", summary: GROUP_SUMMARY, run: runGroup },
 ];
 
