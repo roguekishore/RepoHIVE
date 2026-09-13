@@ -56,6 +56,26 @@ component moved between packages may not behave identically.
 
 The root also carries `shadcn ^4.12.0` in `devDependencies` with a root `components.json`.
 
+## MCP server dependencies
+
+In `packages/mcp` (the read-only MCP server, an ecosystem package). Both exact, both MIT (compatible
+with AGPL-3.0-or-later):
+
+| Package | Version | Role |
+|---------|---------|------|
+| `@modelcontextprotocol/sdk` | `1.30.0` | MCP server framework and stdio transport; converts tool input schemas to JSON Schema for `tools/list` |
+| `zod` | `3.25.76` | tool input validation at the MCP boundary |
+
+`zod` is pinned to the exact version the SDK itself resolves so npm dedupes the workspace to a **single**
+instance. Two zod copies do not interop at the type level (the SDK's `zod-compat` layer accepts
+`^3.25 || ^4.0` at runtime, but a second copy of zod 4 in the tree failed to satisfy the SDK's schema
+types and was removed for that reason). When bumping the SDK, re-check which zod it resolves and move
+this pin with it.
+
+Note: the SDK was already in the lockfile before this package existed, as a transitive dev dependency of
+the root `shadcn` tool. The direct dependency upgraded that shared entry in-range (1.29.0 to 1.30.0) and
+made it a production dependency.
+
 ## Tool choices with history
 
 **Next.js stays for `packages/web`.** An earlier version of this file justified that by saying the
