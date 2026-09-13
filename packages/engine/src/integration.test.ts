@@ -25,7 +25,11 @@ import { join } from "node:path";
 
 import { INDEX_FILE_NAMES } from "@repohive/core";
 
-import { indexProject, type EngineProgressEvent } from "./index.js";
+import {
+  defaultEngineDeps,
+  indexProject,
+  type EngineProgressEvent,
+} from "./index.js";
 
 /** Root-relative fixture location; the compiled test runs from `dist/`. */
 const FIXTURE = fileURLToPath(
@@ -139,6 +143,84 @@ test("the real pipeline indexes the fixture and matches the recorded measurement
     );
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("the in-memory handoff is live and produces byte-identical output", async (t) => {
+  if (!FIXTURE_PRESENT) {
+    t.skip(SKIP_REASON);
+    return;
+  }
+  const inMemoryOut = mkdtempSync(join(tmpdir(), "repohive-engine-mem-"));
+  const readBackOut = mkdtempSync(join(tmpdir(), "repohive-engine-disk-"));
+  try {
+    // Path A: the real default pipeline. The parser now populates
+    // ParseSuccess.graph, so the engine's in-memory branch must be taken and
+    // readGraph must never be reached.
+    const memDeps = defaultEngineDeps();
+    const memReads: string[] = [];
+    const inMemory = await indexProject(
+      { projectDirectory: FIXTURE, outputDirectory: inMemoryOut },
+      {
+        ...memDeps,
+        readGraph: (graphPath) => {
+          memReads.push(graphPath);
+          return memDeps.readGraph(graphPath);
+        },
+      },
+    );
+    assert(inMemory.ok, `in-memory run failed: ${JSON.stringify(inMemory)}`);
+    assert.deepEqual(memReads, [], "graph.json must not be read back when parse hands it over");
+
+    // Path B: the same real pipeline with the handoff stripped from the parse
+    // result, which is exactly the v1 read-back path.
+    const diskDeps = defaultEngineDeps();
+    const diskReads: string[] = [];
+    const readBack = await indexProject(
+      { projectDirectory: FIXTURE, outputDirectory: readBackOut },
+      {
+        ...diskDeps,
+        parse: async (options) => {
+          const parsed = await diskDeps.parse(options);
+          if (!parsed.ok) {
+            return parsed;
+          }
+          const value = { ...parsed.value };
+          delete value.graph;
+          return { ok: true, value };
+        },
+        readGraph: (graphPath) => {
+          diskReads.push(graphPath);
+          return diskDeps.readGraph(graphPath);
+        },
+      },
+    );
+    assert(readBack.ok, `read-back run failed: ${JSON.stringify(readBack)}`);
+    assert.deepEqual(
+      diskReads,
+      [readBack.value.graphPath],
+      "stripping the handoff must restore the read-back path",
+    );
+
+    // graph.json is written either way: it is the committed layout and the
+    // input to a group-only re-run.
+    assert(existsSync(inMemory.value.graphPath), "graph.json written on the in-memory path");
+    assert(existsSync(readBack.value.graphPath), "graph.json written on the read-back path");
+
+    // And the two paths agree byte for byte, on every artifact.
+    const memGraph = readFileSync(inMemory.value.graphPath);
+    const diskGraph = readFileSync(readBack.value.graphPath);
+    assert(memGraph.equals(diskGraph), "graph.json must be byte-identical across both paths");
+    for (const name of INDEX_FILE_NAMES) {
+      const a = readFileSync(join(inMemory.value.indexDirectory, name));
+      const b = readFileSync(join(readBack.value.indexDirectory, name));
+      assert(a.equals(b), `${name} must be byte-identical across both paths`);
+    }
+    assert.equal(indexDigest(inMemory.value.indexDirectory), RECORDED_GROUP_DIGEST);
+    assert.equal(indexDigest(readBack.value.indexDirectory), RECORDED_GROUP_DIGEST);
+  } finally {
+    rmSync(inMemoryOut, { recursive: true, force: true });
+    rmSync(readBackOut, { recursive: true, force: true });
   }
 });
 

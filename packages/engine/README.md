@@ -44,6 +44,11 @@ scope):
   `options.onProgress`. The `"progress"` kind with `completed`/`total` is
   declared but not yet emitted; per-item events land later with no signature
   change.
+- **The graph is handed over in memory.** `parseProject` returns the document it
+  just wrote on `ParseSuccess.graph`, so the engine groups straight from memory
+  and never reads `graph.json` back. The file is still always written (it is the
+  committed layout and the input to a group-only re-run), and the read-back
+  branch stays for a `parse` dependency that returns no graph.
 - **Timing never reaches an artifact.** Durations exist only on the returned
   result; artifacts stay byte-identical across runs over identical input.
 - **Failure atomicity is the stages' own**: a failed parse writes nothing (a

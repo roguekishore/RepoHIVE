@@ -17,9 +17,9 @@
  *    stage-tagged; the parser guarantees no partial output.
  * 4. **Acquire the graph for grouping**: use the in-memory graph when the parse
  *    stage handed one over ({@link EngineParseSuccess.graph}), otherwise read
- *    `graph.json` back from disk. The read-back is the v1 path; the in-memory
- *    handoff is a designed-in upgrade that activates the moment the parser
- *    populates the field, with no change to any signature in this package.
+ *    `graph.json` back from disk. `parseProject` populates the field, so the
+ *    default pipeline takes the in-memory branch and never reads the file back;
+ *    the read-back remains for a `parse` dependency that returns no graph.
  *    `graph.json` is always written either way: it is part of the committed
  *    `.repohive/` layout and what makes group-only sweeps possible.
  * 5. **Group** via `@repohive/core`'s `groupGraphToIndex`, writing the
@@ -148,11 +148,11 @@ export interface EngineOptions {
  * What the engine needs back from the parse stage: the parser's `ParseSuccess`,
  * plus an optional in-memory graph.
  *
- * The parser does not populate `graph` today, so the engine reads `graph.json`
- * back from disk between the stages. The field exists so the planned additive
- * parser change (`ParseSuccess` gaining `graph?`) upgrades the engine to a
- * zero-read-back handoff automatically: `parseProject` remains assignable to
- * {@link EngineDeps.parse} before and after, and no signature here changes.
+ * `parseProject` populates `graph` with the exact document it wrote, so the
+ * default pipeline hands the graph over in memory and the `graph.json`
+ * read-back never runs. The field stays optional because it is the seam: a
+ * `parse` dependency that returns no graph (a stub, or a source that only
+ * produces a file) still works, through the read-back branch.
  */
 export interface EngineParseSuccess extends ParseSuccess {
   /** The parsed graph, when the parse stage can hand it over in memory. */
@@ -339,8 +339,9 @@ async function indexProjectUnguarded(
   emit(options, "parse", "complete");
 
   // 4 + 5. Group. Acquiring the stage's input counts toward its duration: the
-  //    read-back is real work the group stage currently pays for, and it
-  //    disappears from this figure when the in-memory handoff activates.
+  //    read-back, when a parse dependency leaves one to do, is real work the
+  //    group stage pays for. The default pipeline hands the graph over in
+  //    memory, so that branch is skipped entirely.
   emit(options, "group", "start");
   const groupStartedAt = deps.now();
   let graph = parsed.value.graph;
