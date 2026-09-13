@@ -127,8 +127,8 @@ function normalizeFrequency(value: number): number {
  *
  * Properties are inserted in the order the canonical stringifier emits them
  * (`id`, `kind`, `packagePath`, `directoryPath`, `definedInFile`). Emission
- * does not depend on this — `stringifyNode` writes a fixed key order whatever
- * it is handed — but it makes the in-memory handoff in
+ * does not depend on this (`stringifyNode` writes a fixed key order whatever
+ * it is handed) but it makes the in-memory handoff in
  * {@link ParseSuccess.graph} match the written document down to property
  * order, so re-stringifying the handoff cannot produce different bytes.
  */

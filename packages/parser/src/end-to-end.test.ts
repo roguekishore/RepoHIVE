@@ -341,8 +341,8 @@ after(async () => {
  * Behavioral-compatibility gate for the prefetch (step 3).
  *
  * A file the prefetch cannot read must produce EXACTLY the failure a direct
- * per-file read failure produced before the prefetch existed — same reason,
- * message and path, in the same position — not a new error shape. Both halves
+ * per-file read failure produced before the prefetch existed: same reason,
+ * message and path, in the same position, not a new error shape. Both halves
  * of the comparison run the real Tree-Sitter extractor over the real fixture;
  * only where the read fails differs:
  *
