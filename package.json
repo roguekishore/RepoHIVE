@@ -16,6 +16,9 @@
     "test": "npm run test --workspaces --if-present"
   },
   "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@types/node": "20.19.9",
     "shadcn": "^4.12.0",
