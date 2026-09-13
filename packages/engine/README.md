@@ -40,7 +40,7 @@ scope):
 - **`concurrency` drives the parser's read prefetch.** It is validated (an
   integer >= 1, else `INVALID_OPTIONS` before any work) and passed through to
   the parser, which reads that many source files at a time before extracting;
-  omit it for the parser's default of 16. It is a performance knob only —
+  omit it for the parser's default of 16. It is a performance knob only:
   extraction still runs in canonical order over the prefetched sources, so the
   value cannot reach any artifact. Internal knob, not a CLI flag.
 - **Progress is coarse in v1**: `start`/`complete` at stage boundaries via
