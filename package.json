@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/parser packages/core",
-    "typecheck": "tsc -b packages/parser packages/core",
+    "build": "tsc -b packages/parser packages/core packages/engine",
+    "typecheck": "tsc -b packages/parser packages/core packages/engine",
     "parse": "npm run parse --workspace @repohive/parser --",
     "group": "npm run group --workspace @repohive/core --",
     "demo:group-determinism": "npm run demo:group-determinism --workspace @repohive/core --",
