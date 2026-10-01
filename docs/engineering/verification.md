@@ -150,10 +150,16 @@ Recorded digests for `fixtures/sample-java-project`, whose sources are tracked i
 
 | Artifact | SHA-256 | Last confirmed (private workspace) |
 |----------|---------|------------------------------------|
-| `group` | `f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3` | 2026-08-22, 3 runs identical (4 regions, 38 nodes, depth 4) |
+| `group` | `dd475c2ac4482905386c6eaeb494145d48c0b0dff552e338c310a1f29fa65b2f` | 2026-10-01, 3 runs identical (4 regions, 38 nodes, depth 4), compact index format version 1 |
 | `parse` | `a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc` | recorded 2026-08-16 |
 
-Neither digest was recomputed while writing this document.
+The `group` digest hashes the index files' bytes (file name, then content, in contract order). It was
+re-baselined on 2026-10-01 when the index moved from pretty-printed JSON to the compact versioned format; the
+previous value, `f30c7b3dfe38c476…`, belongs to the old format and no longer reproduces. The format change moved
+those bytes and nothing else: the *logical digest*, SHA-256 of the canonical serialization of the `Hierarchy`
+that `parseIndex` returns, is identical before and after for `sample-java-project` and for Broadleaf (values in
+`context/registers/measurements.md`). The `parse` digest did not move. Both values are reproduced by
+`npm run demo:group-determinism` and the engine integration suite.
 
 The *repeatability* half of this gate is self-contained: run the command twice and compare its own
 output. That works from a public clone. Comparing against the table above additionally assumes your
