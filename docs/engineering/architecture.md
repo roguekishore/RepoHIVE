@@ -90,13 +90,19 @@ packages/
 /api/workspace
 /api/repos
 /api/repos/[id]
+/api/adaptivity
 /api/graph/[id]
+/api/graph/[id]/architecture
 /api/graph/[id]/blast-radius
+/api/graph/[id]/hierarchy-scale
 /api/graph/[id]/region-decisions
+/api/graph/[id]/region-detail
 /api/graph/[id]/zoom-map
 ```
 
-These are the only seven route handlers under `packages/web/src/app/api`.
+These are the only eleven route handlers under `packages/web/src/app/api`. The view logic they call lives in
+`packages/web/src/lib/repohive/` (adapters plus `index-loader.ts` over core's `parseIndex`), with some of it inline
+in the route files.
 
 These routes are **unauthenticated and intended for localhost only.** No route file contains an auth,
 session, or token check. They expose indexed source structure. Any change that binds them to a
@@ -129,7 +135,8 @@ Tracked at the repository root:
 
 ```
 packages/            see above
-fixtures/            sample-java-project (the clone itself is git-ignored)
+fixtures/            sample-java-project (its sources are tracked even though .gitignore lists it;
+                     its generated graph.json and index/ are ignored)
 docs/engineering/    these documents
 tsconfig.base.json   shared compiler options
 components.json      shadcn component configuration
@@ -148,7 +155,7 @@ history, and registers; see below), `tooling/`, `archive/`, `node_modules/`, `di
 `context/` is a private mount, not part of this repository:
 
 ```
-context/STATE.md      current project state and recorded baselines
+context/STATE.md      current project state (the only file read every session)
 context/decisions/    decision history
 context/registers/    the large registers
 ```
