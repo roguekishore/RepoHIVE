@@ -137,9 +137,9 @@ Pass props to client             nuqs for URL state persistence
 
 Most pages are **React Server Components** that fetch data server-side. Client components are used only where interactivity is needed (D3 canvas, command palette, SSE streams, form state). The `"use client"` boundary is kept as narrow as possible.
 
-### API Proxy
+### Snapshot data path
 
-`next.config.ts` rewrites `/api/*` to `REPOWISE_API_URL/api/*`, so the frontend never hardcodes the backend URL and CORS is handled at the proxy layer.
+Repository pages live at `/repos/<owner>/<repo>/<surface>` and read precomputed views from the repository's published snapshot: `/r/github.com/<owner>/<repo>/latest.json` names the snapshot, and every view is fetched from `/s/<snapshotId>/...` (`src/lib/snapshot/`). In local mode the app serves those paths itself from the local artifact store; there is no `/api/*` handler that reads an index, and no proxy.
 
 ### API Client (`src/lib/api/`)
 
@@ -195,8 +195,8 @@ Dark-mode only. All visual tokens are CSS custom properties in `src/styles/globa
 ## Development
 
 ```powershell
-# From repo root — requires the repowise API server on port 7337
-$env:REPOWISE_API_URL = "http://localhost:7337"
+# From repo root. Local mode: copy packages/web/config/local.env to packages/web/.env.local,
+# seed the fixtures once (npm run seed --workspace @repohive/web), then:
 npm run dev --workspace packages/web
 # Open http://localhost:3000
 ```
