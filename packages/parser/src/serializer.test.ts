@@ -180,6 +180,75 @@ test("drops dangling edges with a diagnostic and never emits them", async () => 
   assert.equal(parsed.edges[0]!.target, "file:B.java");
 });
 
+// --- Example: in-memory handoff matches the written file exactly ----------
+
+test("returns the written graph in memory, identical to the file on disk", async () => {
+  // Deliberately out of canonical order on both arrays, so the test would fail
+  // if the handoff carried the pipeline's production order rather than the
+  // serialized order.
+  const nodes: GraphNode[] = [
+    { id: "file:b/B.java", kind: "file", directoryPath: "b" },
+    { id: "file:a/A.java", kind: "file", directoryPath: "a" },
+    {
+      id: "class:a/A.java#A",
+      kind: "class",
+      directoryPath: "a",
+      packagePath: "",
+      definedInFile: "file:a/A.java",
+    },
+  ];
+  const edges: DependencyEdge[] = [
+    {
+      source: "file:b/B.java",
+      target: "file:a/A.java",
+      importFrequency: 2,
+      methodCallFrequency: 0,
+      sharedTypeCount: 0,
+    },
+    {
+      source: "file:a/A.java",
+      target: "file:b/B.java",
+      importFrequency: 1,
+      methodCallFrequency: 0,
+      sharedTypeCount: 0,
+    },
+  ];
+  const outputPath = path.join(tmpRoot, "handoff.json");
+
+  const result = await writeGraph(nodes, edges, outputPath);
+  assert.ok(result.ok);
+  assert.ok(
+    result.value.graph !== undefined,
+    "a successful write hands the graph back in memory",
+  );
+
+  // The handoff must be structurally identical to the file, INCLUDING array
+  // order: a consumer that groups from memory must see exactly what a consumer
+  // that reads graph.json back sees.
+  const text = await nodeFs.readFile(outputPath, "utf8");
+  const fromDisk = JSON.parse(text) as unknown;
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(result.value.graph)),
+    fromDisk,
+    "in-memory graph equals the written document, field for field and in order",
+  );
+  // Stronger: property order matches too, so re-stringifying the handoff
+  // cannot produce different bytes than the file holds.
+  assert.equal(
+    JSON.stringify(result.value.graph),
+    JSON.stringify(fromDisk),
+    "in-memory graph stringifies identically to the written document",
+  );
+  assert.equal(result.value.nodeCount, result.value.graph!.nodes.length);
+  assert.equal(result.value.edgeCount, result.value.graph!.edges.length);
+  // packagePath: "" is omitted by the field-omission rules, so the handoff must
+  // not carry it either.
+  assert.ok(
+    !("packagePath" in result.value.graph!.nodes.find((n) => n.kind === "class")!),
+    "the handoff carries normalized nodes, not raw pipeline nodes",
+  );
+});
+
 // --- Example: no temp file left on success (R8, design testing note) ------
 
 test("leaves no temp file behind on a successful write", async () => {
