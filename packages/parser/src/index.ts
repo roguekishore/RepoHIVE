@@ -11,6 +11,12 @@
 export { parseProject } from "./orchestrator.js";
 export type { ParseOptions, ParseDeps } from "./orchestrator.js";
 
+// In-memory source and the shared selection policy (hosting-1 Requirement 5).
+export { findInvalidSourceEntry } from "./memory-source.js";
+export type { SourceEntry, SourceEntryProblem } from "./memory-source.js";
+export { DEFAULT_EXCLUDED_SEGMENTS, isSelectedSourcePath } from "./source-selection.js";
+export type { SourceSelectionOptions } from "./source-selection.js";
+
 // Determinism verification harness (R9): reusable from property tests and the
 // `npm run demo:determinism` aid.
 export {

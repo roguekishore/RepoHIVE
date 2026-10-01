@@ -29,6 +29,12 @@ import * as path from "node:path";
 import { compareCanonical } from "@repohive/shared";
 
 import { makeError, ok, err, type ParseError, type Result } from "./errors.js";
+import {
+  DEFAULT_EXCLUDED_SEGMENTS,
+  hasJavaExtension,
+  isRepresentablePosixRelative,
+  resolveExcludedSegments,
+} from "./source-selection.js";
 import type { CollectedFile } from "./types.js";
 
 /**
@@ -68,28 +74,9 @@ const defaultDeps: CollectorDeps = {
   readdir: (p) => nodeFs.readdir(p, { withFileTypes: true }),
 };
 
-/**
- * Default directory-name segments excluded from collection (Fix 16 — Gap 19).
- * These hold machine-generated or vendored `.java` that is not authored source;
- * indexing them inflates every count and (per Gap 2) manufactures duplicate
- * FQNs. Matching is segment-exact and case-sensitive, so a real package named
- * `building` is safe.
- */
-export const DEFAULT_EXCLUDED_SEGMENTS: readonly string[] = [
-  ".git",
-  ".hg",
-  ".svn",
-  "node_modules",
-  "target",
-  "build",
-  "out",
-  "bin",
-  ".gradle",
-  ".mvn",
-  ".idea",
-  "generated-sources",
-  "generated",
-];
+// The selection rules live in `source-selection.ts`, shared with the in-memory
+// source; these re-exports keep the collector's public names stable.
+export { DEFAULT_EXCLUDED_SEGMENTS, isRepresentablePosixRelative };
 
 /** Options controlling the collector's exclusion policy (Fix 16 — Gap 19). */
 export interface CollectOptions {
@@ -112,25 +99,6 @@ export interface CollectOptions {
    * itself instead of crashing the run.
    */
   onUnsupportedPath?: (error: ParseError) => void;
-}
-
-/**
- * Whether a root-relative path can be carried inside a node identifier.
- *
- * These are the same predicates `ids.ts`'s `assertRootRelativePosixPath` checks;
- * they exist here as well because discovery is the one place where a path is
- * still a first-class thing with an error channel. Deciding here leaves the
- * `ids.ts` guards as the genuinely-unreachable internal assertions they were
- * written to be, instead of the only place a legal-but-unrepresentable filename
- * could surface — as a raw stack trace (R9.4, R10.2).
- */
-export function isRepresentablePosixRelative(relativePath: string): boolean {
-  return (
-    relativePath.length > 0 &&
-    !relativePath.includes("\\") &&
-    !relativePath.startsWith("/") &&
-    !/^[A-Za-z]:/.test(relativePath)
-  );
 }
 
 /** The public SourceFileCollector interface (design: "SourceFileCollector (R2)"). */
@@ -193,8 +161,7 @@ export function createSourceFileCollector(
       const files: CollectedFile[] = [];
       // Exclusion policy (Fix 16 — Gap 19): default-on, overridable. An empty
       // set means "exclude nothing" (the --include-generated override).
-      const excludedSegments =
-        options?.excludedSegments ?? new Set(DEFAULT_EXCLUDED_SEGMENTS);
+      const excludedSegments = resolveExcludedSegments(options?.excludedSegments);
       const onExcludedDirectory = options?.onExcludedDirectory;
       const onUnsupportedPath = options?.onUnsupportedPath;
 
@@ -248,7 +215,7 @@ export function createSourceFileCollector(
           if (entry.isFile()) {
             // Case-sensitive `.java` match: `.java` is included, `.JAVA` is not
             // (R2.2). Non-`.java` regular files are skipped without error (R2.3).
-            if (entry.name.endsWith(".java")) {
+            if (hasJavaExtension(entry.name)) {
               const relativePath = toPosixRelative(rootAbsolute, entryAbsolute);
               if (!isRepresentablePosixRelative(relativePath)) {
                 // Recoverable and named, exactly like an unreadable file: the
