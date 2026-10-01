@@ -162,3 +162,18 @@ phase 1 extracts files from one queue, largest first, and the main thread merges
 shares in canonical order; phase 2 gives every worker the merged table once, read-only, and each stitches
 its own files. Every result is keyed by the file's index in the canonical list, so output does not depend on
 `workers`, `concurrency` or completion order. `ParseDeps.pipeline` is the seam tests inject.
+
+**Progress.** `EngineOptions.onProgress` receives stage `start` / `complete` events, a `progress` event per
+selected file during parse (`completed` from 0, `total`), and one per grouping sub-stage during group
+(`substage`: `ingest`, `weight`, `assess`, `construct`, `hierarchy`, `metadata`, `write`). The engine does not
+await or throttle the callback. Parse is driven by worker messages and group yields to the event loop
+(`setImmediate`) before each sub-stage, so work the callback schedules runs while the stage is going. Core's
+`groupGraphToIndexAsync` also writes the five index files concurrently (`serializeIndexAsync`, same
+staging-then-rename publish); the synchronous `groupGraphToIndex` and `serializeIndex` remain for the CLI-style
+callers and tests. Progress and write concurrency cannot change an output byte.
+
+**Snapshot-id inputs.** `engineVersion` (16 hex characters) is a hash of the compiled code of `shared`,
+`parser`, `core` and `engine`, the installed `tree-sitter-java` and `web-tree-sitter` versions, and
+`INDEX_FORMAT_VERSION`: fixed for a build, and it needs the packages built (`dist/`). `configDigest(options)` is
+the SHA-256 of the resolved grouping config and the resolved exclusion list; options that cannot change output
+are not in it.
