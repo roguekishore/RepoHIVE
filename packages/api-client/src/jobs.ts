@@ -29,7 +29,7 @@ export async function cancelJob(jobId: string): Promise<JobResponse> {
  * in the query string. When no token is available (open local server) the URL
  * is header-authenticated as before. */
 export function getJobStreamUrl(jobId: string, streamToken?: string | null): string {
-  const base = `${BASE_URL}/api/jobs/${jobId}/stream`;
+  const base = `${BASE_URL}/api/jobs/${jobId}/events`;
   if (!streamToken) return base;
   return `${base}?token=${encodeURIComponent(streamToken)}`;
 }
