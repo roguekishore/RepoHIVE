@@ -15,9 +15,9 @@
  * community (R5.9); every such value it shows is read from the index.
  */
 
-import type { ZoomMap, ZoomNode, ZoomRelation, ZoomKind } from "@repohive/ui/zoom";
+import type { ZoomMap, ZoomNode, ZoomRelation, ZoomKind } from "./ui-types.js";
 import type { Hierarchy, Metadata, RegionDecision } from "@repohive/core";
-import { buildDisplayLabels, buildGroupPackagePrefixes } from "./zoom-labels";
+import { buildDisplayLabels, buildGroupPackagePrefixes } from "./zoom-labels.js";
 
 /** Hierarchy node kinds that survive into the map (file is the leaf). */
 const EMITTED_KINDS = new Set(["repository", "group", "file"]);

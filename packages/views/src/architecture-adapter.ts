@@ -21,7 +21,7 @@
  */
 
 import type { Hierarchy, Metadata } from "@repohive/core";
-import { stripRegionScheme } from "./region-detail-adapter";
+import { stripRegionScheme } from "./region-detail-adapter.js";
 
 const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 

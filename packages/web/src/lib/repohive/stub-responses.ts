@@ -9,23 +9,12 @@
  */
 
 import type { RepoResponse, WorkspaceResponse } from "@repohive/api-client/types";
+import { buildRepoView } from "@repohive/views";
 import type { RepoRegistryEntry } from "./repo-registry";
 
-/** A registry entry projected onto the vendored `RepoResponse` shape. */
+/** A registry entry projected onto the vendored `RepoResponse` shape (built in `@repohive/views`). */
 export function repoResponseFor(entry: RepoRegistryEntry): RepoResponse {
-  return {
-    id: entry.id,
-    name: entry.name,
-    url: "",
-    local_path: "",
-    default_branch: "main",
-    head_commit: null,
-    settings: {},
-    created_at: "",
-    updated_at: "",
-    workspace_status: "indexed",
-    docs_mode: "none",
-  };
+  return buildRepoView(entry);
 }
 
 /**

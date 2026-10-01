@@ -21,7 +21,7 @@
  */
 
 import type { Hierarchy, HierarchyNode, Metadata } from "@repohive/core";
-import { stripRegionScheme } from "./region-detail-adapter";
+import { stripRegionScheme } from "./region-detail-adapter.js";
 
 /** The three recorded outcomes, plus the honest absence. */
 export type ArcState = "preserve" | "reconstruct" | "degenerate" | "none";

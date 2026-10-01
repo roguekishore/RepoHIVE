@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Hierarchy, HierarchyNode, Metadata } from "@repohive/core";
-import { adaptHierarchyScale } from "./hierarchy-scale-adapter";
+import { adaptHierarchyScale } from "@repohive/views";
 
 /**
  * Synthetic tree with the shapes that matter:

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
-import { adaptRegionDetail } from "@/lib/repohive/region-detail-adapter";
+import { adaptRegionDetail } from "@repohive/views";
 
 /**
  * `GET /api/graph/{id}/region-detail?region=<regionId>` — one region's

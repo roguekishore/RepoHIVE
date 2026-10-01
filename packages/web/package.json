@@ -17,6 +17,7 @@
     "@repohive/core": "*",
     "@repohive/types": "*",
     "@repohive/ui": "*",
+    "@repohive/views": "*",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "framer-motion": "^11.11.0",
@@ -37,6 +38,7 @@
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
+    "@repohive/engine": "*",
     "@tailwindcss/postcss": "^4.0.0",
     "@tailwindcss/typography": "^0.5.15",
     "@types/d3": "^7.4.3",
