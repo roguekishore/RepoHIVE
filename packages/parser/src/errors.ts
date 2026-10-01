@@ -43,6 +43,7 @@ export type ParseErrorReason =
   | "duplicate-node-id" // R3.12 — two distinct declarations produce the same id
   | "path-unsupported" // R10.2 — path cannot be represented as a portable node id
   | "source-invalid" // an in-memory source entry is malformed (absolute, `..`, duplicate, ...)
+  | "worker-failed" // an extraction worker thread crashed or exited unexpectedly
   | "internal-error" // R10.6 — an unexpected throw, converted at the boundary
   | "output-unwritable"; // R8.4, R8.5
 

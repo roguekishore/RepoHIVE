@@ -12,7 +12,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
 
-import { createAstExtractor } from "./ast-extractor.js";
+import { createWorkerPoolPipeline } from "./extraction-pool.js";
 import { createInputValidator } from "./input-validator.js";
 import {
   decodeSourceBytes,
@@ -28,8 +28,6 @@ import {
   classifySourcePath,
   isSelectedSourcePath,
 } from "./source-selection.js";
-import { createStitcher } from "./stitcher.js";
-import { createSymbolTableBuilder } from "./symbol-table.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = path.resolve(HERE, "..", "..", "..", "fixtures", "sample-java-project");
@@ -197,9 +195,7 @@ function realDeps(): ParseDeps {
   return {
     validator: createInputValidator(),
     collector: createSourceFileCollector(),
-    createExtractor: (readFile) => createAstExtractor({ readFile }),
-    symbolTableBuilder: createSymbolTableBuilder(),
-    stitcher: createStitcher(),
+    pipeline: createWorkerPoolPipeline(),
     serializer: createGraphSerializer(),
   };
 }
@@ -260,7 +256,8 @@ test("a memory source reads no source file and walks no directory", async () => 
     ...realDeps(),
     validator: { validate: forbidden("the validator") } as unknown as ParseDeps["validator"],
     collector: { collect: forbidden("the collector") } as unknown as ParseDeps["collector"],
-    readSource: forbidden("readSource"),
+    readBytes: forbidden("readBytes"),
+    fileSize: forbidden("fileSize"),
   };
   const result = await parseProject(
     {
