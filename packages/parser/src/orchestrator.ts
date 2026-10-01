@@ -86,8 +86,8 @@ const OUTPUT_FILE_NAME = "graph.json";
  *
  * Fixed, and deliberately NOT derived from `os.cpus().length`: the bottleneck
  * is per-file read latency, not compute, so core count is the wrong predictor.
- * The measured curve (2026-08-27, 2985 files) is flat past the knee — 1: 59.06 s,
- * 16: 8.64 s, 64: 8.95 s — so overshooting costs a few percent while
+ * The measured curve (2026-08-27, 2985 files) is flat past the knee (1: 59.06 s,
+ * 16: 8.64 s, 64: 8.95 s), so overshooting costs a few percent while
  * undershooting costs several hundred. Sixteen sits comfortably past the knee
  * on every machine measured; there is nothing further to tune.
  */
@@ -119,7 +119,7 @@ export interface ParseOptions {
    * A performance knob only. It cannot change what is produced: the value is
    * consumed entirely inside the read step, and extraction runs afterwards in
    * canonical order over the in-memory map. A value that is not an integer >= 1
-   * falls back to the default rather than failing the parse — callers that want
+   * falls back to the default rather than failing the parse; callers that want
    * a nonsense value rejected validate before calling (the engine does exactly
    * that, and reports `INVALID_OPTIONS` before any work starts).
    *
@@ -217,7 +217,7 @@ function resolveConcurrency(concurrency: number | undefined): number {
  *
  * Pure I/O: a path-keyed map is the whole result, and nothing here inspects
  * ordering. Workers pull from a shared cursor, so the reads complete in
- * whatever order the filesystem returns them — which is exactly why the map is
+ * whatever order the filesystem returns them, which is exactly why the map is
  * keyed by path and never iterated.
  *
  * A read failure is deliberately swallowed. Leaving the entry absent defers the
@@ -267,7 +267,7 @@ async function prefetchSources(
  * Throwing is the point. `AstExtractor.extract` is synchronous by design and
  * already catches its reader's throw to record `file-unreadable` and continue,
  * so a file the prefetch could not read produces exactly the error a direct
- * read failure produced before the prefetch existed — same reason, same
+ * read failure produced before the prefetch existed: same reason, same
  * message, same path, recorded at the same point in canonical order.
  */
 function createMemoryReader(
