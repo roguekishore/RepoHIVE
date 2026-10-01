@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/orchestrator.test.js && node --test dist/errors.test.js && node --test dist/deps.test.js",
+    "test": "node ../../scripts/run-node-tests.mjs",
     "test:integration": "node --test dist/integration.test.js"
   },
   "dependencies": {
