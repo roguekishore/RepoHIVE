@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
-import { adaptIndexToZoomMap } from "@/lib/repohive/zoom-map-adapter";
+import { adaptIndexToZoomMap } from "@repohive/views";
 
 /**
  * `GET /api/graph/{id}/zoom-map` — the single endpoint that feeds the

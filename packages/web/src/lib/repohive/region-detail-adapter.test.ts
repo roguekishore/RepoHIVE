@@ -4,7 +4,7 @@ import {
   adaptRegionDetail,
   regionFileMembership,
   stripRegionScheme,
-} from "./region-detail-adapter";
+} from "@repohive/views";
 
 /**
  * Synthetic index shaped like the real one: a repository root, a region split

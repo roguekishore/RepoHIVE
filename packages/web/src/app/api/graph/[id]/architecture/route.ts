@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
-import {
-  adaptDeterminism,
-  adaptFragmentation,
-  adaptGroupDsm,
-  adaptLevelFlow,
-} from "@/lib/repohive/architecture-adapter";
+import { buildArchitectureView } from "@repohive/views";
 
 /**
  * `GET /api/graph/{id}/architecture` — the three recorded structural artifacts:
@@ -40,13 +35,5 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const level =
     levelParam !== null && Number.isInteger(Number(levelParam)) ? Number(levelParam) : undefined;
 
-  return NextResponse.json({
-    levels: adaptLevelFlow(metadata),
-    dsm: adaptGroupDsm(hierarchy, metadata, level),
-    fragmentation: adaptFragmentation(hierarchy, metadata),
-    determinism: adaptDeterminism(hierarchy, metadata),
-    availableLevels: metadata.perLevel
-      .filter((row) => row.groupNodeCount > 1)
-      .map((row) => ({ level: row.level, groupNodeCount: row.groupNodeCount })),
-  });
+  return NextResponse.json(buildArchitectureView(hierarchy, metadata, level));
 }

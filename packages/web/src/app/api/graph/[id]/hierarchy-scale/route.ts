@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
-import { adaptHierarchyScale } from "@/lib/repohive/hierarchy-scale-adapter";
+import { adaptHierarchyScale } from "@repohive/views";
 
 /**
  * `GET /api/graph/{id}/hierarchy-scale` — the whole containment tree as
