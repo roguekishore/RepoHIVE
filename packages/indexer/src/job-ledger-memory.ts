@@ -14,6 +14,7 @@ import {
   LARGE_SLOT_PK,
   applyJobEnd,
   jobPk,
+  listJobsEndedSinceFromRecords,
   newJobRecord,
   repoPk,
   toJobRecord,
@@ -144,6 +145,16 @@ export function createMemoryJobLedger(options: MemoryJobLedgerOptions = {}): Mem
       if (row?.kind === "slot" && row.jobId === jobId) {
         rows.delete(LARGE_SLOT_PK);
       }
+    },
+
+    async listJobsEndedSince(sinceIso: string): Promise<readonly JobRecord[]> {
+      const jobs: StoredJob[] = [];
+      for (const row of rows.values()) {
+        if (row.kind === "job") {
+          jobs.push(row.data);
+        }
+      }
+      return listJobsEndedSinceFromRecords(jobs, sinceIso);
     },
   };
 

@@ -58,4 +58,9 @@ export interface JobLedger {
   acquireLargeSlot(jobId: string, leaseUntilMs: number): Promise<boolean>;
   /** Releases the large slot if `jobId` holds it. */
   releaseLargeSlot(jobId: string): Promise<void>;
+  /**
+   * Terminal jobs whose {@link JobRecord.endedAt} is strictly after `sinceIso`,
+   * in ascending ended-at order.
+   */
+  listJobsEndedSince(sinceIso: string): Promise<readonly JobRecord[]>;
 }
