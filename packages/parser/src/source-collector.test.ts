@@ -478,7 +478,11 @@ test("a custom excluded segment is skipped alongside the defaults", async () => 
 // whole run with a raw stack trace.
 // --------------------------------------------------------------------------
 
-test("a path that cannot become a node id is reported and the walk continues", async () => {
+test("a path that cannot become a node id is reported and the walk continues", {
+  // A backslash is a path separator on Windows, so the in-memory model path "src/we\\ird.java"
+  // is normalised there and never becomes unrepresentable. The behaviour is POSIX-only.
+  skip: process.platform === "win32" ? "backslash is a path separator on Windows" : false,
+}, async () => {
   const model = buildModel([
     { path: "src/Good.java", leafType: "file" },
     { path: "src/we\\ird.java", leafType: "file" },
