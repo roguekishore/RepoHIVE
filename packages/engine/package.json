@@ -1,0 +1,28 @@
+{
+  "name": "@repohive/engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RepoHIVE pipeline orchestration — one async call that runs parse then group into .repohive/.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repohive/shared": "0.0.0",
+    "@repohive/parser": "0.0.0",
+    "@repohive/core": "0.0.0"
+  },
+  "license": "AGPL-3.0-or-later"
+}
