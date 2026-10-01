@@ -13,3 +13,39 @@ export type { ArtifactStore, ObjectHeaders, StoredObject } from "./artifact-stor
 export type { ClaimResult, JobEnd, JobLedger, JobProgress, JobRecord } from "./job-ledger.js";
 export type { FailureClass, JobFailure, JobInput, JobState, Tier, Visibility } from "./job-types.js";
 export type { FetchCaps, FetchedSource, FetchRequest, FetchResult, SourceFetcher } from "./source-fetcher.js";
+// Snapshot identity, object keys and the manifest, latest and history documents (Requirement 7).
+export { canonicalJson, compareBytewise, sha256Hex } from "./canonical-json.js";
+export type { JsonValue } from "./canonical-json.js";
+export {
+  MANIFEST_VERSION,
+  POINTER_VERSION,
+  VIEW_FILES,
+  architectureLevelKey,
+  buildLatest,
+  buildManifest,
+  historyKey,
+  indexObjectKey,
+  indexPrefix,
+  isValidRepoName,
+  jsonBytes,
+  latestKey,
+  manifestKey,
+  recordPublish,
+  regionDetailKey,
+  repoKey,
+  snapshotIdOf,
+  snapshotPrefix,
+  viewKey,
+} from "./layout.js";
+export type {
+  History,
+  HistoryEntry,
+  LatestFields,
+  LatestPointer,
+  Manifest,
+  ManifestFields,
+  ManifestFile,
+  SnapshotInputs,
+  SnapshotObject,
+  ViewFile,
+} from "./layout.js";
