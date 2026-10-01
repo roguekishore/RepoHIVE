@@ -344,10 +344,23 @@ test("concurrency must be an integer >= 1 and is validated before any work", asy
   }
 });
 
-test("a valid concurrency is accepted (and inert in this release)", async () => {
-  const { deps } = makeDeps();
+test("a valid concurrency is forwarded to the parse stage", async () => {
+  const { deps, calls } = makeDeps();
   const result = await indexProject({ projectDirectory: "/proj", concurrency: 8 }, deps);
   assert(result.ok, "expected success");
+  assert.equal(calls.parseOptions.length, 1);
+  assert.equal(calls.parseOptions[0]!.concurrency, 8);
+});
+
+test("omitted concurrency is not forwarded, leaving the parser's default in force", async () => {
+  const { deps, calls } = makeDeps();
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+  assert(result.ok, "expected success");
+  assert.equal(calls.parseOptions.length, 1);
+  assert(
+    !("concurrency" in calls.parseOptions[0]!),
+    "concurrency must be absent, not an explicit undefined",
+  );
 });
 
 test("progress events fire in stage order on success", async () => {

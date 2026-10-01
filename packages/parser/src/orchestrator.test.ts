@@ -439,6 +439,256 @@ test("a throwing validator, collector or serializer is also converted", async ()
   }
 });
 
+// --- Prefetch (step 3): concurrency, and its non-effect on everything else --
+
+/**
+ * An extractor that reads through the reader the orchestrator supplies,
+ * recording what it got. It mirrors the real extractor's read branch (which is
+ * what makes the wiring observable here); the *behavioral* claim that a
+ * prefetch failure is indistinguishable from an old-style read failure is
+ * proved against the real extractor in `end-to-end.test.ts`.
+ */
+function readingExtractor(
+  readFile: (absolutePath: string) => string,
+  log: { read: string[] },
+): AstExtractor {
+  return {
+    extract(file: CollectedFile, errors: ParseErrorCollector) {
+      let source: string;
+      try {
+        source = readFile(file.absolutePath);
+      } catch {
+        errors.add(
+          makeError(
+            "file-unreadable",
+            `Java source file could not be read: ${file.relativePath}`,
+            file.relativePath,
+          ),
+        );
+        return null;
+      }
+      log.read.push(`${file.relativePath}=${source}`);
+      return extraction(file.relativePath);
+    },
+  };
+}
+
+test("the prefetch reads every collected file once and extraction is served from memory", async () => {
+  const files = [file("A.java"), file("B.java"), file("C.java")];
+  const requested: string[] = [];
+  const log = { read: [] as string[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      collector: collectorOk(files),
+      readSource: async (absolutePath) => {
+        requested.push(absolutePath);
+        return `source of ${path.basename(absolutePath)}`;
+      },
+      createExtractor: async (readFile) => readingExtractor(readFile, log),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(result.ok);
+  // Every file read exactly once, and nothing else read.
+  assert.deepEqual(
+    [...requested].sort(),
+    files.map((f) => f.absolutePath).sort(),
+  );
+  assert.equal(requested.length, files.length, "no file is read twice");
+  // Extraction saw the prefetched bytes, in canonical order.
+  assert.deepEqual(log.read, [
+    "A.java=source of A.java",
+    "B.java=source of B.java",
+    "C.java=source of C.java",
+  ]);
+  assert.equal(writes.calls.length, 1);
+});
+
+test("zero collected files: the prefetch reads nothing and the run still completes", async () => {
+  let readCalls = 0;
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      // The real collector reports `no-java-files` before this point; a
+      // collector that legitimately yields an empty set (every file excluded by
+      // a custom policy) must not hang or fault the prefetch.
+      collector: collectorOk([]),
+      readSource: async () => {
+        readCalls += 1;
+        return "";
+      },
+      createExtractor: async (readFile) => readingExtractor(readFile, { read: [] }),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(result.ok);
+  assert.equal(readCalls, 0, "no reads are attempted for zero files");
+  assert.equal(writes.calls.length, 1);
+  assert.deepEqual(writes.calls[0]!.nodes, []);
+  assert.deepEqual(writes.calls[0]!.edges, []);
+});
+
+/** Build `count` collected files named `F000.java`, `F001.java`, ... */
+function manyFiles(count: number): CollectedFile[] {
+  return Array.from({ length: count }, (_unused, i) =>
+    file(`F${String(i).padStart(3, "0")}.java`),
+  );
+}
+
+/**
+ * A reader that holds every read open until released, so the number of reads
+ * in flight at once is directly observable.
+ */
+function gatedReader(): {
+  read: (absolutePath: string) => Promise<string>;
+  maxInFlight: () => number;
+} {
+  let inFlight = 0;
+  let peak = 0;
+  return {
+    read: async (absolutePath) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      // Yield twice so every worker that can start has started before any
+      // read resolves.
+      await Promise.resolve();
+      await Promise.resolve();
+      inFlight -= 1;
+      return `source of ${path.basename(absolutePath)}`;
+    },
+    maxInFlight: () => peak,
+  };
+}
+
+test("the prefetch honors an explicit concurrency, including a sequential 1", async () => {
+  for (const concurrency of [1, 4]) {
+    const reader = gatedReader();
+    const log = { read: [] as string[] };
+    const result = await parseProject(
+      { projectDirectory: ABS_ROOT, concurrency },
+      baseDeps({
+        collector: collectorOk(manyFiles(20)),
+        readSource: reader.read,
+        createExtractor: async (readFile) => readingExtractor(readFile, log),
+        serializer: recordingSerializer({ calls: [] }),
+      }),
+    );
+
+    assert.ok(result.ok);
+    assert.equal(
+      reader.maxInFlight(),
+      concurrency,
+      `concurrency ${concurrency}: reads in flight`,
+    );
+    // Whatever the concurrency, extraction order is the collector's canonical
+    // order. This is the determinism property, asserted directly.
+    assert.deepEqual(
+      log.read.map((entry) => entry.split("=")[0]),
+      manyFiles(20).map((f) => f.relativePath),
+    );
+  }
+});
+
+test("the default prefetch concurrency is a fixed 16", async () => {
+  const reader = gatedReader();
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      collector: collectorOk(manyFiles(50)),
+      readSource: reader.read,
+      createExtractor: async (readFile) => readingExtractor(readFile, { read: [] }),
+      serializer: recordingSerializer({ calls: [] }),
+    }),
+  );
+
+  assert.ok(result.ok);
+  assert.equal(reader.maxInFlight(), 16, "default concurrency");
+});
+
+test("concurrency never exceeds the file count", async () => {
+  const reader = gatedReader();
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, concurrency: 64 },
+    baseDeps({
+      collector: collectorOk(manyFiles(3)),
+      readSource: reader.read,
+      createExtractor: async (readFile) => readingExtractor(readFile, { read: [] }),
+      serializer: recordingSerializer({ calls: [] }),
+    }),
+  );
+
+  assert.ok(result.ok);
+  assert.equal(reader.maxInFlight(), 3, "at most one worker per file");
+});
+
+test("a nonsense concurrency falls back to the default instead of failing the parse", async () => {
+  for (const bad of [0, -5, 2.5, Number.NaN]) {
+    const reader = gatedReader();
+    const result = await parseProject(
+      { projectDirectory: ABS_ROOT, concurrency: bad },
+      baseDeps({
+        collector: collectorOk(manyFiles(20)),
+        readSource: reader.read,
+        createExtractor: async (readFile) => readingExtractor(readFile, { read: [] }),
+        serializer: recordingSerializer({ calls: [] }),
+      }),
+    );
+
+    assert.ok(result.ok, `concurrency ${bad} must not fail the parse`);
+    assert.equal(reader.maxInFlight(), 16, `concurrency ${bad} falls back to 16`);
+  }
+});
+
+test("a prefetch read failure reaches extraction as file-unreadable, in canonical order", async () => {
+  const files = [file("A.java"), file("B.java"), file("C.java")];
+  const log = { read: [] as string[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      collector: collectorOk(files),
+      // C fails fast and A fails slowly, so the failures COMPLETE in the order
+      // C, A while canonical order is A, C. The reported order must be the
+      // canonical one.
+      readSource: async (absolutePath) => {
+        const name = path.basename(absolutePath);
+        if (name === "C.java") {
+          throw new Error("read failed fast");
+        }
+        if (name === "A.java") {
+          await Promise.resolve();
+          await Promise.resolve();
+          throw new Error("read failed slowly");
+        }
+        return `source of ${name}`;
+      },
+      createExtractor: async (readFile) => readingExtractor(readFile, log),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(!result.ok);
+  assert.deepEqual(
+    result.errors.map((e) => [e.reason, e.path]),
+    [
+      ["file-unreadable", "A.java"],
+      ["file-unreadable", "C.java"],
+    ],
+    "failures are reported in canonical order, not read-completion order",
+  );
+  // Only the file that read cleanly was extracted, and the write is gated.
+  assert.deepEqual(log.read, ["B.java=source of B.java"]);
+  assert.equal(writes.calls.length, 0, "recorded errors still gate the write (R10.4)");
+});
+
 test("an unrepresentable path is recorded as recoverable and blocks the write", async () => {
   const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
   const result = await parseProject(

@@ -224,6 +224,55 @@ test("the in-memory handoff is live and produces byte-identical output", async (
   }
 });
 
+test("read concurrency cannot reach the artifacts", async (t) => {
+  if (!FIXTURE_PRESENT) {
+    t.skip(SKIP_REASON);
+    return;
+  }
+  // The prefetch reads files concurrently, so reads complete in an order the
+  // filesystem picks. Extraction still walks the collected files in canonical
+  // order, so the concurrency value must be invisible in the output: default
+  // (16 files at a time) and a strictly sequential 1 must agree byte for byte,
+  // and both must still match the recorded digests.
+  const defaultOut = mkdtempSync(join(tmpdir(), "repohive-engine-c16-"));
+  const sequentialOut = mkdtempSync(join(tmpdir(), "repohive-engine-c1-"));
+  try {
+    const prefetched = await indexProject({
+      projectDirectory: FIXTURE,
+      outputDirectory: defaultOut,
+    });
+    const sequential = await indexProject({
+      projectDirectory: FIXTURE,
+      outputDirectory: sequentialOut,
+      concurrency: 1,
+    });
+    assert(prefetched.ok, `default-concurrency run failed: ${JSON.stringify(prefetched)}`);
+    assert(sequential.ok, `sequential run failed: ${JSON.stringify(sequential)}`);
+
+    const prefetchedGraph = readFileSync(prefetched.value.graphPath);
+    const sequentialGraph = readFileSync(sequential.value.graphPath);
+    assert(
+      prefetchedGraph.equals(sequentialGraph),
+      "graph.json must be byte-identical across read concurrencies",
+    );
+    for (const name of INDEX_FILE_NAMES) {
+      const a = readFileSync(join(prefetched.value.indexDirectory, name));
+      const b = readFileSync(join(sequential.value.indexDirectory, name));
+      assert(a.equals(b), `${name} must be byte-identical across read concurrencies`);
+    }
+
+    // Both still match the recorded measurements, so this is invariance against
+    // a fixed reference rather than two runs merely agreeing with each other.
+    assert.equal(fileDigest(prefetched.value.graphPath), RECORDED_PARSE_DIGEST);
+    assert.equal(fileDigest(sequential.value.graphPath), RECORDED_PARSE_DIGEST);
+    assert.equal(indexDigest(prefetched.value.indexDirectory), RECORDED_GROUP_DIGEST);
+    assert.equal(indexDigest(sequential.value.indexDirectory), RECORDED_GROUP_DIGEST);
+  } finally {
+    rmSync(defaultOut, { recursive: true, force: true });
+    rmSync(sequentialOut, { recursive: true, force: true });
+  }
+});
+
 test("two runs over identical input produce byte-identical artifacts", async (t) => {
   if (!FIXTURE_PRESENT) {
     t.skip(SKIP_REASON);
