@@ -144,6 +144,11 @@ export function releaseReservedCharge(db: AppDatabase, accountId: number, jobId:
 }
 
 /** Requirement 7.4: refund a system failure exactly once. */
+/** Clears the one in-flight slot after any terminal job (Requirement 7.1). */
+export function clearAccountInflight(db: AppDatabase, accountId: number, jobId: string): void {
+  db.prepare("DELETE FROM account_inflight WHERE account_id = ? AND job_id = ?").run(accountId, jobId);
+}
+
 export function refundJobCharge(db: AppDatabase, jobId: string, accountId: number): boolean {
   db.exec("BEGIN IMMEDIATE");
   try {
