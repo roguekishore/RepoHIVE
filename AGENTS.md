@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Front door for any AI agent or new contributor working in this repository. This file is the canonical
-entry point and is tool-neutral. Editor-specific files (for example `CLAUDE.md`) exist only to point here.
+entry point and is tool-neutral. Editor-specific files (for example `CLAUDE.md`) only add what is specific
+to that editor.
 
 ## What this project is
 
@@ -13,78 +14,62 @@ by community detection. Every decision is recorded, and identical input produces
 Pipeline: `parse` (Java sources to `graph.json`), then `group` (to the five-file `index/` contract), then
 `view` (the hierarchical viewer).
 
-## Two repositories, and why search will not find one of them
+## Two repositories
 
-Durable engineering rules are **tracked in this repository** under `docs/engineering/`.
+Durable engineering rules are tracked here under `docs/engineering/`. Project state and decisions live in
+`context/`, a separate private repository cloned into this checkout and git-ignored. It is optional: a
+clone without it builds, tests and runs normally.
 
-Project state and decision history live in **`context/`**, which is a separate private repository cloned
-into this checkout and listed in `.gitignore`. It is local tooling. It is **not required to build, test, or
-run this project**, and a clone without it is fully functional.
+Because `context/` is git-ignored, ripgrep-backed search skips it silently. **Read its files by explicit
+path.**
 
-**Read `context/` files by explicit path.** Because the directory is git-ignored, ripgrep-backed search
-tools (including most agent Grep and Glob implementations) skip it entirely. Search will return nothing and
-will not tell you it skipped anything, so a file you never find looks identical to a file that does not
-exist. Path-based reads work normally.
+## What to read
 
-If `context/` is absent, work from `docs/engineering/` alone and say in your report which checks you could
-not run because state was unavailable.
+**Always, and only this:** `context/STATE.md`. If it is missing, the mount is absent; continue from the
+code and `docs/engineering/`, and say so in your report.
 
-## Read order
+**On demand, when the task touches the area:**
 
-| # | Path | Why |
-|---|------|-----|
-| 1 | `context/STATE.md` | Where the project is now, what is verified, what is next. Read first, every session |
-| 2 | `docs/engineering/*.md` | Durable rules: architecture, stack, conventions, verification |
-| 3 | `context/decisions/README.md` | Generated index of every decision. Load individual files as needed |
+| Read | When |
+|------|------|
+| `docs/engineering/architecture.md` | Changing package layout, the JSON contract, or crossing the engine/ecosystem boundary |
+| `docs/engineering/conventions.md` | Anything that affects group membership or output ordering (determinism) |
+| `docs/engineering/stack.md` | Adding a dependency or tool, or looking up a command |
+| `docs/engineering/verification.md` | Before reporting code work as done |
+| `context/decisions/README.md` | Before reversing or extending an earlier choice; then open only the relevant files |
+| `context/registers/*` | Only when working the specific item a register describes. Never as bulk context |
 
-Steps 1 and 3 need the private mount. Step 2 is always available.
+A decision marked **(corrected)** in the index carries a `Corrections since` section: read it before acting
+on that decision.
 
-Rule of precedence: **if a document disagrees with the code, the code wins.** Fix the document in the same
-change rather than leaving the contradiction for the next reader.
+**Delegated agents and workflow steps** read `context/STATE.md` plus the files named in their brief, not
+this whole table. Whoever writes the brief passes the relevant facts in.
 
-## Decisions: current does not mean uncorrected
-
-`context/decisions/` holds one file per decision, with a generated index. The project's norm is *partial*
-supersession: a later decision retracts one named constraint while the rest of the earlier decision stands.
-So a file marked `status: current` may still contain a retracted constraint.
-
-Files flagged **(corrected)** in the index carry a `Corrections since` section. Read it before acting on
-that decision. Do not act on a constraint without checking whether it was retracted.
-
-## Do not load as bulk context
-
-`context/registers/` holds large working documents: the gap register, fix designs, the edge-case audit, and
-the forward-workstream register. They run to hundreds of kilobytes and will crowd out the task. Open one
-only when working the specific item it describes.
+If a document disagrees with the code, **the code wins**. Fix the document in the same change.
 
 ## How to work
 
 - **Read before writing.** Never propose changes to code you have not read.
-- **Determinism is not negotiable** for anything deciding group membership. See
-  `docs/engineering/conventions.md`.
+- **Determinism is not negotiable** for anything deciding group membership.
 - **Respect package boundaries.** Engine packages (`parser`, `core`, `shared`) must not import from
   ecosystem packages (`cli`, `web`, `ui`, `api-client`, `types`).
-- **Run the gates** in `docs/engineering/verification.md` before reporting work as done. Not every gate is
-  runnable from every checkout; that file says which is which. A clean exit code is not evidence of
-  success.
-- **Label every timing cold or warm.** They differ by roughly eight times on this codebase, and unlabelled
-  figures have produced wrong conclusions more than once.
+- **Run the gates** in `docs/engineering/verification.md` before reporting code work as done. A clean exit
+  code is not evidence of success.
+- **Label every timing cold or warm.** They differ by roughly eight times on this codebase.
 - **Say what you did not verify.** An explicit gap is more useful than a confident guess.
-- **Update state after meaningful work**, per the protocol in `context/README.md`.
+- **Update state once, at the end of a work session**, per `context/README.md`. Not after every step, and
+  not at all if nothing meaningful changed.
 
 ## Commits
 
 `type(scope): summary` in both repositories: lowercase, imperative, no trailing period, under about 70
-characters. One commit per observable sub-behaviour, each independently building and passing. A commit that
-does not build is not a rollback point.
+characters. One commit per observable sub-behaviour, each independently building and passing.
 
 | Where | Types |
 |-------|-------|
 | This repository, code under `packages/` | `feat` `fix` `test` `refactor` `perf` `chore` |
 | This repository, documentation including this file | `docs` |
-| `context/`, a decision file | `decision` |
-| `context/`, STATE.md | `state` |
-| `context/`, a register | `register` |
+| `context/` | `decision`, `state`, `register` |
 
 **Never `git add .`** Stage explicit paths. The two repositories are independent, so a change spanning both
 is two commits.
@@ -100,7 +85,8 @@ This project runs on Linux, macOS, and Windows.
 - **Shell separators:** Linux/macOS bash uses `&&`; Windows PowerShell uses `;`.
 - **Working directory:** pass it as a parameter rather than using `cd` where the tool supports it.
 - **Never start dev servers or watchers as blocking commands**; ask instead.
-- **Real date before stamping anything** — Linux/macOS: `date '+%Y-%m-%d %H:%M'`; Windows: `Get-Date -Format 'yyyy-MM-dd HH:mm'`. A session can span days; its start date is not today's date.
+- **Real date before stamping anything**: Linux/macOS `date '+%Y-%m-%d %H:%M'`; Windows
+  `Get-Date -Format 'yyyy-MM-dd HH:mm'`. A session can span days.
 
 Use **Node 20**. Only `packages/web` declares an `engines` constraint, so nothing enforces this, and the
 engine test scripts behave differently on Node 21 and later in a way that can report a false pass. See
