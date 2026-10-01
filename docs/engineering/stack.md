@@ -143,16 +143,22 @@ JSON files on disk. No database. `graph.json` is **estimated** at roughly 10 to 
 repository (ids and small integers only, no source text). That figure is an estimate, not a measurement.
 
 **The storage seam is asymmetric, not complete.** The *write* path has one: `IndexSerializerDeps`
-(`packages/core/src/index-serializer.ts:107`) injects `mkdirSync` / `writeFileSync` / `renameSync` /
-`rmSync` / `existsSync` / `assertWritable` with an fs default, added so write failures were testable.
-The *read* path has none: `packages/core/src/index-parser.ts:10` and
-`packages/core/src/orchestrator.ts:7` import from `node:fs` directly. So swapping in a graph-native or
-object store means **mirroring an existing in-repo pattern onto the read path**, not inventing an
-abstraction.
+(`packages/core/src/index-serializer.ts`) injects `mkdirSync` / `writeChunksSync` / `renameSync` /
+`rmSync` / `existsSync` / `assertWritable` with an fs default, added so write failures were testable, and
+the parser's `SerializerDeps` does the same with `writeChunks`. Both write **chunks**, never a whole-artifact
+string (V8 caps a string at about 512 million characters). The *read* path of the index has none:
+`packages/core/src/index-parser.ts:10` and `packages/core/src/orchestrator.ts:7` import from `node:fs`
+directly. So swapping in a graph-native or object store means **mirroring an existing in-repo pattern onto
+the read path**, not inventing an abstraction.
 
-The parser reaches the filesystem through the same inject-with-fs-default pattern in four places:
-`input-validator.ts`, `source-collector.ts`, `serializer.ts`, and `ast-extractor.ts` (its `readFile`
-dependency). Whether each is actually wired through to `parseProject` callers, or only reachable from
-tests, was **not verified**. `ParseOptions.projectDirectory` is a required `string`
-(`packages/parser/src/orchestrator.ts:73`), so parsing from a non-directory source is a real seam
-change regardless.
+The parser reaches the filesystem through the same inject-with-fs-default pattern in `input-validator.ts`,
+`source-collector.ts`, `serializer.ts` and, for source bytes, `ParseDeps.readBytes` / `fileSize`. A source
+need not be a directory: `ParseOptions.source` (and `EngineOptions.source`) take `{ path, bytes }` entries
+instead, selected by the same policy as a directory walk (`source-selection.ts`), and `ParseOptions.writeGraph`
+/ `EngineOptions.writeGraph` can skip `graph.json` and return the graph in memory.
+
+Extraction and stitching run on a pool of worker threads (`extraction-pool.ts`, `extraction-worker.ts`):
+phase 1 extracts files from one queue, largest first, and the main thread merges the per-worker symbol-table
+shares in canonical order; phase 2 gives every worker the merged table once, read-only, and each stitches
+its own files. Every result is keyed by the file's index in the canonical list, so output does not depend on
+`workers`, `concurrency` or completion order. `ParseDeps.pipeline` is the seam tests inject.

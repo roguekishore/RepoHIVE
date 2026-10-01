@@ -124,8 +124,9 @@ That is consistency of test *surface*, not of results.
 ### Known failures. Confirm these are the only ones
 
 1. **`parser` → `src/source-collector.test.ts` → "a path that cannot become a node id is reported and
-   the walk continues".** Asserts POSIX semantics where `\` is a legal filename character. Fails on
-   Windows. Platform-dependent, not a regression. File confirmed present.
+   the walk continues".** Asserts POSIX semantics where `\` is a legal filename character. It is
+   **skipped on Windows** with a stated reason (it used to fail there) and still runs elsewhere, so a
+   Windows parser run reports one skipped test, not a failure.
 2. **`types` → `__tests__/node-ids.test.ts`** imports `../../../tests/fixtures/node_ids.json` at line
    15. **Confirmed: that file does not exist anywhere in this repository.** Vendored test
    infrastructure whose fixture was never vendored with it. This one is a real, locatable defect rather
