@@ -3,8 +3,8 @@
  * Requirements 1.2 and 10). Local implementations: in-process or a JSON file.
  * AWS implementation: one DynamoDB table.
  *
- * Types only; the behaviour and the shared contract suite land with the
- * implementations.
+ * Implementations: memory, file and DynamoDB (`createMemoryJobLedger`, `createFileJobLedger`,
+ * `createDynamoDbJobLedger`). The shared contract suite is in `job-ledger-contract.test.ts`.
  */
 import type { FailureClass, JobInput, JobState, Tier } from "./job-types.js";
 

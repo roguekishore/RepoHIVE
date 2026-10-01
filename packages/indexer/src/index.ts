@@ -11,6 +11,20 @@
  */
 export type { ArtifactStore, ObjectHeaders, StoredObject } from "./artifact-store.js";
 export type { ClaimResult, JobEnd, JobLedger, JobProgress, JobRecord } from "./job-ledger.js";
+export { createDynamoDbJobLedger } from "./job-ledger-dynamodb.js";
+export type { DynamoDbJobLedgerOptions } from "./job-ledger-dynamodb.js";
+export { createFileJobLedger } from "./job-ledger-file.js";
+export type { FileJobLedgerOptions } from "./job-ledger-file.js";
+export { createMemoryJobLedger } from "./job-ledger-memory.js";
+export type { MemoryJobLedger, MemoryJobLedgerOptions } from "./job-ledger-memory.js";
+export {
+  DEFAULT_INFLIGHT_CAP,
+  JOB_STATE_ORDER,
+  PROGRESS_WRITE_INTERVAL_MS,
+  isForwardJobTransition,
+  isTerminalJobState,
+  jobStateIndex,
+} from "./job-ledger-states.js";
 export type { FailureClass, JobFailure, JobInput, JobState, Tier, Visibility } from "./job-types.js";
 export type { FetchCaps, FetchedSource, FetchRequest, FetchResult, SourceFetcher } from "./source-fetcher.js";
 // Snapshot identity, object keys and the manifest, latest and history documents (Requirement 7).
