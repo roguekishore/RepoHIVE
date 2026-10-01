@@ -38,6 +38,7 @@ export type GroupingError =
   | { code: "MISSING_FILES"; files: string[] }
   | { code: "FILE_NOT_FOUND"; file: string }
   | { code: "MALFORMED_FILE"; file: string; detail: string }
+  | { code: "UNSUPPORTED_FORMAT_VERSION"; file: string; found: string; supported: number }
   | { code: "WRITE_FAILED"; file: string; detail?: string }
   | { code: "INVALID_CONFIG"; detail: string; field?: string }
   | { code: "INTERNAL_ERROR"; detail: string };
@@ -86,6 +87,8 @@ export function describeError(error: GroupingError): string {
       return `file not found or unreadable: ${error.file}`;
     case "MALFORMED_FILE":
       return `malformed index file ${error.file}: ${error.detail}`;
+    case "UNSUPPORTED_FORMAT_VERSION":
+      return `index file ${error.file} has format version ${error.found}; this reader supports only version ${error.supported}`;
     case "WRITE_FAILED":
       return error.detail === undefined
         ? `could not write index file: ${error.file}`

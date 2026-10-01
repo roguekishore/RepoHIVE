@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import fc from "fast-check";
 import { CHUNK_MAX_LENGTH, coalesceChunks, type DependencyEdge, type GraphNode } from "@repohive/shared";
-import { stableStringify, stableStringifyPieces } from "./canonical.js";
+import { compactStringify, compactStringifyPieces, stableStringify, stableStringifyPieces } from "./canonical.js";
 import { INDEX_FILE_NAMES, indexFilePayloads, serializeIndex, type IndexSerializerDeps } from "./index-serializer.js";
 import { groupGraph } from "./orchestrator.js";
 
@@ -38,6 +38,23 @@ test("stableStringifyPieces concatenates to exactly stableStringify", () => {
     }),
     { numRuns: 300 },
   );
+});
+
+test("compactStringifyPieces concatenates to exactly compactStringify, which is the minified stableStringify", () => {
+  fc.assert(
+    fc.property(jsonValue, (value) => {
+      assert.equal(joined(compactStringifyPieces(value)), compactStringify(value));
+      // Same values, same key order: only the whitespace differs.
+      assert.deepEqual(JSON.parse(compactStringify(value)), JSON.parse(stableStringify(value)));
+    }),
+    { numRuns: 300 },
+  );
+});
+
+test("compactStringify has no whitespace between tokens and ends in one newline", () => {
+  assert.equal(compactStringify({ b: [1, { c: "x y" }], a: null, d: [], e: {} }), '{"a":null,"b":[1,{"c":"x y"}],"d":[],"e":{}}\n');
+  assert.equal(compactStringify([undefined, 1]), "[null,1]\n");
+  assert.throws(() => compactStringify({ a: Number.NaN }), /non-finite/);
 });
 
 test("stableStringifyPieces handles empty containers and top-level scalars", () => {
@@ -144,7 +161,7 @@ test("serializeIndex hands the writer chunks no larger than the cap, and they re
       for (const chunk of chunks) {
         assert.ok(chunk.length <= CHUNK_MAX_LENGTH, `${name}: chunk of ${chunk.length} exceeds the cap`);
       }
-      assert.equal(chunks.join(""), stableStringify(payloads[name]), `${name} rebuilds byte for byte`);
+      assert.equal(chunks.join(""), compactStringify(payloads[name]), `${name} rebuilds byte for byte`);
     }
     assert.ok(sawMultiChunkFile, "the fixture is big enough to exercise multi-chunk files");
   } finally {
@@ -162,7 +179,7 @@ test("serializeIndex through the real writer produces the one-string rendering",
     assert.ok(serializeIndex(hierarchy, metadata, dir).ok);
     const payloads = indexFilePayloads(hierarchy, metadata);
     for (const name of INDEX_FILE_NAMES) {
-      assert.equal(readFileSync(join(dir, name), "utf8"), stableStringify(payloads[name]), name);
+      assert.equal(readFileSync(join(dir, name), "utf8"), compactStringify(payloads[name]), name);
     }
   } finally {
     rmSync(parent, { recursive: true, force: true });

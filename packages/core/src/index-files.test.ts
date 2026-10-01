@@ -21,6 +21,7 @@ import {
   type IndexSerializerDeps,
 } from "./index-serializer.js";
 import { parseIndex } from "./index-parser.js";
+import { INDEX_FORMAT_VERSION, NODE_KIND_CODES } from "./index-format.js";
 import { groupGraph, type GroupingOutput } from "./orchestrator.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
 import type { Metadata } from "./types.js";
@@ -38,6 +39,49 @@ function freshIndexDir(): string {
 
 function readJson(dir: string, name: string): unknown {
   return JSON.parse(readFileSync(join(dir, name), "utf8"));
+}
+
+/** The tree of `hierarchy.json` in readable form, for tests that tamper with its shape. */
+type HierarchyDoc = {
+  repositoryId: string;
+  nodes: Array<{ id: string; kind: string; level: number; parentId: string | null; childIds: string[] }>;
+};
+
+/** Decode the compact `hierarchy.json` (ids + rows) into one object per node. */
+function decodeHierarchyDoc(doc: { root: number; ids: string[]; nodes: unknown[][] }): HierarchyDoc {
+  return {
+    repositoryId: doc.ids[doc.root] as string,
+    nodes: doc.nodes.map((row, i) => ({
+      id: doc.ids[i] as string,
+      kind: NODE_KIND_CODES[row[0] as number] as string,
+      level: row[1] as number,
+      parentId: row[2] === -1 ? null : (doc.ids[row[2] as number] as string),
+      childIds: (row[3] as number[]).map((child) => doc.ids[child] as string),
+    })),
+  };
+}
+
+/**
+ * Encode a (possibly tampered) tree back to the compact form. Nodes are sorted by
+ * id so a tamper is judged on what it changes, not on unsorted ids; a reference
+ * to an id that is not in the list becomes an out-of-range position, and an
+ * unknown kind an out-of-range code.
+ */
+function encodeHierarchyDoc(doc: HierarchyDoc): Record<string, unknown> {
+  const nodes = [...doc.nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const position = new Map(nodes.map((node, i) => [node.id, i]));
+  const ref = (id: string): number => position.get(id) ?? 1_000_000;
+  return {
+    formatVersion: INDEX_FORMAT_VERSION,
+    root: ref(doc.repositoryId),
+    ids: nodes.map((node) => node.id),
+    nodes: nodes.map((node) => [
+      (NODE_KIND_CODES as readonly string[]).indexOf(node.kind),
+      node.level,
+      node.parentId === null ? -1 : ref(node.parentId),
+      node.childIds.map(ref),
+    ]),
+  };
 }
 
 const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
@@ -85,9 +129,9 @@ test("Property 29: serialization writes a complete, count-consistent index file 
         assert.equal(nodesDoc.nodes.length, hierarchy.nodes.size);
 
         // R9.3: edges.json carries every leaf and cross-group edge.
-        const edgesDoc = readJson(dir, "edges.json") as { leafEdges: unknown[]; crossGroupEdges: unknown[] };
-        assert.equal(edgesDoc.leafEdges.length, hierarchy.leafEdges.length);
-        assert.equal(edgesDoc.crossGroupEdges.length, hierarchy.crossGroupEdges.length);
+        const edgesDoc = readJson(dir, "edges.json") as { leaf: unknown[]; cross: unknown[] };
+        assert.equal(edgesDoc.leaf.length, hierarchy.leafEdges.length);
+        assert.equal(edgesDoc.cross.length, hierarchy.crossGroupEdges.length);
 
         // R9.4 + R11.3/R11.4: metadata.json records the audit + scalability stats.
         const meta = readJson(dir, "metadata.json") as Metadata;
@@ -273,8 +317,12 @@ test("hierarchy.json missing its nodes field is reported as MALFORMED_FILE namin
   try {
     const written = serializeIndex(hierarchy, metadata, dir);
     assert.ok(written.ok);
-    // Valid JSON, but the required "nodes" array is absent.
-    writeFileSync(join(dir, "hierarchy.json"), JSON.stringify({ repositoryId: hierarchy.repositoryId }), "utf8");
+    // Valid JSON at the right format version, but the required "nodes" array is absent.
+    writeFileSync(
+      join(dir, "hierarchy.json"),
+      JSON.stringify({ formatVersion: INDEX_FORMAT_VERSION, root: 0 }),
+      "utf8",
+    );
 
     const result = parseIndex(dir);
     assert.ok(!result.ok);
@@ -336,29 +384,66 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
     assert.ok("file" in parsed.error && parsed.error.file === file);
   };
 
-  // Wrong-typed childIds elements.
+  // Wrong-typed child references.
   expectMalformed(
     parseTampered("hierarchy.json", (doc) => {
-      (doc.nodes as Array<{ childIds: unknown[] }>)[0]!.childIds = [42, { evil: true }];
+      (doc.nodes as unknown[][])[0]![3] = [42, { evil: true }];
     }),
     "hierarchy.json"
   );
 
-  // Ghost leaf-edge endpoint.
+  // A child reference past the end of the node table.
+  expectMalformed(
+    parseTampered("hierarchy.json", (doc) => {
+      (doc.nodes as unknown[][])[0]![3] = [9999];
+    }),
+    "hierarchy.json"
+  );
+
+  // Ghost leaf-edge endpoint: a position that is not in the node table.
   expectMalformed(
     parseTampered("edges.json", (doc) => {
-      (doc.leafEdges as Array<{ source: string }>)[0]!.source = "ghost:nowhere";
+      (doc.leaf as unknown[][])[0]![0] = 99999;
     }),
     "edges.json"
   );
 
-  // Duplicate + omitted nodes.json entry (defeats plain count checks).
+  // A nodes.json row of the wrong width, and a row count that disagrees with the tree.
   expectMalformed(
     parseTampered("nodes.json", (doc) => {
-      const nodes = doc.nodes as Array<Record<string, unknown>>;
-      nodes[1] = { ...nodes[0]! };
+      (doc.nodes as unknown[][])[1] = [0];
     }),
     "nodes.json"
+  );
+  expectMalformed(
+    parseTampered("nodes.json", (doc) => {
+      (doc.nodes as unknown[][]).pop();
+    }),
+    "nodes.json"
+  );
+
+  // A non-string in the string table.
+  expectMalformed(
+    parseTampered("nodes.json", (doc) => {
+      (doc.strings as unknown[])[0] = 42;
+    }),
+    "nodes.json"
+  );
+
+  // A string-table reference past the end of the table.
+  expectMalformed(
+    parseTampered("nodes.json", (doc) => {
+      (doc.nodes as unknown[][])[0]![2] = 99999;
+    }),
+    "nodes.json"
+  );
+
+  // Ids out of canonical order.
+  expectMalformed(
+    parseTampered("hierarchy.json", (doc) => {
+      (doc.ids as string[]).reverse();
+    }),
+    "hierarchy.json"
   );
 
   // Missing required metadata scalability fields (R11.4).
@@ -424,8 +509,10 @@ test("a null element in any validated array yields MALFORMED_FILE, never a throw
 
   const targets: ReadonlyArray<readonly [string, string]> = [
     ["hierarchy.json", "nodes"],
+    ["hierarchy.json", "ids"],
     ["nodes.json", "nodes"],
-    ["edges.json", "leafEdges"],
+    ["edges.json", "leaf"],
+    ["edges.json", "cross"],
     ["metadata.json", "regionDecisions"],
     ["metadata.json", "perLevel"],
   ];
@@ -471,18 +558,15 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
   };
   const output = runPipeline(graph);
 
-  type HierarchyDoc = {
-    repositoryId: string;
-    nodes: Array<{ id: string; kind: string; level: number; parentId: string | null; childIds: string[] }>;
-  };
-
   const parseTampered = (tamper: (doc: HierarchyDoc) => void): ReturnType<typeof parseIndex> => {
     const dir = mkdtempSync(join(tmpdir(), "repohive-tree-"));
     try {
       assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
-      const doc = JSON.parse(readFileSync(join(dir, "hierarchy.json"), "utf8")) as HierarchyDoc;
+      const doc = decodeHierarchyDoc(
+        JSON.parse(readFileSync(join(dir, "hierarchy.json"), "utf8")) as Parameters<typeof decodeHierarchyDoc>[0],
+      );
       tamper(doc);
-      writeFileSync(join(dir, "hierarchy.json"), JSON.stringify(doc), "utf8");
+      writeFileSync(join(dir, "hierarchy.json"), JSON.stringify(encodeHierarchyDoc(doc)), "utf8");
       return parseIndex(dir);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -1110,11 +1194,11 @@ test("an index written without provenance still parses (the fields are optional)
     assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
 
     const nodesDoc = JSON.parse(readFileSync(join(dir, "nodes.json"), "utf8")) as {
-      nodes: Array<Record<string, unknown>>;
+      nodes: unknown[][];
     };
-    for (const entry of nodesDoc.nodes) {
-      delete entry.regionId;
-      delete entry.ordinal;
+    for (const row of nodesDoc.nodes) {
+      row[0] = -1;
+      row[1] = -1;
     }
     writeFileSync(join(dir, "nodes.json"), JSON.stringify(nodesDoc), "utf8");
 
@@ -1157,17 +1241,97 @@ test("half-present provenance and unknown group ids are rejected", () => {
 
   // regionId without ordinal: an incomplete recipe is worse than none.
   const halfPresent = tamper("nodes.json", (doc) => {
-    const entry = (doc.nodes as Array<Record<string, unknown>>).find((n) => n.regionId !== undefined)!;
-    delete entry.ordinal;
+    const row = (doc.nodes as unknown[][]).find((r) => r[0] !== -1)!;
+    row[1] = -1;
   });
   assert.ok(!halfPresent.ok);
   assert.equal(halfPresent.error.code, "MALFORMED_FILE");
 
   // A decision naming a group that is not in the tree.
   const ghostGroup = tamper("metadata.json", (doc) => {
-    (doc.regionDecisions as Array<Record<string, unknown>>)[0]!.groupIds = ["g_ghost"];
+    (doc.regionDecisions as Array<Record<string, unknown>>)[0]!.groupIds = [99999];
   });
   assert.ok(!ghostGroup.ok);
   assert.equal(ghostGroup.error.code, "MALFORMED_FILE");
   assert.ok("detail" in ghostGroup.error && ghostGroup.error.detail.includes("unknown group"));
+});
+
+// --- The format version (hosting-1 Requirement 10) --------------------------
+
+test("every index file states the format version, and parseIndex refuses any other", () => {
+  const output = runPipeline(FIXED_GRAPH);
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+    for (const name of INDEX_FILE_NAMES) {
+      assert.equal((readJson(dir, name) as { formatVersion: unknown }).formatVersion, INDEX_FORMAT_VERSION, name);
+    }
+    assert.ok(parseIndex(dir).ok);
+
+    for (const name of INDEX_FILE_NAMES) {
+      const original = readFileSync(join(dir, name), "utf8");
+      const doc = JSON.parse(original) as Record<string, unknown>;
+      const variants: ReadonlyArray<readonly [string, (d: Record<string, unknown>) => void, string]> = [
+        ["missing", (d) => delete d.formatVersion, "missing"],
+        ["a later version", (d) => (d.formatVersion = INDEX_FORMAT_VERSION + 1), String(INDEX_FORMAT_VERSION + 1)],
+        ["a string", (d) => (d.formatVersion = "1"), '"1"'],
+      ];
+      for (const [label, mutate, found] of variants) {
+        const copy = JSON.parse(original) as Record<string, unknown>;
+        mutate(copy);
+        writeFileSync(join(dir, name), JSON.stringify(copy), "utf8");
+        const parsed = parseIndex(dir);
+        assert.ok(!parsed.ok, `${name} with a version that is ${label} must be refused`);
+        assert.deepEqual(parsed.error, {
+          code: "UNSUPPORTED_FORMAT_VERSION",
+          file: name,
+          found,
+          supported: INDEX_FORMAT_VERSION,
+        });
+        assert.ok(!("value" in parsed), "no partial result");
+      }
+      writeFileSync(join(dir, name), JSON.stringify(doc), "utf8");
+    }
+    assert.ok(parseIndex(dir).ok, "restored index parses again");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an index in the pre-compact layout is refused as an unsupported version, not misread", () => {
+  const dir = freshIndexDir();
+  try {
+    writeFileSync(join(dir, "repository.json"), JSON.stringify({ repositoryId: "r", hierarchyDepth: 0, nodeCount: 1, edgeCount: 0 }), "utf8");
+    for (const name of INDEX_FILE_NAMES.filter((n) => n !== "repository.json")) {
+      writeFileSync(join(dir, name), JSON.stringify({ nodes: [] }), "utf8");
+    }
+    const parsed = parseIndex(dir);
+    assert.ok(!parsed.ok);
+    assert.equal(parsed.error.code, "UNSUPPORTED_FORMAT_VERSION");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the index is minified, stores each node id once, and is much smaller than the pretty-printed layout", () => {
+  const output = runPipeline(FIXED_GRAPH);
+  const dir = freshIndexDir();
+  try {
+    assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
+    for (const name of INDEX_FILE_NAMES) {
+      const text = readFileSync(join(dir, name), "utf8");
+      assert.ok(text.endsWith("}\n"), `${name} ends with one newline`);
+      assert.ok(!text.slice(0, -1).includes("\n"), `${name} is a single line`);
+      assert.ok(!/[:,] /.test(text.replace(/"(?:[^"\\]|\\.)*"/g, '""')), `${name} has no padding after separators`);
+    }
+    // Every node id is stored once across the index; the repository id is also
+    // named in repository.json, the one-glance summary file, and nowhere else.
+    const everything = INDEX_FILE_NAMES.map((name) => readFileSync(join(dir, name), "utf8")).join("");
+    for (const id of output.hierarchy.nodes.keys()) {
+      const expected = id === output.hierarchy.repositoryId ? 2 : 1;
+      assert.equal(everything.split(JSON.stringify(id)).length - 1, expected, `id ${id} is stored ${expected} time(s)`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

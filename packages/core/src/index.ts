@@ -35,6 +35,7 @@ export {
   type IndexSerializerAsyncDeps,
   type IndexSerializerDeps,
 } from "./index-serializer.js";
+export { ABSENT, INDEX_FORMAT_VERSION, NODE_KIND_CODES } from "./index-format.js";
 export { parseIndex } from "./index-parser.js";
 export { analyzeBlastRadius, type BlastRadius } from "./blast-radius.js";
 export {
@@ -52,6 +53,16 @@ export {
   type PartialGroupingConfig,
 } from "./orchestrator.js";
 export { describeError, err, ok, type GroupingError, type Result } from "./errors.js";
-export { compareEdgePairs, compareIds, sortByIds, sortEdges, sortIds, stableStringify, stableStringifyPieces } from "./canonical.js";
+export {
+  compactStringify,
+  compactStringifyPieces,
+  compareEdgePairs,
+  compareIds,
+  sortByIds,
+  sortEdges,
+  sortIds,
+  stableStringify,
+  stableStringifyPieces,
+} from "./canonical.js";
 export { groupIdOf, repositoryIdOf } from "./group-id.js";
 export type * from "./types.js";

@@ -1,8 +1,8 @@
 /**
  * Index_Serializer (Requirement 9): write the five-file Index_File_Set —
- * repository.json, hierarchy.json, nodes.json, edges.json, metadata.json —
- * via the stable stringifier so identical hierarchies serialize
- * byte-identically. A failed write is reported as WRITE_FAILED naming the
+ * repository.json, hierarchy.json, nodes.json, edges.json, metadata.json — in the
+ * compact format (`index-format.ts`) via the stable minifying stringifier, so
+ * identical hierarchies serialize byte-identically. A failed write is reported as WRITE_FAILED naming the
  * file.
  *
  * The write is **all-or-nothing** (Gap 10). Writing the five files in sequence
@@ -29,9 +29,10 @@ import {
 } from "node:fs";
 import { access, mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { coalesceChunks } from "@repohive/shared";
-import { compareDependencyEdges, sortByIds, stableStringifyPieces } from "./canonical.js";
+import { coalesceChunks, type NodeId } from "@repohive/shared";
+import { compactStringifyPieces, compareDependencyEdges, sortByIds } from "./canonical.js";
 import { err, ok, type Result } from "./errors.js";
+import { ABSENT, INDEX_FORMAT_VERSION, NODE_KIND_CODES } from "./index-format.js";
 import type { Hierarchy, Metadata } from "./types.js";
 
 export const INDEX_FILE_NAMES = [
@@ -44,61 +45,101 @@ export const INDEX_FILE_NAMES = [
 
 export type IndexFileName = (typeof INDEX_FILE_NAMES)[number];
 
-/** Pure projection of a Hierarchy + Metadata onto the five file payloads. */
+/**
+ * Pure projection of a Hierarchy + Metadata onto the five file payloads, in the
+ * compact format (`index-format.ts`; layout in `docs/engineering/architecture.md`).
+ *
+ * `hierarchy.json` holds every node id once, in canonical order, plus one row per
+ * node; every other file refers to a node by its position in that order. A
+ * payload that names a node the hierarchy does not hold throws: that is an
+ * internal invariant, which the entry points report as a write failure.
+ */
 export function indexFilePayloads(hierarchy: Hierarchy, metadata: Metadata): Record<IndexFileName, unknown> {
   const hierarchyNodes = sortByIds([...hierarchy.nodes.values()]);
+  const positionOf = new Map<NodeId, number>();
+  hierarchyNodes.forEach((node, position) => positionOf.set(node.id, position));
+  const ref = (id: NodeId): number => {
+    const position = positionOf.get(id);
+    if (position === undefined) {
+      throw new Error(`index serialization: node ${id} is not in the hierarchy`);
+    }
+    return position;
+  };
+
+  // Attribute strings (region ids, package and directory paths) repeat across
+  // many nodes: store each once, in first-use order over the canonical node order.
+  const strings: string[] = [];
+  const stringPosition = new Map<string, number>();
+  const str = (value: string | undefined): number => {
+    if (value === undefined) {
+      return ABSENT;
+    }
+    let position = stringPosition.get(value);
+    if (position === undefined) {
+      position = strings.length;
+      strings.push(value);
+      stringPosition.set(value, position);
+    }
+    return position;
+  };
+
+  const nodeRows = hierarchyNodes.map((node) => {
+    const attributes = hierarchy.leafAttributes.get(node.id);
+    return [
+      str(node.regionId),
+      node.ordinal ?? ABSENT,
+      str(attributes?.packagePath),
+      str(attributes?.directoryPath),
+      attributes?.definedInFile !== undefined ? ref(attributes.definedInFile) : ABSENT,
+    ];
+  });
 
   return {
     "repository.json": {
+      formatVersion: INDEX_FORMAT_VERSION,
       repositoryId: hierarchy.repositoryId,
       hierarchyDepth: hierarchy.depth,
       nodeCount: hierarchy.nodes.size,
       edgeCount: hierarchy.leafEdges.length + hierarchy.crossGroupEdges.length,
     },
     "hierarchy.json": {
-      repositoryId: hierarchy.repositoryId,
-      nodes: hierarchyNodes.map((node) => ({
-        id: node.id,
-        kind: node.kind,
-        level: node.level,
-        parentId: node.parentId,
-        childIds: node.childIds,
-      })),
-    },
-    "nodes.json": {
+      formatVersion: INDEX_FORMAT_VERSION,
+      root: ref(hierarchy.repositoryId),
+      ids: hierarchyNodes.map((node) => node.id),
       nodes: hierarchyNodes.map((node) => {
-        const attributes = hierarchy.leafAttributes.get(node.id);
-        return {
-          id: node.id,
-          kind: node.kind,
-          level: node.level,
-          // Region provenance (Gap 12), omitted on the Repository node and on
-          // the wrapper groups that correspond to no region.
-          ...(node.regionId !== undefined ? { regionId: node.regionId } : {}),
-          ...(node.ordinal !== undefined ? { ordinal: node.ordinal } : {}),
-          ...(attributes?.packagePath !== undefined ? { packagePath: attributes.packagePath } : {}),
-          ...(attributes?.directoryPath !== undefined ? { directoryPath: attributes.directoryPath } : {}),
-          ...(attributes?.definedInFile !== undefined ? { definedInFile: attributes.definedInFile } : {}),
-        };
+        const kind = NODE_KIND_CODES.indexOf(node.kind as (typeof NODE_KIND_CODES)[number]);
+        if (kind < 0) {
+          throw new Error(`index serialization: node ${node.id} has unknown kind ${String(node.kind)}`);
+        }
+        return [kind, node.level, node.parentId === null ? ABSENT : ref(node.parentId), node.childIds.map(ref)];
       }),
     },
-    "edges.json": {
-      leafEdges: [...hierarchy.leafEdges].sort(compareDependencyEdges).map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        importFrequency: edge.importFrequency,
-        methodCallFrequency: edge.methodCallFrequency,
-        sharedTypeCount: edge.sharedTypeCount,
-        strength: edge.strength,
-      })),
-      crossGroupEdges: hierarchy.crossGroupEdges.map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        level: edge.level,
-        weight: edge.weight,
-      })),
+    "nodes.json": {
+      formatVersion: INDEX_FORMAT_VERSION,
+      strings,
+      nodes: nodeRows,
     },
-    "metadata.json": metadata,
+    "edges.json": {
+      formatVersion: INDEX_FORMAT_VERSION,
+      leaf: [...hierarchy.leafEdges]
+        .sort(compareDependencyEdges)
+        .map((edge) => [
+          ref(edge.source),
+          ref(edge.target),
+          edge.importFrequency,
+          edge.methodCallFrequency,
+          edge.sharedTypeCount,
+          edge.strength,
+        ]),
+      cross: hierarchy.crossGroupEdges.map((edge) => [ref(edge.source), ref(edge.target), edge.level, edge.weight]),
+    },
+    "metadata.json": {
+      formatVersion: INDEX_FORMAT_VERSION,
+      ...metadata,
+      regionDecisions: metadata.regionDecisions.map((decision) =>
+        decision.groupIds === undefined ? decision : { ...decision, groupIds: decision.groupIds.map(ref) },
+      ),
+    },
   };
 }
 
@@ -153,9 +194,9 @@ const defaultDeps: IndexSerializerDeps = {
   },
 };
 
-/** One payload as write-sized chunks; the concatenation is `stableStringify(payload)`. */
+/** One payload as write-sized chunks; the concatenation is `compactStringify(payload)`. */
 function renderChunks(payload: unknown): Generator<string, void, undefined> {
-  return coalesceChunks(stableStringifyPieces(payload));
+  return coalesceChunks(compactStringifyPieces(payload));
 }
 
 /**
