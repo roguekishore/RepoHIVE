@@ -16,4 +16,15 @@
  * never import from `cli`, `web`, `ui`, `api-client`, or `types`.
  */
 
-export {};
+// Result and error model: a third result type discriminated by stage, carrying
+// the parser's and the core's error shapes through unmodified.
+export { describeEngineError, describeEngineFailure } from "./errors.js";
+export type {
+  EngineDurations,
+  EngineError,
+  EngineFailure,
+  EngineFailureStage,
+  EngineResult,
+  EngineStage,
+  EngineSuccess,
+} from "./errors.js";
