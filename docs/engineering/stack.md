@@ -6,9 +6,11 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
 
 - **TypeScript 5.9.3** pinned in the root `devDependencies`. Workspaces range independently
   (`^5.6.0` in `api-client`, `types`, `ui`; `^5.7` in `web`), so the root pin does not govern them.
-- **Node.js**, developed on Node 20 and 21+. Nothing in the repository enforces a version: only
-  `packages/web` declares `engines` (`>=20.0.0`), and the root manifest declares none. See the engine
-  test script warning below, which needs Node 21+ to work as written.
+- **Node.js**, developed on Node 20 and 21+. The root manifest declares `"engines": { "node": ">=20" }`
+  and `.nvmrc` pins `20`. Both are advisory rather than enforcement: npm only warns on an engines
+  mismatch (no `engine-strict` is set), and `.nvmrc` binds only tools that read it. `packages/web`
+  additionally declares its own `engines` (`>=20.0.0`). The engine test script no longer depends on
+  the Node version or the shell; see below.
 - ESM. `"type": "module"` is set in `shared`, `parser`, `core`, `types`, `api-client`, and `ui`. It is
   **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
@@ -110,29 +112,25 @@ byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per pa
 different names: `typecheck` (`tsc --noEmit`) in `shared`, `parser`, and `core`, but `type-check` in
 `api-client`, `types`, `ui`, and `web`. There is no root script that runs the second group.
 
-### The engine test script has no correct form
+### The engine test script runs an explicit launcher
 
-**The engine test script in both `packages/core` and `packages/parser` is `node --test dist/*.test.js`,
-and it does not work across both Node versions.** Neither form does:
+The test script in both `packages/core` and `packages/parser` is
+`node ../../scripts/run-node-tests.mjs`. The launcher (repo root, dependency-free) enumerates
+`dist/*.test.js` via `readdirSync`, sorts the list, and spawns `node --test <files...>`; it **exits 1
+with a clear message when zero test files are found**, so a vacuous green run is impossible and an
+unbuilt `dist/` fails loudly. Because the file list is passed explicitly, it behaves the same on
+Node 20 and 21+, under POSIX shells and Windows (`cmd.exe`/PowerShell) alike.
 
-- `node --test dist/*.test.js` relies on the shell expanding the glob, which needs **Node 21+**.
-  `cmd.exe` does not expand it either, so on Node 20 it fails with `Could not find …dist\*.test.js`.
-- `node --test dist/` runs on Node 20 but on Node 21+ silently resolves to `dist/index.js` and reports
-  one passing test. **That is a green run proving nothing.**
+History: the script used to be `node --test dist/*.test.js`, which worked only where the shell
+expanded the glob (POSIX shells on any Node; `cmd.exe` only on Node 21+, loud failure on Node 20),
+while the alternative `node --test dist/` on Node 21+ silently resolved to `dist/index.js` and
+reported **one passing test, a green run proving nothing**. That false green was reproduced on Node
+v26.4.0 on 2026-09-13 before the fix. The old PowerShell workaround (building the file list with
+`Get-ChildItem` and passing it to `node --test`) is obsolete; the launcher does the same thing on
+every platform. Do not switch the script back to either historical form.
 
-The script text is confirmed verbatim in both manifests. The two failure modes are **reasoned from
-documented Node behaviour, not measured here.** Verify them yourself before depending on either.
-
-Until the script is fixed, verify the engine by listing the files explicitly. From `packages/core` and
-`packages/parser`:
-
-```powershell
-$files = Get-ChildItem dist -Filter *.test.js | ForEach-Object { "dist/$($_.Name)" }
-node --test @files
-```
-
-`docs/engineering/verification.md` carries the expected counts and the known-failure list. **No "green
-suite" claim from `npm test` is trustworthy while this stands.**
+`docs/engineering/verification.md` carries the expected counts, the known-failure list, and the
+measured-versus-reasoned status per Node version.
 
 `npm run parse` resolves relative paths against `INIT_CWD` (`packages/parser/src/parse-cli.ts:59`),
 because npm's `--workspace` indirection changes the working directory. It is a convenience wrapper
