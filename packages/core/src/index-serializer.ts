@@ -27,6 +27,7 @@ import {
   rmSync,
   writeSync,
 } from "node:fs";
+import { access, mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { coalesceChunks } from "@repohive/shared";
 import { compareDependencyEdges, sortByIds, stableStringifyPieces } from "./canonical.js";
@@ -157,31 +158,48 @@ function renderChunks(payload: unknown): Generator<string, void, undefined> {
   return coalesceChunks(stableStringifyPieces(payload));
 }
 
-export function serializeIndex(
+/**
+ * Render every payload once, as chunks, before touching the filesystem, so a
+ * serialization failure writes nothing at all. The pass feeds an incremental hash
+ * (it names the staging directory) and discards the text: nothing here holds a
+ * whole file as one string. The write renders again; rendering is a pure
+ * function of the payload, so the two passes agree.
+ */
+function renderAndHash(
   hierarchy: Hierarchy,
   metadata: Metadata,
   dir: string,
-  deps: IndexSerializerDeps = defaultDeps
-): Result<void> {
-  // 1. Render every payload once, as chunks, before touching the filesystem, so
-  //    a serialization failure writes nothing at all. The pass feeds an
-  //    incremental hash (it names the staging directory in step 3) and discards
-  //    the text: nothing here holds a whole file as one string. Step 3 renders
-  //    again to write; rendering is a pure function of the payload, so the two
-  //    passes agree.
+): Result<{ payloads: Record<IndexFileName, unknown>; staging: string }> {
   const hash = createHash("sha1");
-  let payloads: Record<IndexFileName, unknown>;
   try {
-    payloads = indexFilePayloads(hierarchy, metadata);
+    const payloads = indexFilePayloads(hierarchy, metadata);
     for (const name of INDEX_FILE_NAMES) {
       for (const chunk of renderChunks(payloads[name])) {
         hash.update(chunk, "utf8");
       }
       hash.update("\0");
     }
+    // The staging name is derived from the content: no timestamp, no counter, no
+    // randomness, so determinism is preserved and a re-run over identical input
+    // reuses the same staging path.
+    return ok({ payloads, staging: `${dir}.staging-${hash.digest("hex").slice(0, 16)}` });
   } catch (cause) {
     return err({ code: "WRITE_FAILED", file: dir, detail: `serialization failed: ${String(cause)}` });
   }
+}
+
+export function serializeIndex(
+  hierarchy: Hierarchy,
+  metadata: Metadata,
+  dir: string,
+  deps: IndexSerializerDeps = defaultDeps
+): Result<void> {
+  // 1. Render and hash before touching the filesystem.
+  const rendered = renderAndHash(hierarchy, metadata, dir);
+  if (!rendered.ok) {
+    return rendered;
+  }
+  const { payloads, staging } = rendered.value;
 
   // 2. A read-only *existing* target is the one failure that renames cannot
   //    avoid, so detect it up front and turn it into a staged-phase failure.
@@ -196,11 +214,7 @@ export function serializeIndex(
     return err({ code: "WRITE_FAILED", file: dir, detail: `target not writable: ${String(cause)}` });
   }
 
-  // 3. Stage into a sibling directory. The name is derived from the content —
-  //    no timestamp, no counter, no randomness — so determinism is preserved
-  //    and a re-run over identical input reuses the same staging path.
-  const stamp = hash.digest("hex").slice(0, 16);
-  const staging = `${dir}.staging-${stamp}`;
+  // 3. Stage into a sibling directory.
   try {
     deps.rmSync(staging);
     deps.mkdirSync(staging);
@@ -224,6 +238,115 @@ export function serializeIndex(
     return ok(undefined);
   } catch (cause) {
     deps.rmSync(staging);
+    return err({ code: "WRITE_FAILED", file: dir, detail: `promotion failed: ${String(cause)}` });
+  }
+}
+
+/**
+ * Asynchronous counterpart of {@link IndexSerializerDeps}, for
+ * {@link serializeIndexAsync}. Same operations, each returning a promise.
+ */
+export interface IndexSerializerAsyncDeps {
+  mkdir(path: string): Promise<void>;
+  /**
+   * Write the chunks, in order, as one UTF-8 file. The chunks are produced
+   * lazily and no chunk is the whole file; an implementation must consume them
+   * one at a time rather than joining them.
+   */
+  writeChunks(path: string, chunks: Iterable<string>): Promise<void>;
+  rename(from: string, to: string): Promise<void>;
+  rm(path: string): Promise<void>;
+  exists(path: string): Promise<boolean>;
+  /** Rejects when `path` exists but is not writable. */
+  assertWritable(path: string): Promise<void>;
+}
+
+const defaultAsyncDeps: IndexSerializerAsyncDeps = {
+  mkdir: async (path) => {
+    await mkdir(path, { recursive: true });
+  },
+  writeChunks: async (path, chunks) => {
+    const handle = await open(path, "w");
+    try {
+      for (const chunk of chunks) {
+        const bytes = Buffer.from(chunk, "utf8");
+        let offset = 0;
+        while (offset < bytes.length) {
+          offset += (await handle.write(bytes, offset, bytes.length - offset)).bytesWritten;
+        }
+      }
+    } finally {
+      await handle.close();
+    }
+  },
+  rename: (from, to) => rename(from, to),
+  rm: (path) => rm(path, { recursive: true, force: true }),
+  exists: async (path) => {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  assertWritable: (path) => access(path, fsConstants.W_OK),
+};
+
+/**
+ * {@link serializeIndex} with asynchronous I/O: the five files are written
+ * concurrently into the staging directory. Same all-or-nothing staging then
+ * promotion, same bytes, same failure results. Every write has settled (or
+ * failed) before the staging directory is removed, so a failure never races an
+ * open file.
+ */
+export async function serializeIndexAsync(
+  hierarchy: Hierarchy,
+  metadata: Metadata,
+  dir: string,
+  deps: IndexSerializerAsyncDeps = defaultAsyncDeps,
+): Promise<Result<void>> {
+  const rendered = renderAndHash(hierarchy, metadata, dir);
+  if (!rendered.ok) {
+    return rendered;
+  }
+  const { payloads, staging } = rendered.value;
+
+  try {
+    for (const name of INDEX_FILE_NAMES) {
+      const target = join(dir, name);
+      if (await deps.exists(target)) {
+        await deps.assertWritable(target);
+      }
+    }
+  } catch (cause) {
+    return err({ code: "WRITE_FAILED", file: dir, detail: `target not writable: ${String(cause)}` });
+  }
+
+  try {
+    await deps.rm(staging);
+    await deps.mkdir(staging);
+    const settled = await Promise.allSettled(
+      INDEX_FILE_NAMES.map((name) => deps.writeChunks(join(staging, name), renderChunks(payloads[name]))),
+    );
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") {
+        throw outcome.reason;
+      }
+    }
+  } catch (cause) {
+    await deps.rm(staging).catch(() => undefined);
+    return err({ code: "WRITE_FAILED", file: staging, detail: String(cause) });
+  }
+
+  try {
+    await deps.mkdir(dir);
+    for (const name of INDEX_FILE_NAMES) {
+      await deps.rename(join(staging, name), join(dir, name));
+    }
+    await deps.rm(staging);
+    return ok(undefined);
+  } catch (cause) {
+    await deps.rm(staging).catch(() => undefined);
     return err({ code: "WRITE_FAILED", file: dir, detail: `promotion failed: ${String(cause)}` });
   }
 }

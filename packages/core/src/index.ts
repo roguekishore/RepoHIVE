@@ -26,17 +26,29 @@ export {
   validateHierarchyConfig,
 } from "./hierarchy-builder.js";
 export { buildMetadata, type MetadataInputs } from "./metadata.js";
-export { indexFilePayloads, INDEX_FILE_NAMES, serializeIndex, type IndexFileName } from "./index-serializer.js";
+export {
+  indexFilePayloads,
+  INDEX_FILE_NAMES,
+  serializeIndex,
+  serializeIndexAsync,
+  type IndexFileName,
+  type IndexSerializerAsyncDeps,
+  type IndexSerializerDeps,
+} from "./index-serializer.js";
 export { parseIndex } from "./index-parser.js";
 export { analyzeBlastRadius, type BlastRadius } from "./blast-radius.js";
 export {
   DEFAULT_GROUPING_CONFIG,
   groupGraph,
   groupGraphToIndex,
+  groupGraphToIndexAsync,
   readGraphFile,
   resolveConfig,
   type GroupingConfig,
   type GroupingOutput,
+  type GroupingProgressEvent,
+  type GroupingRunOptions,
+  type GroupingSubstage,
   type PartialGroupingConfig,
 } from "./orchestrator.js";
 export { describeError, err, ok, type GroupingError, type Result } from "./errors.js";
