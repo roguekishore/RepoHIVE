@@ -192,6 +192,16 @@ components/
 
 Dark-mode only. All visual tokens are CSS custom properties in `src/styles/globals.css` — surfaces, borders, text colors, accent blue (`#5B9CF6`), confidence colors (green/yellow/red), language colors for graph nodes, edge type colors, typography scale, spacing grid, radii, and z-index layers. Changing the design means editing one file.
 
+## Background worker and SQLite backup
+
+The worker is a separate process from Next.js. In local mode it polls the job ledger every 10 seconds, writes finished jobs into `app.sqlite` (`indexed_repositories`, quota refunds, in-flight cleanup), and once per UTC day runs `VACUUM INTO` and uploads the file to the artifact store under `backup/app-YYYY-MM-DD.sqlite` (seven daily copies retained).
+
+```powershell
+npm run worker --workspace @repohive/web
+```
+
+**Restore:** stop the app and worker, copy the desired backup object from the store to disk (or use `restoreAppDatabaseFromBackup` in `src/lib/worker/backup.ts` from a small Node script with the same env as the app), replacing `REPOHIVE_DATA_DIR/app.sqlite`. A `.before-restore` copy of the live file is written beside it. Restart the app and worker.
+
 ## Development
 
 ```powershell
