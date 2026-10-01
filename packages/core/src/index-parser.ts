@@ -1,10 +1,12 @@
 /**
- * Index_Parser (Requirement 9): read an Index_File_Set back into the
- * in-memory model with full fidelity — same node set, edge set, per-Region
+ * Index_Parser: read an Index_File_Set (compact format, see
+ * `index-format.ts`) back into the in-memory model with full fidelity — same node set, edge set, per-Region
  * decisions, and depth (9.5). Atomic failure: ALL missing member files are
  * reported in one MISSING_FILES error (9.6); malformed JSON or a missing
  * required field is reported as MALFORMED_FILE naming the file (9.7); no
- * partial Hierarchy is ever returned.
+ * partial Hierarchy is ever returned. A file whose `formatVersion` is missing or
+ * not the one this reader supports is UNSUPPORTED_FORMAT_VERSION; there is no
+ * reader for any other version.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -12,6 +14,7 @@ import { join } from "node:path";
 import type { GraphNode, NodeId } from "@repohive/shared";
 import { compareIds } from "./canonical.js";
 import { err, ok, type Result } from "./errors.js";
+import { ABSENT, INDEX_FORMAT_VERSION, NODE_KIND_CODES } from "./index-format.js";
 import { INDEX_FILE_NAMES } from "./index-serializer.js";
 import type { CrossGroupEdge, Hierarchy, HierarchyNode, Metadata } from "./types.js";
 
@@ -28,6 +31,16 @@ const HIERARCHY_KINDS = new Set<string>(["file", "class", "function", "group", "
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** An integer that is either {@link ABSENT} or a position in `[0, bound)`. */
+function isOptionalRef(value: unknown, bound: number): value is number {
+  return Number.isInteger(value) && ((value as number) === ABSENT || ((value as number) >= 0 && (value as number) < bound));
+}
+
+/** An integer position in `[0, bound)`. */
+function isRef(value: unknown, bound: number): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) < bound;
 }
 
 /** Hierarchy depth: the deepest level present, matching the builder's measure. */
@@ -62,50 +75,90 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     }
   }
 
-  // --- hierarchy.json → the tree ------------------------------------------
-  const hierarchyDoc = raw["hierarchy.json"] as { repositoryId?: unknown; nodes?: unknown };
-  if (typeof hierarchyDoc?.repositoryId !== "string" || !Array.isArray(hierarchyDoc.nodes)) {
-    return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "missing repositoryId or nodes" });
+  // Every file states the format it was written in. Checked before anything
+  // else is read from them, so a file from another format is reported as that
+  // and not as a pile of missing fields.
+  for (const name of INDEX_FILE_NAMES) {
+    const doc = raw[name];
+    const found = isRecord(doc) ? doc["formatVersion"] : undefined;
+    if (found !== INDEX_FORMAT_VERSION) {
+      return err({
+        code: "UNSUPPORTED_FORMAT_VERSION",
+        file: name,
+        found: found === undefined ? "missing" : (JSON.stringify(found) ?? String(found)),
+        supported: INDEX_FORMAT_VERSION,
+      });
+    }
   }
+
+  // --- hierarchy.json → the tree ------------------------------------------
+  const hierarchyDoc = raw["hierarchy.json"] as { root?: unknown; ids?: unknown; nodes?: unknown };
+  if (!Number.isInteger(hierarchyDoc.root) || !Array.isArray(hierarchyDoc.ids) || !Array.isArray(hierarchyDoc.nodes)) {
+    return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "missing root, ids or nodes" });
+  }
+  const ids = hierarchyDoc.ids as unknown[];
+  const rows = hierarchyDoc.nodes as unknown[];
+  if (ids.length !== rows.length) {
+    return err({
+      code: "MALFORMED_FILE",
+      file: "hierarchy.json",
+      detail: `${ids.length} ids but ${rows.length} node rows`,
+    });
+  }
+  // The ids are the node table every other file indexes into, in canonical order:
+  // strictly ascending, which also rules out a duplicate.
+  for (let i = 0; i < ids.length; i++) {
+    if (typeof ids[i] !== "string") {
+      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: `id ${i} is not a string` });
+    }
+    if (i > 0 && compareIds(ids[i - 1] as string, ids[i] as string) >= 0) {
+      return err({
+        code: "MALFORMED_FILE",
+        file: "hierarchy.json",
+        detail: `ids are not strictly ascending at ${String(ids[i])}`,
+      });
+    }
+  }
+  if (!isRef(hierarchyDoc.root, ids.length)) {
+    return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: `root ${String(hierarchyDoc.root)} is not a node` });
+  }
+  const nodeIds = ids as NodeId[];
+  const repositoryId = nodeIds[hierarchyDoc.root] as NodeId;
   const nodes = new Map<NodeId, HierarchyNode>();
-  for (const entry of hierarchyDoc.nodes as unknown[]) {
-    if (!isRecord(entry)) {
-      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "node entry is not an object" });
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const id = nodeIds[i] as NodeId;
+    if (!Array.isArray(row) || row.length !== 4) {
+      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: `node row ${i} (${id}) is not a four-field row` });
     }
+    const [kindCode, level, parent, children] = row as unknown[];
     if (
-      typeof entry.id !== "string" ||
-      typeof entry.kind !== "string" ||
-      typeof entry.level !== "number" ||
-      !Number.isInteger(entry.level) ||
-      (entry.parentId !== null && typeof entry.parentId !== "string") ||
-      !Array.isArray(entry.childIds) ||
-      !(entry.childIds as unknown[]).every((c) => typeof c === "string")
+      !isRef(kindCode, NODE_KIND_CODES.length) ||
+      typeof level !== "number" ||
+      !Number.isInteger(level) ||
+      !isOptionalRef(parent, nodeIds.length) ||
+      !Array.isArray(children) ||
+      !children.every((child) => isRef(child, nodeIds.length))
     ) {
-      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: "node entry missing a required field" });
-    }
-    if (!HIERARCHY_KINDS.has(entry.kind)) {
       return err({
         code: "MALFORMED_FILE",
         file: "hierarchy.json",
-        detail: `unknown node kind "${entry.kind}" on ${entry.id}`,
+        detail: `node row ${i} (${id}) has a missing or out-of-range field`,
       });
     }
-    if (entry.level < 0) {
+    if (level < 0) {
       return err({
         code: "MALFORMED_FILE",
         file: "hierarchy.json",
-        detail: `node ${entry.id} has a negative level ${entry.level}`,
+        detail: `node ${id} has a negative level ${level}`,
       });
     }
-    if (nodes.has(entry.id)) {
-      return err({ code: "MALFORMED_FILE", file: "hierarchy.json", detail: `duplicate node entry: ${entry.id}` });
-    }
-    nodes.set(entry.id, {
-      id: entry.id,
-      kind: entry.kind as HierarchyNode["kind"],
-      level: entry.level,
-      parentId: entry.parentId as NodeId | null,
-      childIds: entry.childIds as NodeId[],
+    nodes.set(id, {
+      id,
+      kind: NODE_KIND_CODES[kindCode] as HierarchyNode["kind"],
+      level,
+      parentId: parent === ABSENT ? null : (nodeIds[parent as number] as NodeId),
+      childIds: (children as number[]).map((child) => nodeIds[child] as NodeId),
     });
   }
 
@@ -146,7 +199,7 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   // monotonicity all fall out of one BFS, so this is a single pass rather than
   // four separate checks.
   const roots = [...nodes.values()].filter((node) => node.parentId === null);
-  if (roots.length !== 1 || roots[0]!.id !== hierarchyDoc.repositoryId) {
+  if (roots.length !== 1 || roots[0]!.id !== repositoryId) {
     return err({
       code: "MALFORMED_FILE",
       file: "hierarchy.json",
@@ -154,8 +207,8 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     });
   }
 
-  const seen = new Set<NodeId>([hierarchyDoc.repositoryId]);
-  const queue: NodeId[] = [hierarchyDoc.repositoryId];
+  const seen = new Set<NodeId>([repositoryId]);
+  const queue: NodeId[] = [repositoryId];
   while (queue.length > 0) {
     const node = nodes.get(queue.shift()!)!;
     const childIds = node.childIds;
@@ -203,128 +256,126 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   }
 
   // --- nodes.json → leaf attributes ----------------------------------------
-  const nodesDoc = raw["nodes.json"] as { nodes?: unknown };
-  if (!Array.isArray(nodesDoc?.nodes)) {
-    return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "missing nodes" });
+  const nodesDoc = raw["nodes.json"] as { strings?: unknown; nodes?: unknown };
+  if (!Array.isArray(nodesDoc.strings) || !Array.isArray(nodesDoc.nodes)) {
+    return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "missing strings or nodes" });
   }
-  if ((nodesDoc.nodes as unknown[]).length !== nodes.size) {
+  const strings = nodesDoc.strings as unknown[];
+  if (!strings.every((value) => typeof value === "string")) {
+    return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "the string table holds a non-string" });
+  }
+  const attributeRows = nodesDoc.nodes as unknown[];
+  if (attributeRows.length !== nodes.size) {
     return err({
       code: "MALFORMED_FILE",
       file: "nodes.json",
-      detail: `node count ${(nodesDoc.nodes as unknown[]).length} does not match hierarchy.json (${nodes.size})`,
+      detail: `node count ${attributeRows.length} does not match hierarchy.json (${nodes.size})`,
     });
   }
   const leafAttributes = new Map<NodeId, GraphNode>();
-  const seenNodeEntries = new Set<NodeId>();
-  for (const entry of nodesDoc.nodes as unknown[]) {
-    if (!isRecord(entry)) {
-      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "node entry is not an object" });
+  for (let i = 0; i < attributeRows.length; i++) {
+    const row = attributeRows[i];
+    const id = nodeIds[i] as NodeId;
+    if (!Array.isArray(row) || row.length !== 5) {
+      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: `row ${i} (${id}) is not a five-field row` });
     }
-    if (typeof entry.id !== "string" || typeof entry.kind !== "string") {
-      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: "node entry missing a required field" });
-    }
-    if (!HIERARCHY_KINDS.has(entry.kind)) {
+    const [regionPosition, ordinal, packagePosition, directoryPosition, definedInFilePosition] = row as unknown[];
+    if (
+      !isOptionalRef(regionPosition, strings.length) ||
+      !isOptionalRef(packagePosition, strings.length) ||
+      !isOptionalRef(directoryPosition, strings.length) ||
+      !isOptionalRef(definedInFilePosition, nodeIds.length) ||
+      !Number.isInteger(ordinal) ||
+      (ordinal as number) < ABSENT
+    ) {
       return err({
         code: "MALFORMED_FILE",
         file: "nodes.json",
-        detail: `unknown node kind "${entry.kind}" on ${entry.id}`,
+        detail: `row ${i} (${id}) has a missing or out-of-range field`,
       });
     }
-    if (!nodes.has(entry.id)) {
-      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: `unknown node id ${entry.id}` });
-    }
-    if (seenNodeEntries.has(entry.id)) {
-      return err({ code: "MALFORMED_FILE", file: "nodes.json", detail: `duplicate node entry: ${entry.id}` });
-    }
-    seenNodeEntries.add(entry.id);
+    const node = nodes.get(id)!;
 
-    // Region provenance is optional (Gap 12): indexes written before these
-    // fields existed must still parse.
-    if (entry.regionId !== undefined || entry.ordinal !== undefined) {
-      if (typeof entry.regionId !== "string" || !Number.isInteger(entry.ordinal)) {
+    // Region provenance is optional (Gap 12), and the two halves go together.
+    if (regionPosition !== ABSENT || ordinal !== ABSENT) {
+      if (regionPosition === ABSENT || ordinal === ABSENT) {
         return err({
           code: "MALFORMED_FILE",
           file: "nodes.json",
-          detail: `node ${entry.id} carries incomplete region provenance (regionId and ordinal go together)`,
+          detail: `node ${id} carries incomplete region provenance (regionId and ordinal go together)`,
         });
       }
-      const node = nodes.get(entry.id)!;
-      node.regionId = entry.regionId;
-      node.ordinal = entry.ordinal as number;
+      node.regionId = strings[regionPosition as number] as string;
+      node.ordinal = ordinal as number;
     }
 
-    if (entry.kind === "file" || entry.kind === "class" || entry.kind === "function") {
-      leafAttributes.set(entry.id, {
-        id: entry.id,
-        kind: entry.kind,
-        ...(typeof entry.packagePath === "string" ? { packagePath: entry.packagePath } : {}),
-        directoryPath: typeof entry.directoryPath === "string" ? entry.directoryPath : "",
-        ...(typeof entry.definedInFile === "string" ? { definedInFile: entry.definedInFile } : {}),
+    if (node.kind === "file" || node.kind === "class" || node.kind === "function") {
+      leafAttributes.set(id, {
+        id,
+        kind: node.kind,
+        ...(packagePosition !== ABSENT ? { packagePath: strings[packagePosition as number] as string } : {}),
+        directoryPath: directoryPosition !== ABSENT ? (strings[directoryPosition as number] as string) : "",
+        ...(definedInFilePosition !== ABSENT ? { definedInFile: nodeIds[definedInFilePosition as number] as NodeId } : {}),
       });
     }
   }
 
   // --- edges.json -----------------------------------------------------------
-  const edgesDoc = raw["edges.json"] as { leafEdges?: unknown; crossGroupEdges?: unknown };
-  if (!Array.isArray(edgesDoc?.leafEdges) || !Array.isArray(edgesDoc.crossGroupEdges)) {
-    return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "missing leafEdges or crossGroupEdges" });
+  const edgesDoc = raw["edges.json"] as { leaf?: unknown; cross?: unknown };
+  if (!Array.isArray(edgesDoc.leaf) || !Array.isArray(edgesDoc.cross)) {
+    return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "missing leaf or cross" });
   }
   const leafEdges: Hierarchy["leafEdges"] = [];
-  for (const entry of edgesDoc.leafEdges as unknown[]) {
-    if (!isRecord(entry)) {
-      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "leaf edge entry is not an object" });
+  for (const entry of edgesDoc.leaf as unknown[]) {
+    if (!Array.isArray(entry) || entry.length !== 6) {
+      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "leaf edge is not a six-field row" });
     }
+    const [source, target, importFrequency, methodCallFrequency, sharedTypeCount, strength] = entry as unknown[];
     if (
-      typeof entry.source !== "string" ||
-      typeof entry.target !== "string" ||
-      typeof entry.importFrequency !== "number" ||
-      typeof entry.methodCallFrequency !== "number" ||
-      typeof entry.sharedTypeCount !== "number" ||
-      typeof entry.strength !== "number"
+      typeof importFrequency !== "number" ||
+      typeof methodCallFrequency !== "number" ||
+      typeof sharedTypeCount !== "number" ||
+      typeof strength !== "number"
     ) {
       return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "leaf edge missing a required field" });
     }
-    if (!nodes.has(entry.source) || !nodes.has(entry.target)) {
+    if (!isRef(source, nodeIds.length) || !isRef(target, nodeIds.length)) {
       return err({
         code: "MALFORMED_FILE",
         file: "edges.json",
-        detail: `leaf edge references an unknown node: ${entry.source} -> ${entry.target}`,
+        detail: `leaf edge references an unknown node: ${String(source)} -> ${String(target)}`,
       });
     }
     leafEdges.push({
-      source: entry.source,
-      target: entry.target,
-      importFrequency: entry.importFrequency,
-      methodCallFrequency: entry.methodCallFrequency,
-      sharedTypeCount: entry.sharedTypeCount,
-      strength: entry.strength,
+      source: nodeIds[source] as NodeId,
+      target: nodeIds[target] as NodeId,
+      importFrequency,
+      methodCallFrequency,
+      sharedTypeCount,
+      strength,
     });
   }
   const crossGroupEdges: CrossGroupEdge[] = [];
-  for (const entry of edgesDoc.crossGroupEdges as unknown[]) {
-    if (!isRecord(entry)) {
-      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "cross-group edge entry is not an object" });
+  for (const entry of edgesDoc.cross as unknown[]) {
+    if (!Array.isArray(entry) || entry.length !== 4) {
+      return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "cross-group edge is not a four-field row" });
     }
-    if (
-      typeof entry.source !== "string" ||
-      typeof entry.target !== "string" ||
-      typeof entry.level !== "number" ||
-      typeof entry.weight !== "number"
-    ) {
+    const [source, target, level, weight] = entry as unknown[];
+    if (typeof level !== "number" || typeof weight !== "number") {
       return err({ code: "MALFORMED_FILE", file: "edges.json", detail: "cross-group edge missing a required field" });
     }
-    if (!nodes.has(entry.source) || !nodes.has(entry.target)) {
+    if (!isRef(source, nodeIds.length) || !isRef(target, nodeIds.length)) {
       return err({
         code: "MALFORMED_FILE",
         file: "edges.json",
-        detail: `cross-group edge references an unknown node: ${entry.source} -> ${entry.target}`,
+        detail: `cross-group edge references an unknown node: ${String(source)} -> ${String(target)}`,
       });
     }
     crossGroupEdges.push({
-      source: entry.source,
-      target: entry.target,
-      level: entry.level,
-      weight: entry.weight,
+      source: nodeIds[source] as NodeId,
+      target: nodeIds[target] as NodeId,
+      level,
+      weight,
     });
   }
 
@@ -345,7 +396,7 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       detail: `hierarchyDepth must be a non-negative integer, got ${repositoryDoc.hierarchyDepth}`,
     });
   }
-  if (repositoryDoc.repositoryId !== hierarchyDoc.repositoryId) {
+  if (repositoryDoc.repositoryId !== repositoryId) {
     return err({
       code: "MALFORMED_FILE",
       file: "repository.json",
@@ -353,10 +404,12 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
     });
   }
 
-  const metadata = raw["metadata.json"] as Metadata;
-  if (!isRecord(metadata)) {
+  const metadataDoc = raw["metadata.json"];
+  if (!isRecord(metadataDoc)) {
     return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "document is not an object" });
   }
+  const { formatVersion: _formatVersion, ...metadataFields } = metadataDoc;
+  const metadata = metadataFields as unknown as Metadata;
   if (
     typeof metadata?.structuralQualityBoundary !== "number" ||
     typeof metadata.cohesionSquashConstant !== "number" ||
@@ -391,23 +444,27 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       return err({ code: "MALFORMED_FILE", file: "metadata.json", detail: "region decision missing a required field" });
     }
     if (decision["groupIds"] !== undefined) {
-      const groupIds = decision["groupIds"];
-      if (!Array.isArray(groupIds) || !groupIds.every((id) => typeof id === "string")) {
+      const groupRefs = decision["groupIds"];
+      if (!Array.isArray(groupRefs) || !groupRefs.every((position) => Number.isInteger(position))) {
         return err({
           code: "MALFORMED_FILE",
           file: "metadata.json",
           detail: `region decision ${String(decision["regionId"])} has a malformed groupIds array`,
         });
       }
-      for (const groupId of groupIds as string[]) {
-        if (!nodes.has(groupId)) {
+      const resolved: NodeId[] = [];
+      for (const position of groupRefs as number[]) {
+        if (!isRef(position, nodeIds.length)) {
           return err({
             code: "MALFORMED_FILE",
             file: "metadata.json",
-            detail: `region decision ${String(decision["regionId"])} names an unknown group ${groupId}`,
+            detail: `region decision ${String(decision["regionId"])} names an unknown group (position ${position})`,
           });
         }
+        resolved.push(nodeIds[position] as NodeId);
       }
+      // Back to ids: the in-memory Metadata names groups by id.
+      decision["groupIds"] = resolved;
     }
   }
   for (const level of metadata.perLevel as unknown as unknown[]) {
@@ -505,7 +562,7 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
 
   return ok({
     hierarchy: {
-      repositoryId: hierarchyDoc.repositoryId,
+      repositoryId: repositoryId,
       nodes,
       leafAttributes,
       leafEdges,

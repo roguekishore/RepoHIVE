@@ -10,7 +10,7 @@
 import { createHash } from "node:crypto";
 import { statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { stableStringify } from "./canonical.js";
+import { compactStringify } from "./canonical.js";
 import { describeError } from "./errors.js";
 import { INDEX_FILE_NAMES, indexFilePayloads } from "./index-serializer.js";
 import { groupGraph, readGraphFile } from "./orchestrator.js";
@@ -67,7 +67,7 @@ for (let i = 0; i < runs; i++) {
   const hash = createHash("sha256");
   for (const name of INDEX_FILE_NAMES) {
     hash.update(name, "utf8");
-    hash.update(stableStringify(payloads[name]), "utf8");
+    hash.update(compactStringify(payloads[name]), "utf8");
   }
   digests.push(hash.digest("hex"));
   summary = {

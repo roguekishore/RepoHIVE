@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join, relative, sep } from "node:path";
 
-import { INDEX_FILE_NAMES } from "@repohive/core";
+import { INDEX_FILE_NAMES, parseIndex } from "@repohive/core";
 
 import {
   defaultEngineDeps,
@@ -46,11 +46,13 @@ const SKIP_REASON =
  * Recorded digests for this fixture (docs/engineering/verification.md):
  * - group: SHA-256 over the five index payloads, name + content in
  *   INDEX_FILE_NAMES order, exactly as core's demo-group-determinism computes
- *   it. Last confirmed 2026-08-22 (3 runs identical; 4 regions, 38 nodes,
- *   depth 4).
+ *   it (4 regions, 38 nodes, depth 4). Re-baselined for the compact
+ *   index format (version 1); the previous value, for the pretty-printed format,
+ *   was f30c7b3d…. The format change moved these bytes and nothing else: the
+ *   logical digest of the parsed index is the same before and after.
  * - parse: SHA-256 over the raw bytes of graph.json. Recorded 2026-08-16.
  */
-const RECORDED_GROUP_DIGEST = "f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3";
+const RECORDED_GROUP_DIGEST = "dd475c2ac4482905386c6eaeb494145d48c0b0dff552e338c310a1f29fa65b2f";
 const RECORDED_PARSE_DIGEST = "a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc";
 
 /** The demo-equivalent grouping digest: name + file bytes, in contract order. */
@@ -352,10 +354,9 @@ test("writeGraph false never creates graph.json and writes a byte-identical inde
     // The in-memory grouping output describes the index that was written.
     assert.equal(off.value.groupingOutput.metadata.regionDecisions.length, off.value.regionCount);
     assert.equal(off.value.groupingOutput.hierarchy.depth, off.value.hierarchyDepth);
-    assert.deepEqual(
-      JSON.parse(readFileSync(join(off.value.indexDirectory, "metadata.json"), "utf8")),
-      JSON.parse(JSON.stringify(off.value.groupingOutput.metadata)),
-    );
+    const reread = parseIndex(off.value.indexDirectory);
+    assert(reread.ok, `the written index parses: ${JSON.stringify(reread)}`);
+    assert.deepEqual(reread.value.metadata, JSON.parse(JSON.stringify(off.value.groupingOutput.metadata)));
   } finally {
     rmSync(withGraph, { recursive: true, force: true });
     rmSync(withoutGraph, { recursive: true, force: true });
