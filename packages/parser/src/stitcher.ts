@@ -62,7 +62,7 @@
  * This module is pure and side-effect free.
  */
 
-import type { DependencyEdge, GraphNode, NodeId } from "@repohive/shared";
+import type { DependencyEdge, GraphNode, NodeId, NodeKind } from "@repohive/shared";
 import type { CrossScopeAmbiguity, RawReference } from "./types.js";
 import type { SymbolTable } from "./symbol-table.js";
 import { deriveSourceRoot } from "./source-root.js";
@@ -101,6 +101,11 @@ export interface Stitcher {
    *   to reject `function`-endpoint edges (R5.2, R5.5).
    * @param references the flat list of unresolved references from extraction.
    * @param symbols the symbol table built from `nodes` (R4).
+   * @param onAmbiguity notified of each cross-source-root ambiguity.
+   * @param knownKinds what kind of node an id is, for ids not in `nodes`. Lets a
+   *   caller stitch a subset of the files (a worker stitching its own) while the
+   *   symbol table, which spans every file, supplies the targets' kinds. Omitted
+   *   when `nodes` is the whole node set.
    * @returns the de-duplicated {@link DependencyEdge}s (unordered; the
    *   serializer applies canonical ordering).
    */
@@ -109,8 +114,12 @@ export interface Stitcher {
     references: RawReference[],
     symbols: SymbolTable,
     onAmbiguity?: AmbiguitySink,
+    knownKinds?: KindLookup,
   ): DependencyEdge[];
 }
+
+/** What kind of node an id is, or `undefined` when there is no such node. */
+export type KindLookup = (id: NodeId) => NodeKind | undefined;
 
 /** Build the edge key for an ordered `(source, target)` pair. */
 function edgeKey(source: NodeId, target: NodeId): string {
@@ -154,6 +163,7 @@ function enclosingClassIdOf(functionId: NodeId): NodeId {
 function resolveEndpoints(
   reference: RawReference,
   nodesById: Map<NodeId, GraphNode>,
+  kindOf: KindLookup,
   symbols: SymbolTable,
   singleTypeImports: Map<string, string>,
   wildcardPackages: readonly string[],
@@ -226,10 +236,10 @@ function resolveEndpoints(
     return null;
   }
 
-  let targetNode = nodesById.get(target);
+  const targetKind = kindOf(target);
   // Defensive: symbol-table ids are drawn from the node set, but guard anyway
   // so no dangling endpoint can ever be emitted (R5.5).
-  if (targetNode === undefined) {
+  if (targetKind === undefined) {
     return null;
   }
 
@@ -238,15 +248,13 @@ function resolveEndpoints(
   // maps UP to its enclosing class (Fix 10 — Gap 8): R5.2 forbids a function
   // *endpoint*, not the dependency itself. The referencing file genuinely
   // depends on the class that declares the imported member.
-  if (targetNode.kind === "function") {
+  if (targetKind === "function") {
     const classId = enclosingClassIdOf(target);
-    const classNode = nodesById.get(classId);
-    if (classNode === undefined) {
+    if (kindOf(classId) === undefined) {
       // The enclosing class is not in the graph; drop rather than dangle (R5.5).
       return null;
     }
     target = classId;
-    targetNode = classNode;
   }
 
   // A `function` *source* endpoint is still dropped (R5.2); sources are files in
@@ -276,11 +284,13 @@ export function stitch(
   references: RawReference[],
   symbols: SymbolTable,
   onAmbiguity?: AmbiguitySink,
+  knownKinds?: KindLookup,
 ): DependencyEdge[] {
   const nodesById = new Map<NodeId, GraphNode>();
   for (const node of nodes) {
     nodesById.set(node.id, node);
   }
+  const kindOf: KindLookup = (id) => nodesById.get(id)?.kind ?? knownKinds?.(id);
 
   // -------------------------------------------------------------------------
   // Gap 1c: pre-pass — build a per-file import index so simple type names can
@@ -383,6 +393,7 @@ export function stitch(
     const endpoints = resolveEndpoints(
       reference,
       nodesById,
+      kindOf,
       symbols,
       importIdx.singleTypeImports,
       importIdx.wildcardPackages,
