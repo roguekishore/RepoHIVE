@@ -98,7 +98,7 @@ Run from the repo root.
 
 | Command | Effect |
 |---------|--------|
-| `npm run build` | `tsc -b packages/parser packages/core packages/engine` |
+| `npm run build` | `tsc -b packages/parser packages/core packages/engine packages/views packages/indexer` |
 | `npm run typecheck` | **identical to `build`**, see below |
 | `npm test` | `npm run test --workspaces --if-present` |
 | `npm run parse -- <dir>` | parse a Java tree → `graph.json` |
@@ -107,8 +107,8 @@ Run from the repo root.
 | `npm run demo:baselines` | baseline comparison output |
 | `npm run dev --workspace @repohive/web` | viewer on port 3000 (long-running; start it yourself) |
 
-**The root `typecheck` script is not a no-emit check.** It is `tsc -b packages/parser packages/core packages/engine`,
-byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per package, under two
+**The root `typecheck` script is not a no-emit check.** It is
+`tsc -b packages/parser packages/core packages/engine packages/views packages/indexer`, byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per package, under two
 different names: `typecheck` (`tsc --noEmit`) in `shared`, `parser`, and `core`, but `type-check` in
 `api-client`, `types`, `ui`, and `web`. There is no root script that runs the second group.
 
