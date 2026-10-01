@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/parser packages/core packages/engine packages/views packages/indexer",
-    "typecheck": "tsc -b packages/parser packages/core packages/engine packages/views packages/indexer",
+    "build": "tsc -b packages/parser packages/core packages/engine packages/views packages/indexer && node packages/views/scripts/write-views-version.mjs",
+    "typecheck": "tsc -b packages/parser packages/core packages/engine packages/views packages/indexer && node packages/views/scripts/write-views-version.mjs",
     "parse": "npm run parse --workspace @repohive/parser --",
     "group": "npm run group --workspace @repohive/core --",
     "demo:group-determinism": "npm run demo:group-determinism --workspace @repohive/core --",
