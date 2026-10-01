@@ -153,6 +153,53 @@ export function stableStringify(value: unknown): string {
   return `${render(value, "")}\n`;
 }
 
+/**
+ * The same text as {@link stableStringify}, as a lazy sequence of pieces whose
+ * concatenation equals it exactly, so a writer never has to hold the whole
+ * artifact as one string.
+ *
+ * Objects and arrays are walked here; each array *element* is rendered whole by
+ * {@link render} and yielded as one piece. That bounds a piece by one element's
+ * rendering, which is the unit the chunk-size rule allows to be large. Wrap the
+ * result in `coalesceChunks` from `@repohive/shared` to get write-sized chunks.
+ * Restartable: each call renders from the start, so a caller can make one pass
+ * to hash and a second to write.
+ */
+export function* stableStringifyPieces(value: unknown): Generator<string, void, undefined> {
+  yield* renderPieces(value, "");
+  yield "\n";
+}
+
+function* renderPieces(value: unknown, indent: string): Generator<string, void, undefined> {
+  const childIndent = indent + INDENT_UNIT;
+  if (Array.isArray(value) && value.length > 0) {
+    yield "[\n";
+    for (let i = 0; i < value.length; i += 1) {
+      const element: unknown = value[i];
+      yield `${i === 0 ? "" : ",\n"}${childIndent}${render(element === undefined ? null : element, childIndent)}`;
+    }
+    yield `\n${indent}]`;
+    return;
+  }
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => compareIds(a, b));
+    if (entries.length > 0) {
+      yield "{\n";
+      for (let i = 0; i < entries.length; i += 1) {
+        const [key, member] = entries[i] as [string, unknown];
+        yield `${i === 0 ? "" : ",\n"}${childIndent}${JSON.stringify(key)}: `;
+        yield* renderPieces(member, childIndent);
+      }
+      yield `\n${indent}}`;
+      return;
+    }
+  }
+  // Scalars, empty containers, and anything unsupported (which `render` rejects).
+  yield render(value, indent);
+}
+
 function render(value: unknown, indent: string): string {
   if (typeof value === "number") {
     // `JSON.stringify` renders NaN and ±Infinity as `null`, which is how a NaN

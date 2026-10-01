@@ -40,6 +40,6 @@ export {
   type PartialGroupingConfig,
 } from "./orchestrator.js";
 export { describeError, err, ok, type GroupingError, type Result } from "./errors.js";
-export { compareEdgePairs, compareIds, sortByIds, sortEdges, sortIds, stableStringify } from "./canonical.js";
+export { compareEdgePairs, compareIds, sortByIds, sortEdges, sortIds, stableStringify, stableStringifyPieces } from "./canonical.js";
 export { groupIdOf, repositoryIdOf } from "./group-id.js";
 export type * from "./types.js";
