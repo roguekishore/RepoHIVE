@@ -208,7 +208,7 @@ function internalError(cause: unknown): Result<never> {
  * record serializes deterministically — `stableStringify` sorts object keys, but
  * a Map would stringify to `{}`.
  */
-function runConfigurationOf(config: GroupingConfig): RunConfiguration {
+export function runConfigurationOf(config: GroupingConfig): RunConfiguration {
   const overrides: Record<string, Action> = {};
   for (const regionId of sortIds([...(config.overrides?.keys() ?? [])])) {
     overrides[regionId] = config.overrides!.get(regionId)!;

@@ -45,6 +45,7 @@ export {
   groupGraphToIndexAsync,
   readGraphFile,
   resolveConfig,
+  runConfigurationOf,
   type GroupingConfig,
   type GroupingOutput,
   type GroupingProgressEvent,
