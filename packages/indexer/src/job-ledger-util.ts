@@ -90,3 +90,27 @@ export function toJobRecord(stored: StoredJob): JobRecord {
   const { lastProgressWriteMs: _ignored, ...record } = stored;
   return record;
 }
+
+export function listJobsEndedSinceFromRecords(
+  records: Iterable<StoredJob>,
+  sinceIso: string,
+): readonly JobRecord[] {
+  const sinceMs = Date.parse(sinceIso);
+  if (!Number.isFinite(sinceMs)) {
+    throw new RangeError(`listJobsEndedSince: invalid since timestamp: ${JSON.stringify(sinceIso)}`);
+  }
+  const ended: JobRecord[] = [];
+  for (const stored of records) {
+    const endedAt = stored.endedAt;
+    if (endedAt === undefined) {
+      continue;
+    }
+    const endedMs = Date.parse(endedAt);
+    if (!Number.isFinite(endedMs) || endedMs <= sinceMs) {
+      continue;
+    }
+    ended.push(toJobRecord(stored));
+  }
+  ended.sort((a, b) => Date.parse(a.endedAt!) - Date.parse(b.endedAt!));
+  return ended;
+}

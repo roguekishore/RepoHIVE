@@ -75,5 +75,6 @@ export function createFileJobLedger(options: FileJobLedgerOptions): JobLedger {
     finish: (jobId, end) => withStore((l) => l.finish(jobId, end)),
     acquireLargeSlot: (jobId, leaseUntilMs) => withStore((l) => l.acquireLargeSlot(jobId, leaseUntilMs)),
     releaseLargeSlot: (jobId) => withStore((l) => l.releaseLargeSlot(jobId)),
+    listJobsEndedSince: (sinceIso) => withStore((l) => l.listJobsEndedSince(sinceIso)),
   };
 }

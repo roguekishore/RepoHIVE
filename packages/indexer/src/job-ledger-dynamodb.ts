@@ -6,6 +6,7 @@ import {
   DynamoDBClient,
   GetItemCommand,
   PutItemCommand,
+  ScanCommand,
   UpdateItemCommand,
   type AttributeValue,
 } from "@aws-sdk/client-dynamodb";
@@ -22,6 +23,7 @@ import {
   LARGE_SLOT_PK,
   applyJobEnd,
   jobPk,
+  listJobsEndedSinceFromRecords,
   newJobRecord,
   repoPk,
   withProgress,
@@ -395,6 +397,29 @@ export function createDynamoDbJobLedger(
       } catch {
         // Nothing to release.
       }
+    },
+
+    async listJobsEndedSince(sinceIso: string): Promise<readonly JobRecord[]> {
+      const jobs: StoredJob[] = [];
+      let exclusiveStartKey: Record<string, AttributeValue> | undefined;
+      do {
+        const page = await client.send(
+          new ScanCommand({
+            TableName: tableName,
+            ExclusiveStartKey: exclusiveStartKey,
+            FilterExpression: "begins_with(pk, :jobPrefix) AND attribute_exists(endedAt) AND endedAt > :since",
+            ExpressionAttributeValues: {
+              ":jobPrefix": s("JOB#"),
+              ":since": s(sinceIso),
+            },
+          }),
+        );
+        for (const item of page.Items ?? []) {
+          jobs.push(itemToStoredJob(item));
+        }
+        exclusiveStartKey = page.LastEvaluatedKey;
+      } while (exclusiveStartKey !== undefined);
+      return listJobsEndedSinceFromRecords(jobs, sinceIso);
     },
   };
 }
