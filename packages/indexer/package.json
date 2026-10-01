@@ -1,0 +1,29 @@
+{
+  "name": "@repohive/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RepoHIVE hosted indexing job: a GitHub repository in, an immutable published snapshot out.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/run-node-tests.mjs"
+  },
+  "dependencies": {
+    "@repohive/core": "0.0.0",
+    "@repohive/engine": "0.0.0",
+    "@repohive/views": "0.0.0"
+  },
+  "license": "AGPL-3.0-or-later"
+}
