@@ -104,11 +104,15 @@ export interface GraphSerializer {
    * Serialize `nodes`/`edges` to a canonical `graph.json` at `outputPath`,
    * writing atomically. `outputPath` is the full path to the target file; the
    * temp file is created in the same directory.
+   *
+   * With `outputPath` undefined nothing is written and no path is reported: the
+   * graph is still validated, swept and sorted, and handed back in
+   * {@link ParseSuccess.graph}, exactly as it would have been written.
    */
   write(
     nodes: GraphNode[],
     edges: DependencyEdge[],
-    outputPath: string,
+    outputPath: string | undefined,
   ): Promise<Result<ParseSuccess, ParseError>>;
 }
 
@@ -294,6 +298,15 @@ export function createGraphSerializer(
       // input order); on already-sorted input that is a no-op.
       const canonical = sortGraphCanonically(graph);
 
+      // No file requested: the document is the in-memory handoff alone.
+      if (outputPath === undefined) {
+        return ok<ParseSuccess, ParseError>({
+          nodeCount: canonical.nodes.length,
+          edgeCount: canonical.edges.length,
+          graph: canonical,
+        });
+      }
+
       // Temp file lives in the SAME directory as the target so the final
       // `rename` is an atomic same-filesystem move (R8, R10.6).
       const tempPath = `${outputPath}.tmp`;
@@ -350,7 +363,7 @@ export function createGraphSerializer(
 export function writeGraph(
   nodes: GraphNode[],
   edges: DependencyEdge[],
-  outputPath: string,
+  outputPath: string | undefined,
   deps: SerializerDeps = defaultDeps,
   onDiagnostic: DiagnosticSink = noopDiagnostics,
 ): Promise<Result<ParseSuccess, ParseError>> {

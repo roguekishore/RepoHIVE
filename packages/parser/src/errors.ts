@@ -61,8 +61,12 @@ export interface ParseError {
 
 /** Structure returned on a successful parse run. */
 export interface ParseSuccess {
-  /** Absolute path to the written `graph.json`. */
-  outputPath: string;
+  /**
+   * Absolute path to the written `graph.json`. Absent when the run was asked
+   * not to write one (`ParseOptions.writeGraph: false`); the graph is then only
+   * in {@link ParseSuccess.graph}.
+   */
+  outputPath?: string;
   /** Number of nodes written. */
   nodeCount: number;
   /** Number of edges written. */
