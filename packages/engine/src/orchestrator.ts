@@ -43,11 +43,13 @@ import { performance } from "node:perf_hooks";
 
 import type { RawDependencyGraph } from "@repohive/shared";
 import {
+  findInvalidSourceEntry,
   parseProject,
   type ParseError,
   type ParseOptions,
   type ParseSuccess,
   type Result as ParseResult,
+  type SourceEntry,
 } from "@repohive/parser";
 import {
   groupGraphToIndex,
@@ -91,25 +93,41 @@ export interface EngineProgressEvent {
 /**
  * Options for {@link indexProject}.
  *
- * Source seam note: `projectDirectory` is the sole v1 source, matching the
- * parser's own `ParseOptions`. Cloud sources land additively — this field
- * relaxes to optional and a discriminated `source` union field is added beside
- * it, with exactly-one-of validated at run time — so existing callers keep
- * compiling and behaving unchanged. Options interfaces here are only ever
- * constructed by callers (never implemented), which is what makes that
- * relaxation non-breaking.
+ * Exactly one source is given: `projectDirectory` (a directory on disk) or
+ * `source` (the same files as in-memory entries). Both or neither is an
+ * `INVALID_OPTIONS` failure before any work starts. Options interfaces here are
+ * only ever constructed by callers (never implemented), which is what made
+ * relaxing `projectDirectory` to optional non-breaking.
  */
 export interface EngineOptions {
   /**
    * Path to the local Java project directory to index. A relative path
-   * resolves against the process working directory.
+   * resolves against the process working directory. Give this or `source`.
    */
-  projectDirectory: string;
+  projectDirectory?: string;
+  /**
+   * The Java sources as in-memory entries (`{ path, bytes }`, the path relative
+   * to the source root, POSIX style), instead of a directory. Give this or
+   * `projectDirectory`.
+   *
+   * Entries go through the same selection policy as a directory walk (excluded
+   * directories, case-sensitive `.java`, node-id representability, byte-wise
+   * order) and are decoded as a file read decodes them, so the same tree gives
+   * byte-identical output either way. A caller can drop entries the policy
+   * would drop with `isSelectedSourcePath` before handing them over. No source
+   * file is read from disk, and `concurrency` has no effect.
+   *
+   * A path that is absolute, has an empty, `.` or `..` segment, uses `\`, or
+   * repeats another entry's is an `INVALID_OPTIONS` failure before any work.
+   * With a memory source there is no directory to default the output root from,
+   * so `outputDirectory` is required.
+   */
+  source?: readonly SourceEntry[];
   /**
    * Output root for both artifacts: `graph.json` and `index/` are written
-   * inside it. Defaults to `<projectDirectory>/.repohive`. A blank or
-   * whitespace-only value means unset (same convention as the parser's
-   * `outputPath`).
+   * inside it. Defaults to `<projectDirectory>/.repohive`; required with a
+   * memory `source`. A blank or whitespace-only value means unset (same
+   * convention as the parser's `outputPath`).
    */
   outputDirectory?: string;
   /**
@@ -240,12 +258,19 @@ export function defaultEngineDeps(): EngineDeps {
  * relative paths against the process working directory (standard library
  * behavior; the packaged CLI passes absolute paths).
  */
-function resolveOutputRoot(options: EngineOptions): string {
+function resolveOutputRoot(options: EngineOptions, projectDirectory: string | undefined): string | undefined {
   const custom = options.outputDirectory;
   if (custom !== undefined && custom.trim().length > 0) {
     return path.resolve(custom);
   }
-  return path.resolve(options.projectDirectory, DEFAULT_OUTPUT_DIRECTORY_NAME);
+  return projectDirectory === undefined
+    ? undefined
+    : path.resolve(projectDirectory, DEFAULT_OUTPUT_DIRECTORY_NAME);
+}
+
+/** An `INVALID_OPTIONS` failure for one field. */
+function invalidOptions(field: string, detail: string): EngineResult {
+  return { ok: false, stage: "engine", error: { code: "INVALID_OPTIONS", field, detail } };
 }
 
 /** `{ graphPath }` when a graph was written, otherwise nothing (the field is absent, not undefined). */
@@ -303,6 +328,25 @@ async function indexProjectUnguarded(
   const startedAt = deps.now();
 
   // 1. Engine-level option validation, before any side effect.
+  const hasDirectory = options.projectDirectory !== undefined;
+  const hasSource = options.source !== undefined;
+  if (hasDirectory === hasSource) {
+    return invalidOptions(
+      "source",
+      hasDirectory
+        ? "give either projectDirectory or source, not both"
+        : "give either projectDirectory or source; neither was given",
+    );
+  }
+  if (options.source !== undefined) {
+    const problem = findInvalidSourceEntry(options.source);
+    if (problem !== undefined) {
+      return invalidOptions(
+        "source",
+        `source entry ${problem.index}${problem.path !== undefined ? ` (${problem.path})` : ""}: ${problem.problem}`,
+      );
+    }
+  }
   if (options.concurrency !== undefined) {
     if (!Number.isSafeInteger(options.concurrency) || options.concurrency < 1) {
       return {
@@ -317,7 +361,10 @@ async function indexProjectUnguarded(
     }
   }
 
-  const outputRoot = resolveOutputRoot(options);
+  const outputRoot = resolveOutputRoot(options, options.projectDirectory);
+  if (outputRoot === undefined) {
+    return invalidOptions("outputDirectory", "outputDirectory is required when the source is given in memory");
+  }
   const graphPath = path.join(outputRoot, GRAPH_FILE_NAME);
   const indexDirectory = path.join(outputRoot, INDEX_DIRECTORY_NAME);
 
@@ -325,7 +372,7 @@ async function indexProjectUnguarded(
   //    `projectDirectory` is invalid the parser must get to report its
   //    canonical input error, and the engine must not fabricate directories
   //    under a path that is about to be rejected.
-  if (deps.isDirectory(options.projectDirectory)) {
+  if (options.projectDirectory === undefined || deps.isDirectory(options.projectDirectory)) {
     try {
       deps.ensureDirectory(outputRoot);
     } catch (cause) {
@@ -347,7 +394,9 @@ async function indexProjectUnguarded(
   const parseStartedAt = deps.now();
   const writeGraph = options.writeGraph !== false;
   const parsed = await deps.parse({
-    projectDirectory: options.projectDirectory,
+    ...(options.source !== undefined
+      ? { source: options.source }
+      : { projectDirectory: options.projectDirectory as string }),
     ...(writeGraph ? { outputPath: graphPath } : { writeGraph: false }),
     ...(options.excludedSegments !== undefined
       ? { excludedSegments: options.excludedSegments }

@@ -46,6 +46,11 @@ export type {
 // parseIndex) still import the stage package directly — that is allowed for
 // every consumer allowed to import this one.
 export type { ParseError, ParseErrorReason, ParseOptions, ParseSuccess } from "@repohive/parser";
+
+// In-memory source: the entry type, and the selection predicate a caller can use
+// to drop what the engine would drop before handing entries over.
+export { isSelectedSourcePath } from "@repohive/parser";
+export type { SourceEntry, SourceSelectionOptions } from "@repohive/parser";
 export type { GroupingError, GroupingOutput, PartialGroupingConfig } from "@repohive/core";
 export type {
   DependencyEdge,

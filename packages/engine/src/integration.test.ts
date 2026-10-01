@@ -18,17 +18,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import { INDEX_FILE_NAMES } from "@repohive/core";
 
 import {
   defaultEngineDeps,
   indexProject,
+  isSelectedSourcePath,
   type EngineProgressEvent,
+  type SourceEntry,
 } from "./index.js";
 
 /** Root-relative fixture location; the compiled test runs from `dist/`. */
@@ -353,5 +355,126 @@ test("writeGraph false never creates graph.json and writes a byte-identical inde
   } finally {
     rmSync(withGraph, { recursive: true, force: true });
     rmSync(withoutGraph, { recursive: true, force: true });
+  }
+});
+
+/** Every file under `root` as memory entries: non-Java files and excluded directories included. */
+function entriesOf(root: string): SourceEntry[] {
+  const entries: SourceEntry[] = [];
+  const walk = (dir: string): void => {
+    for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, dirent.name);
+      if (dirent.isDirectory()) {
+        walk(full);
+      } else if (dirent.isFile()) {
+        entries.push({
+          path: relative(root, full).split(sep).join("/"),
+          bytes: new Uint8Array(readFileSync(full)),
+        });
+      }
+    }
+  };
+  walk(root);
+  return entries;
+}
+
+/** Every artifact under an output root, name to bytes, so two runs can be compared whole. */
+function artifactsOf(outputDirectory: string): Map<string, Buffer> {
+  const out = new Map<string, Buffer>();
+  const walk = (dir: string): void => {
+    for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, dirent.name);
+      if (dirent.isDirectory()) {
+        walk(full);
+      } else {
+        out.set(relative(outputDirectory, full).split(sep).join("/"), readFileSync(full));
+      }
+    }
+  };
+  walk(outputDirectory);
+  return out;
+}
+
+function assertSameArtifacts(a: Map<string, Buffer>, b: Map<string, Buffer>): void {
+  assert.deepEqual([...a.keys()].sort(), [...b.keys()].sort(), "same set of files");
+  for (const [name, bytes] of a) {
+    assert(bytes.equals(b.get(name) as Buffer), `${name} is byte-identical`);
+  }
+}
+
+test("a memory source gives byte-identical output to the directory, for sample-java-project", async (t) => {
+  if (!FIXTURE_PRESENT) {
+    t.skip(SKIP_REASON);
+    return;
+  }
+  const fromDirectory = mkdtempSync(join(tmpdir(), "repohive-engine-dir-"));
+  const fromMemory = mkdtempSync(join(tmpdir(), "repohive-engine-mem-"));
+  try {
+    const dir = await indexProject({ projectDirectory: FIXTURE, outputDirectory: fromDirectory });
+    const mem = await indexProject({ source: entriesOf(FIXTURE), outputDirectory: fromMemory });
+    assert(dir.ok, JSON.stringify(dir));
+    assert(mem.ok, JSON.stringify(mem));
+
+    assertSameArtifacts(artifactsOf(fromDirectory), artifactsOf(fromMemory));
+    assert.equal(fileDigest(mem.value.graphPath!), RECORDED_PARSE_DIGEST);
+    assert.equal(indexDigest(mem.value.indexDirectory), RECORDED_GROUP_DIGEST);
+  } finally {
+    rmSync(fromDirectory, { recursive: true, force: true });
+    rmSync(fromMemory, { recursive: true, force: true });
+  }
+});
+
+test("a tree with a byte-order mark and entries the policy drops is byte-identical either way", async () => {
+  const root = mkdtempSync(join(tmpdir(), "repohive-engine-tree-"));
+  const fromDirectory = mkdtempSync(join(tmpdir(), "repohive-engine-dir-"));
+  const fromMemory = mkdtempSync(join(tmpdir(), "repohive-engine-mem-"));
+  try {
+    mkdirSync(join(root, "src", "com", "acme"), { recursive: true });
+    mkdirSync(join(root, "target", "classes"), { recursive: true });
+    writeFileSync(
+      join(root, "src", "com", "acme", "Main.java"),
+      Buffer.concat([
+        Buffer.from([0xef, 0xbb, 0xbf]),
+        Buffer.from("package com.acme;\nimport com.acme.Util;\npublic class Main { void run() { new Util().go(); } }\n"),
+      ]),
+    );
+    writeFileSync(join(root, "src", "com", "acme", "Util.java"), "package com.acme;\npublic class Util { public void go() {} }\n");
+    writeFileSync(join(root, "target", "classes", "Gen.java"), "class Gen {}\n");
+    writeFileSync(join(root, "NOTES.txt"), "not java\n");
+
+    const dir = await indexProject({ projectDirectory: root, outputDirectory: fromDirectory });
+    const mem = await indexProject({ source: entriesOf(root), outputDirectory: fromMemory });
+    assert(dir.ok, JSON.stringify(dir));
+    assert(mem.ok, JSON.stringify(mem));
+    assertSameArtifacts(artifactsOf(fromDirectory), artifactsOf(fromMemory));
+    assert.equal(mem.value.nodeCount, dir.value.nodeCount);
+    assert.equal(mem.value.edgeCount, dir.value.edgeCount);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(fromDirectory, { recursive: true, force: true });
+    rmSync(fromMemory, { recursive: true, force: true });
+  }
+});
+
+test("isSelectedSourcePath drops exactly what the engine drops", async () => {
+  const everything: SourceEntry[] = [
+    { path: "src/A.java", bytes: new TextEncoder().encode("public class A {}\n") },
+    { path: "build/B.java", bytes: new TextEncoder().encode("public class B {}\n") },
+    { path: "src/C.JAVA", bytes: new TextEncoder().encode("public class C {}\n") },
+    { path: "README.md", bytes: new TextEncoder().encode("hi\n") },
+  ];
+  const prefiltered = everything.filter((entry) => isSelectedSourcePath(entry.path));
+  assert.deepEqual(prefiltered.map((e) => e.path), ["src/A.java"]);
+
+  const all = mkdtempSync(join(tmpdir(), "repohive-engine-all-"));
+  const pre = mkdtempSync(join(tmpdir(), "repohive-engine-pre-"));
+  try {
+    const a = await indexProject({ source: everything, outputDirectory: all });
+    const b = await indexProject({ source: prefiltered, outputDirectory: pre });
+    assert(a.ok && b.ok);
+    assertSameArtifacts(artifactsOf(all), artifactsOf(pre));
+  } finally {
+    rmSync(all, { recursive: true, force: true });
+    rmSync(pre, { recursive: true, force: true });
   }
 });
