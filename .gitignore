@@ -62,3 +62,6 @@ fixtures/jsoup-src
 context/
 
 .agents/
+
+# Local-mode app data: SQLite, artifact store, ledger (hosting-3)
+.repohive-local/
