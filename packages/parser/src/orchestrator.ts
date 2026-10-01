@@ -154,6 +154,13 @@ export interface ParseOptions {
    * engine rejects it up front. Cannot change any output byte.
    */
   workers?: number;
+  /**
+   * Called while files are extracted, with how many have settled and how many
+   * were selected. Never decreases; the last call has `completed === total`.
+   * Not awaited and not throttled. Cannot change any output byte. A throw fails
+   * the parse as `internal-error`.
+   */
+  onProgress?: (completed: number, total: number) => void;
 }
 
 /**
@@ -373,6 +380,7 @@ async function parseProjectUnguarded(
     source,
     workers: resolveWorkers(options.workers),
     readConcurrency: resolveConcurrency(options.concurrency),
+    ...(options.onProgress !== undefined ? { onProgress: options.onProgress } : {}),
   });
   if (!extraction.ok) {
     return err([...errors.errors(), ...extraction.errors]);
