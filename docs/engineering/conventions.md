@@ -79,9 +79,9 @@ unprompted:** merges to `main`, tags, branch creation or deletion, pushes, rebas
 - Record only work that actually happened. Never fabricate progress, results, dates, or test counts.
 - Label estimates as estimates. Report measured numbers only when they were measured in this session or
   are cited from a recorded measurement, with the recording attributed.
-- "The command exited 0" is not evidence a task succeeded. Verify the actual output. The engine test
-  script is a live example: one of its two forms reports a single passing test and exits clean while
-  running almost nothing. See `docs/engineering/verification.md`.
+- "The command exited 0" is not evidence a task succeeded. Verify the actual output. The old engine test
+  script was a live example: one of its forms reported a single passing test and exited clean while
+  running almost nothing; every package now runs tests through the shared launcher. See `docs/engineering/verification.md`.
 - If something could not be verified, say so explicitly. Never promote an unverified claim to a fact by
   restating it without its qualifier.
 
