@@ -20,7 +20,7 @@
  * pointed-at state is shareable and reproducible.
  */
 
-import { use, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { parseAsFloat, parseAsString, useQueryState } from "nuqs";
 import { ClipboardList } from "lucide-react";
@@ -44,6 +44,7 @@ import {
   useRegionDetail,
   type RegionDecisionsResponse,
 } from "@/lib/hooks/use-decisions";
+import { useSnapshot } from "@/lib/snapshot/snapshot-context";
 
 /** A recorded number, rounded for display with the exact value one hover away. */
 function Num({ value }: { value: number }) {
@@ -77,8 +78,8 @@ function toPoints(audit: RegionDecisionsResponse): RegionPoint[] {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-export default function DecisionsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: repoId } = use(params);
+export default function DecisionsPage() {
+  const { repoId } = useSnapshot();
   const { audit, error, isLoading } = useRegionDecisions(repoId);
 
   const [boundaryParam, setBoundaryParam] = useQueryState(

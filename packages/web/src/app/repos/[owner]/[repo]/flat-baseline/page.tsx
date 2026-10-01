@@ -15,14 +15,14 @@
  * `GET /api/graph/{id}`.
  */
 
-import { use } from "react";
 import Link from "next/link";
 import { Network } from "lucide-react";
 import { GraphView } from "@/components/architecture/graph-view";
 import { useGraph } from "@/lib/hooks/use-graph";
+import { useSnapshot } from "@/lib/snapshot/snapshot-context";
 
-export default function FlatBaselinePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: repoId } = use(params);
+export default function FlatBaselinePage() {
+  const { repoId } = useSnapshot();
   // Shares the SWR key with the canvas's own fetch, so this reads the counts
   // without a second request.
   const { graph, isLoading } = useGraph(repoId);

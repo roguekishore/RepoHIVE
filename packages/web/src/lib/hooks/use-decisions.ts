@@ -9,11 +9,9 @@
  * decision-audit page defined these inline).
  */
 
-import useSWR from "swr";
 import type { DecisionAction, RegionPoint } from "@repohive/ui/repohive";
 import type { MorphCell, MorphEdge, MorphFile } from "@repohive/ui/repohive";
-
-const SWR_OPTS = { revalidateOnFocus: false, revalidateOnReconnect: false };
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 
 /** One region row as served by `/api/graph/{id}/region-decisions`. */
 export interface RegionDecisionRow extends RegionPoint {
@@ -57,29 +55,28 @@ export interface RegionDetailResponse {
   truncatedFiles: number;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(body.detail ?? `Request failed (${res.status}).`);
-  }
-  return res.json() as Promise<T>;
-}
-
 export function useRegionDecisions(repoId: string | null) {
-  const { data, error, isLoading } = useSWR<RegionDecisionsResponse>(
-    repoId ? `/api/graph/${repoId}/region-decisions` : null,
-    fetchJson,
-    SWR_OPTS,
+  const { data, error, isLoading } = useSnapshotJson<RegionDecisionsResponse>(
+    repoId ? "views/region-decisions.json" : null,
   );
   return { audit: data, error, isLoading };
 }
 
+/**
+ * One region's detail. The snapshot publishes one file per region plus an index
+ * from region id to file position, so this reads the index first.
+ */
 export function useRegionDetail(repoId: string | null, regionId: string | null) {
-  const key =
-    repoId && regionId
-      ? `/api/graph/${repoId}/region-detail?region=${encodeURIComponent(regionId)}`
-      : null;
-  const { data, error, isLoading } = useSWR<RegionDetailResponse>(key, fetchJson, SWR_OPTS);
-  return { detail: data, error, isLoading };
+  const wanted = repoId !== null && regionId !== null;
+  const index = useSnapshotJson<Record<string, number>>(wanted ? "views/region-detail-index.json" : null);
+  const position = wanted && index.data ? index.data[regionId] : undefined;
+  const detail = useSnapshotJson<RegionDetailResponse>(
+    position === undefined ? null : `views/region-detail/${position}.json`,
+  );
+  const unknown = wanted && index.data !== undefined && position === undefined;
+  return {
+    detail: detail.data,
+    error: unknown ? new Error(`No recorded decision for region '${regionId}'.`) : (index.error ?? detail.error),
+    isLoading: wanted && !unknown && detail.data === undefined && !(index.error ?? detail.error),
+  };
 }

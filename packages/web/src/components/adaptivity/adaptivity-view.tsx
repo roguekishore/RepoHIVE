@@ -1,18 +1,19 @@
 "use client";
 
 /**
- * Adaptivity — cross-repository, and deliberately not repo-scoped.
+ * Adaptivity: one snapshot's assessed preserve rate, per repository.
  *
  * This shell owns fetching only; the comparison itself is
  * `AdaptivityComparison` in `@repohive/ui/repohive`, which takes props and is
  * unit-tested there. Nothing is computed here: every figure comes from
- * `/api/adaptivity`, which reads each fixture's recorded `metadata.json`.
+ * the snapshot's `views/adaptivity.json`, built at index time from the recorded
+ * `metadata.json` (one repository per snapshot).
  */
 
-import useSWR from "swr";
 import { GitCompare } from "lucide-react";
 import { PageShell } from "@repohive/ui/shared/page-shell";
 import { AdaptivityComparison, type AdaptivityRepoView } from "@repohive/ui/repohive";
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 
 interface AdaptivityResponse {
   repos: AdaptivityRepoView[];
@@ -21,20 +22,8 @@ interface AdaptivityResponse {
   skipped: string[];
 }
 
-async function fetchJson(url: string): Promise<AdaptivityResponse> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(body.detail ?? `Request failed (${res.status}).`);
-  }
-  return res.json() as Promise<AdaptivityResponse>;
-}
-
 export function AdaptivityView() {
-  const { data, error, isLoading } = useSWR<AdaptivityResponse>("/api/adaptivity", fetchJson, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-  });
+  const { data, error, isLoading } = useSnapshotJson<AdaptivityResponse>("views/adaptivity.json");
 
   return (
     <PageShell

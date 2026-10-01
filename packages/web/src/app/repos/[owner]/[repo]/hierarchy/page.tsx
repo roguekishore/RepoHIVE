@@ -9,8 +9,6 @@
  * number.
  */
 
-import { use } from "react";
-import useSWR from "swr";
 import { Network } from "lucide-react";
 import { PageShell } from "@repohive/ui/shared/page-shell";
 import { parseAsString, useQueryState } from "nuqs";
@@ -19,6 +17,7 @@ import {
   HierarchySunburst,
   type SunburstArc,
 } from "@repohive/ui/repohive";
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 
 interface HierarchyScaleResponse {
   arcs: SunburstArc[];
@@ -36,22 +35,8 @@ interface HierarchyScaleResponse {
   counts: Record<"preserve" | "reconstruct" | "degenerate" | "none", number>;
 }
 
-async function fetchJson(url: string): Promise<HierarchyScaleResponse> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(body.detail ?? `Request failed (${res.status}).`);
-  }
-  return res.json() as Promise<HierarchyScaleResponse>;
-}
-
-export default function HierarchyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: repoId } = use(params);
-  const { data, error, isLoading } = useSWR<HierarchyScaleResponse>(
-    `/api/graph/${repoId}/hierarchy-scale`,
-    fetchJson,
-    { revalidateOnFocus: false, revalidateOnReconnect: false },
-  );
+export default function HierarchyPage() {
+  const { data, error, isLoading } = useSnapshotJson<HierarchyScaleResponse>("views/hierarchy-scale.json");
   const [selected, setSelected] = useQueryState(
     "arc",
     parseAsString.withOptions({ history: "replace", shallow: true }),
