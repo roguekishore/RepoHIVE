@@ -130,7 +130,7 @@ const emptyStitcher: Stitcher = {
 
 /** A serializer stub that records every write and returns success. */
 function recordingSerializer(writes: {
-  calls: { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[];
+  calls: { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[];
 }): GraphSerializer {
   return {
     async write(nodes, edges, outputPath) {
@@ -282,7 +282,7 @@ test("returns ALL recorded errors when multiple files fail", async () => {
 // --- Happy path: single write at the default output path ------------------
 
 test("happy path writes exactly once at the default <projectDirectory>/graph.json", async () => {
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
   const deps = baseDeps({
     collector: collectorOk([file("A.java")]),
     createExtractor: async () =>
@@ -303,7 +303,7 @@ test("happy path writes exactly once at the default <projectDirectory>/graph.jso
 });
 
 test("honors an explicit outputPath when provided", async () => {
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
   const explicit = path.join(os.tmpdir(), "custom-graph.json");
   const deps = baseDeps({
     collector: collectorOk([file("A.java")]),
@@ -319,6 +319,51 @@ test("honors an explicit outputPath when provided", async () => {
 
   assert.ok(result.ok);
   assert.equal(writes.calls[0]!.outputPath, explicit);
+});
+
+test("writeGraph false asks the serializer for no path and reports none", async () => {
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
+  const deps = baseDeps({
+    collector: collectorOk([file("A.java")]),
+    createExtractor: async () =>
+      scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+    serializer: recordingSerializer(writes),
+  });
+
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, outputPath: path.join(ABS_ROOT, "ignored.json"), writeGraph: false },
+    deps,
+  );
+
+  assert.ok(result.ok);
+  assert.equal(writes.calls.length, 1);
+  assert.equal(writes.calls[0]!.outputPath, undefined, "an explicit outputPath is ignored too");
+  assert.equal(result.value.outputPath, undefined);
+});
+
+test("writeGraph false with the real serializer creates no file and returns the same graph", async () => {
+  const { createGraphSerializer } = await import("./serializer.js");
+  const dir = await nodeFs.mkdtemp(path.join(os.tmpdir(), "repohive-nowrite-"));
+  try {
+    const nodes = [
+      { id: "file:B.java", kind: "file" as const, directoryPath: "" },
+      { id: "file:A.java", kind: "file" as const, directoryPath: "" },
+    ];
+    const edges = [
+      { source: "file:B.java", target: "file:A.java", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0 },
+    ];
+    const serializer = createGraphSerializer();
+    const skipped = await serializer.write(nodes, edges, undefined);
+    const target = path.join(dir, "graph.json");
+    const written = await serializer.write(nodes, edges, target);
+
+    assert.ok(skipped.ok && written.ok);
+    assert.equal("outputPath" in skipped.value, false, "no path is reported when nothing was written");
+    assert.deepEqual(skipped.value.graph, written.value.graph);
+    assert.deepEqual(await nodeFs.readdir(dir), ["graph.json"], "only the explicit write created a file");
+  } finally {
+    await nodeFs.rm(dir, { recursive: true, force: true });
+  }
 });
 
 // --- End-to-end: prior graph.json left byte-for-byte unchanged (R10.6) ----
@@ -374,7 +419,7 @@ test("leaves a pre-existing graph.json byte-for-byte unchanged when a per-file e
 // catch — so one file crashed the whole run with a raw stack trace.
 
 test("a throwing extractor becomes internal-error and writes nothing", async () => {
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
   const result = await parseProject(
     { projectDirectory: ABS_ROOT },
     baseDeps({
@@ -477,7 +522,7 @@ test("the prefetch reads every collected file once and extraction is served from
   const files = [file("A.java"), file("B.java"), file("C.java")];
   const requested: string[] = [];
   const log = { read: [] as string[] };
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
 
   const result = await parseProject(
     { projectDirectory: ABS_ROOT },
@@ -510,7 +555,7 @@ test("the prefetch reads every collected file once and extraction is served from
 
 test("zero collected files: the prefetch reads nothing and the run still completes", async () => {
   let readCalls = 0;
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
 
   const result = await parseProject(
     { projectDirectory: ABS_ROOT },
@@ -649,7 +694,7 @@ test("a nonsense concurrency falls back to the default instead of failing the pa
 test("a prefetch read failure reaches extraction as file-unreadable, in canonical order", async () => {
   const files = [file("A.java"), file("B.java"), file("C.java")];
   const log = { read: [] as string[] };
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
 
   const result = await parseProject(
     { projectDirectory: ABS_ROOT },
@@ -690,7 +735,7 @@ test("a prefetch read failure reaches extraction as file-unreadable, in canonica
 });
 
 test("an unrepresentable path is recorded as recoverable and blocks the write", async () => {
-  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };
   const result = await parseProject(
     { projectDirectory: ABS_ROOT },
     baseDeps({

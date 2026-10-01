@@ -95,7 +95,7 @@ async function main(): Promise<void> {
         includeGenerated
           ? `  exclude : off (--include-generated)`
           : `  exclude : ${result.value.excludedDirectoryCount ?? 0} dir(s) skipped (build/VCS/generated)`,
-        `  output  : ${result.value.outputPath}`,
+        `  output  : ${result.value.outputPath ?? "(not written)"}`,
         `  result  : OK`,
       ].join("\n"),
     );
