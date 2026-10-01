@@ -225,11 +225,19 @@ test("returns the written graph in memory, identical to the file on disk", async
   // The handoff must be structurally identical to the file, INCLUDING array
   // order: a consumer that groups from memory must see exactly what a consumer
   // that reads graph.json back sees.
-  const fromDisk = JSON.parse(await nodeFs.readFile(outputPath, "utf8")) as unknown;
+  const text = await nodeFs.readFile(outputPath, "utf8");
+  const fromDisk = JSON.parse(text) as unknown;
   assert.deepEqual(
     JSON.parse(JSON.stringify(result.value.graph)),
     fromDisk,
     "in-memory graph equals the written document, field for field and in order",
+  );
+  // Stronger: property order matches too, so re-stringifying the handoff
+  // cannot produce different bytes than the file holds.
+  assert.equal(
+    JSON.stringify(result.value.graph),
+    JSON.stringify(fromDisk),
+    "in-memory graph stringifies identically to the written document",
   );
   assert.equal(result.value.nodeCount, result.value.graph!.nodes.length);
   assert.equal(result.value.edgeCount, result.value.graph!.edges.length);
