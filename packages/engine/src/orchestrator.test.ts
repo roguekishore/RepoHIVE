@@ -399,6 +399,107 @@ test("a failing stage emits start but not complete", async () => {
   assert.deepEqual(events, ["parse:start", "parse:complete", "group:start"]);
 });
 
+test("per-file and per-sub-stage events pass through with their fields", async () => {
+  const events: unknown[] = [];
+  const { deps } = makeDeps({
+    parse: async (options) => {
+      options.onProgress?.(0, 2);
+      options.onProgress?.(1, 2);
+      options.onProgress?.(2, 2);
+      return { ok: true, value: { outputPath: "(unset)", nodeCount: 12, edgeCount: 5 } };
+    },
+    group: (_graph, _outDir, _config, onProgress) => {
+      onProgress?.({ substage: "ingest" });
+      onProgress?.({ substage: "write" });
+      return { ok: true, value: fakeGroupingOutput() };
+    },
+  });
+  const result = await indexProject({ projectDirectory: "/proj", onProgress: (event) => events.push(event) }, deps);
+
+  assert(result.ok, "expected success");
+  assert.deepEqual(events, [
+    { stage: "parse", kind: "start" },
+    { stage: "parse", kind: "progress", completed: 0, total: 2 },
+    { stage: "parse", kind: "progress", completed: 1, total: 2 },
+    { stage: "parse", kind: "progress", completed: 2, total: 2 },
+    { stage: "parse", kind: "complete" },
+    { stage: "group", kind: "start" },
+    { stage: "group", kind: "progress", substage: "ingest" },
+    { stage: "group", kind: "progress", substage: "write" },
+    { stage: "group", kind: "complete" },
+  ]);
+});
+
+test("without a callback no progress hook is handed to either stage", async () => {
+  const { deps, calls } = makeDeps({
+    group: (graph, outDir, config, onProgress) => {
+      assert.equal(onProgress, undefined);
+      void graph;
+      void outDir;
+      void config;
+      return { ok: true, value: fakeGroupingOutput() };
+    },
+  });
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+  assert(result.ok, "expected success");
+  assert(!("onProgress" in calls.parseOptions[0]!), "onProgress must be absent, not an explicit undefined");
+});
+
+test("a callback that throws inside a stage that returns failures as values still ends as INTERNAL_ERROR", async () => {
+  // The parser and core catch throws and report them as their own failures; the
+  // engine must still report the callback's throw at the engine level.
+  const thrown = new Error("subscriber bug mid-stage");
+  const { deps: parseDeps } = makeDeps({
+    parse: async (options) => {
+      try {
+        options.onProgress?.(1, 2);
+      } catch {
+        return { ok: false, errors: [{ reason: "internal-error", message: "swallowed" } as ParseError] };
+      }
+      return { ok: true, value: { outputPath: "x", nodeCount: 1, edgeCount: 0 } };
+    },
+  });
+  const duringParse = await indexProject(
+    {
+      projectDirectory: "/proj",
+      onProgress: (event) => {
+        if (event.kind === "progress") {
+          throw thrown;
+        }
+      },
+    },
+    parseDeps,
+  );
+  assert(!duringParse.ok && duringParse.stage === "engine");
+  assert.equal(duringParse.error.code, "INTERNAL_ERROR");
+
+  const { deps: groupDeps } = makeDeps({
+    group: (_graph, _outDir, _config, onProgress) => {
+      try {
+        onProgress?.({ substage: "ingest" });
+      } catch {
+        return { ok: false, error: { code: "INTERNAL_ERROR", detail: "swallowed" } };
+      }
+      return { ok: true, value: fakeGroupingOutput() };
+    },
+  });
+  const duringGroup = await indexProject(
+    {
+      projectDirectory: "/proj",
+      onProgress: (event) => {
+        if (event.stage === "group" && event.kind === "progress") {
+          throw thrown;
+        }
+      },
+    },
+    groupDeps,
+  );
+  assert(!duringGroup.ok && duringGroup.stage === "engine");
+  assert.equal(duringGroup.error.code, "INTERNAL_ERROR");
+  assert(duringGroup.error.code === "INTERNAL_ERROR");
+  assert.match(duringGroup.error.detail, /subscriber bug mid-stage/);
+});
+
 test("a throwing progress callback is converted by the backstop, never thrown", async () => {
   const { deps } = makeDeps();
   const result = await indexProject(

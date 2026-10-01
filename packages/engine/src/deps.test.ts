@@ -11,15 +11,43 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { parseProject } from "@repohive/parser";
-import { groupGraphToIndex, readGraphFile } from "@repohive/core";
+import { readGraphFile } from "@repohive/core";
 
 import { defaultEngineDeps } from "./orchestrator.js";
 
-test("the default stage functions are the real parser and core entry points", () => {
+test("the default parse and read stages are the real parser and core entry points", () => {
   const deps = defaultEngineDeps();
   assert.equal(deps.parse, parseProject);
   assert.equal(deps.readGraph, readGraphFile);
-  assert.equal(deps.group, groupGraphToIndex);
+});
+
+test("the default group stage is core's asynchronous grouping: it returns a promise and writes the index", async () => {
+  const deps = defaultEngineDeps();
+  const dir = mkdtempSync(join(tmpdir(), "repohive-engine-deps-group-"));
+  try {
+    const substages: string[] = [];
+    const pending = deps.group(
+      {
+        nodes: [
+          { id: "file:p/A.java", kind: "file", packagePath: "p", directoryPath: "p" },
+          { id: "file:p/B.java", kind: "file", packagePath: "p", directoryPath: "p" },
+        ],
+        edges: [
+          { source: "file:p/A.java", target: "file:p/B.java", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0 },
+        ],
+      },
+      join(dir, "index"),
+      undefined,
+      ({ substage }) => substages.push(substage),
+    );
+    assert.ok(pending instanceof Promise);
+    const result = await pending;
+    assert.ok(result.ok);
+    assert.ok(existsSync(join(dir, "index", "hierarchy.json")));
+    assert.equal(substages[0], "ingest");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("isDirectory reports directories, and not files or missing paths", () => {
