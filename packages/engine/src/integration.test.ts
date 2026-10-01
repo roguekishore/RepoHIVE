@@ -89,7 +89,7 @@ test("the real pipeline indexes the fixture and matches the recorded measurement
     assert.equal(value.outputDirectory, outputDirectory);
     assert.equal(value.graphPath, join(outputDirectory, "graph.json"));
     assert.equal(value.indexDirectory, join(outputDirectory, "index"));
-    assert(existsSync(value.graphPath), "graph.json must exist");
+    assert(existsSync(value.graphPath!), "graph.json must exist");
     for (const name of INDEX_FILE_NAMES) {
       const filePath = join(value.indexDirectory, name);
       assert(existsSync(filePath), `${name} must exist`);
@@ -97,7 +97,7 @@ test("the real pipeline indexes the fixture and matches the recorded measurement
     }
 
     // The graph the result describes is the graph on disk.
-    const graph = JSON.parse(readFileSync(value.graphPath, "utf8")) as {
+    const graph = JSON.parse(readFileSync(value.graphPath!, "utf8")) as {
       nodes: unknown[];
       edges: unknown[];
     };
@@ -137,7 +137,7 @@ test("the real pipeline indexes the fixture and matches the recorded measurement
       "group digest vs the recorded 2026-08-22 measurement",
     );
     assert.equal(
-      fileDigest(value.graphPath),
+      fileDigest(value.graphPath!),
       RECORDED_PARSE_DIGEST,
       "parse digest vs the recorded 2026-08-16 measurement",
     );
@@ -198,18 +198,18 @@ test("the in-memory handoff is live and produces byte-identical output", async (
     assert(readBack.ok, `read-back run failed: ${JSON.stringify(readBack)}`);
     assert.deepEqual(
       diskReads,
-      [readBack.value.graphPath],
+      [readBack.value.graphPath!],
       "stripping the handoff must restore the read-back path",
     );
 
     // graph.json is written either way: it is the committed layout and the
     // input to a group-only re-run.
-    assert(existsSync(inMemory.value.graphPath), "graph.json written on the in-memory path");
-    assert(existsSync(readBack.value.graphPath), "graph.json written on the read-back path");
+    assert(existsSync(inMemory.value.graphPath!), "graph.json written on the in-memory path");
+    assert(existsSync(readBack.value.graphPath!), "graph.json written on the read-back path");
 
     // And the two paths agree byte for byte, on every artifact.
-    const memGraph = readFileSync(inMemory.value.graphPath);
-    const diskGraph = readFileSync(readBack.value.graphPath);
+    const memGraph = readFileSync(inMemory.value.graphPath!);
+    const diskGraph = readFileSync(readBack.value.graphPath!);
     assert(memGraph.equals(diskGraph), "graph.json must be byte-identical across both paths");
     for (const name of INDEX_FILE_NAMES) {
       const a = readFileSync(join(inMemory.value.indexDirectory, name));
@@ -249,8 +249,8 @@ test("read concurrency cannot reach the artifacts", async (t) => {
     assert(prefetched.ok, `default-concurrency run failed: ${JSON.stringify(prefetched)}`);
     assert(sequential.ok, `sequential run failed: ${JSON.stringify(sequential)}`);
 
-    const prefetchedGraph = readFileSync(prefetched.value.graphPath);
-    const sequentialGraph = readFileSync(sequential.value.graphPath);
+    const prefetchedGraph = readFileSync(prefetched.value.graphPath!);
+    const sequentialGraph = readFileSync(sequential.value.graphPath!);
     assert(
       prefetchedGraph.equals(sequentialGraph),
       "graph.json must be byte-identical across read concurrencies",
@@ -263,8 +263,8 @@ test("read concurrency cannot reach the artifacts", async (t) => {
 
     // Both still match the recorded measurements, so this is invariance against
     // a fixed reference rather than two runs merely agreeing with each other.
-    assert.equal(fileDigest(prefetched.value.graphPath), RECORDED_PARSE_DIGEST);
-    assert.equal(fileDigest(sequential.value.graphPath), RECORDED_PARSE_DIGEST);
+    assert.equal(fileDigest(prefetched.value.graphPath!), RECORDED_PARSE_DIGEST);
+    assert.equal(fileDigest(sequential.value.graphPath!), RECORDED_PARSE_DIGEST);
     assert.equal(indexDigest(prefetched.value.indexDirectory), RECORDED_GROUP_DIGEST);
     assert.equal(indexDigest(sequential.value.indexDirectory), RECORDED_GROUP_DIGEST);
   } finally {
@@ -286,8 +286,8 @@ test("two runs over identical input produce byte-identical artifacts", async (t)
     assert(first.ok, `first run failed: ${JSON.stringify(first)}`);
     assert(second.ok, `second run failed: ${JSON.stringify(second)}`);
 
-    const firstGraph = readFileSync(first.value.graphPath);
-    const secondGraph = readFileSync(second.value.graphPath);
+    const firstGraph = readFileSync(first.value.graphPath!);
+    const secondGraph = readFileSync(second.value.graphPath!);
     assert(firstGraph.equals(secondGraph), "graph.json must be byte-identical across runs");
 
     for (const name of INDEX_FILE_NAMES) {
@@ -298,5 +298,60 @@ test("two runs over identical input produce byte-identical artifacts", async (t)
   } finally {
     rmSync(firstOut, { recursive: true, force: true });
     rmSync(secondOut, { recursive: true, force: true });
+  }
+});
+
+test("writeGraph false never creates graph.json and writes a byte-identical index", async (t) => {
+  if (!FIXTURE_PRESENT) {
+    t.skip(SKIP_REASON);
+    return;
+  }
+  const withGraph = mkdtempSync(join(tmpdir(), "repohive-engine-wg-on-"));
+  const withoutGraph = mkdtempSync(join(tmpdir(), "repohive-engine-wg-off-"));
+  try {
+    const sawGraphFile: string[] = [];
+    const watch = (event: EngineProgressEvent): void => {
+      for (const name of ["graph.json", "graph.json.tmp"]) {
+        if (existsSync(join(withoutGraph, name))) {
+          sawGraphFile.push(`${name} at ${event.stage}:${event.kind}`);
+        }
+      }
+    };
+
+    const on = await indexProject({ projectDirectory: FIXTURE, outputDirectory: withGraph });
+    const off = await indexProject({
+      projectDirectory: FIXTURE,
+      outputDirectory: withoutGraph,
+      writeGraph: false,
+      onProgress: watch,
+    });
+    assert(on.ok, `expected success, got: ${JSON.stringify(on)}`);
+    assert(off.ok, `expected success, got: ${JSON.stringify(off)}`);
+
+    assert.deepEqual(sawGraphFile, [], "no graph file at any stage boundary");
+    assert.equal(existsSync(join(withoutGraph, "graph.json")), false);
+    assert.equal(existsSync(join(withoutGraph, "graph.json.tmp")), false);
+    assert.equal("graphPath" in off.value, false);
+    assert.equal(typeof on.value.graphPath, "string");
+
+    // Identical index, and still the recorded digest.
+    for (const name of INDEX_FILE_NAMES) {
+      assert(
+        readFileSync(join(on.value.indexDirectory, name)).equals(readFileSync(join(off.value.indexDirectory, name))),
+        `${name} is byte-identical with and without the graph write`,
+      );
+    }
+    assert.equal(indexDigest(off.value.indexDirectory), RECORDED_GROUP_DIGEST);
+
+    // The in-memory grouping output describes the index that was written.
+    assert.equal(off.value.groupingOutput.metadata.regionDecisions.length, off.value.regionCount);
+    assert.equal(off.value.groupingOutput.hierarchy.depth, off.value.hierarchyDepth);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(off.value.indexDirectory, "metadata.json"), "utf8")),
+      JSON.parse(JSON.stringify(off.value.groupingOutput.metadata)),
+    );
+  } finally {
+    rmSync(withGraph, { recursive: true, force: true });
+    rmSync(withoutGraph, { recursive: true, force: true });
   }
 });
