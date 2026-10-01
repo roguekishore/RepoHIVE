@@ -111,3 +111,6 @@ export {
   stdoutWriter,
 } from "./telemetry.js";
 export type { LineWriter, LogLevel, Logger, LoggerOptions, Runtime, StageName, Telemetry, TelemetryOptions } from "./telemetry.js";
+// The local end-to-end run (Requirement 13.1).
+export { runLocal } from "./local-run.js";
+export type { LocalRunOptions, LocalRunOutcome } from "./local-run.js";
