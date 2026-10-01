@@ -5,6 +5,7 @@ import { createRepoLockReader } from "@/lib/hosting/repo-lock";
 import { processIndexRequest } from "@/lib/intake/process-index-request";
 import { INTAKE_BUSY_RETRY_SECONDS } from "@/lib/intake/api-error";
 import { getJobOrchestrator } from "@/lib/orchestrator";
+import { recordIntakeMetrics } from "@/lib/telemetry/app-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
       orchestrator: getJobOrchestrator(config),
       repoLocks: createRepoLockReader(config),
     },
+  );
+
+  recordIntakeMetrics(
+    outcome.kind,
+    outcome.kind === "rejected" ? outcome.code : outcome.kind === "busy" ? "INFLIGHT_CAP" : undefined,
+    config,
   );
 
   const headers = new Headers();
