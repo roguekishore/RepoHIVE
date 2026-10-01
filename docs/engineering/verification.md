@@ -21,8 +21,7 @@ than treating it as passed, skipped, or not applicable. A contributor who ran Ga
 run Gate 4 has done everything available to them; a contributor who claims all four passed without the
 mount has misreported.
 
-Every number in this document that is presented as measured was measured **in the private development
-workspace, not in this repository**, and is attributed accordingly. None of it has been reproduced
+Every number in this document that is presented as measured was measured **in an earlier workspace, not in this repository**, and is attributed accordingly. None of it has been reproduced
 against a public clone.
 
 ## Gate 1: build
@@ -55,62 +54,69 @@ therefore a sound inference. The exact exit code was **not measured against this
 
 Treat `npm test` as a change detector, not a gate: compare its failures against the known list.
 
-### The engine test script has no correct form. Read this before trusting a green run
+### How the engine test script works, and the trap it replaced
 
 Both `packages/core` and `packages/parser` declare:
 
 ```
-"test": "node --test dist/*.test.js"
+"test": "node ../../scripts/run-node-tests.mjs"
 ```
 
-That text is confirmed verbatim in both manifests. Neither available form of the command is correct on
-both Node versions:
+The launcher (`scripts/run-node-tests.mjs` at the repo root, dependency-free, node: builtins only)
+enumerates `dist/*.test.js` explicitly with `readdirSync`, sorts the list, and spawns
+`node --test <files...>`. **If it finds zero test files it exits 1 with a clear message instead of
+passing.** That guard is the point: a green run now means the suite actually ran. Because the file list
+is passed explicitly, the run depends on neither shell glob expansion (bash versus `cmd.exe`) nor any
+Node version's `--test` path semantics. Flags forward in `--flag=value` form, for example
+`npm test -- --test-name-pattern=x`.
 
-- `node --test dist/*.test.js` needs the **shell** to expand the glob, which requires **Node 21+**.
-  `cmd.exe` does not expand it either, so on Node 20 it fails with `Could not find …dist\*.test.js`.
-  A loud failure, which is the safe kind.
-- `node --test dist/` runs on Node 20, but on **Node 21+ it silently resolves to `dist/index.js` alone**
-  and reports one passing test.
+This requires a built `dist/`, so Gate 1 comes first; a missing or empty `dist/` fails loudly rather
+than passing vacuously.
 
-**That second form is a false green.** It exits 0, prints a passing test, and runs essentially none of
-the suite. Do not "fix" the script by switching to it. If you see a suspiciously fast engine test run
-reporting a single test, this is what happened.
+History, kept because the trap cost real time: the script used to be `node --test dist/*.test.js`,
+which had **no correct form across Node versions**:
 
-Both failure modes are **reasoned from documented Node behaviour and from the script text. They were not
-executed as part of writing this document.** Verify them in your own environment before depending on
-either.
+- The glob form relied on the shell. POSIX shells expand it, so it worked there on any Node. `cmd.exe`
+  (npm's default script shell on Windows) does not, so the literal pattern reached Node: Node 21+
+  expands it natively and works, Node 20 fails loudly with `Could not find …dist\*.test.js`.
+- The alternative `node --test dist/` runs the suite on Node 20 but on **Node 21+ silently resolves to
+  `dist/index.js` alone** and reports one passing test. A false green: exit 0, essentially none of the
+  suite run. Do not reintroduce either form. A suspiciously fast engine run reporting a single test is
+  this failure.
 
-Nothing in the repository enforces a Node version. Only `packages/web` declares `engines`
-(`>=20.0.0`); the root manifest declares none. So the version skew that breaks this script is
-unconstrained, on a script that needs Node 21+ to work as written.
+Measured 2026-09-13 on Node v26.4.0, Linux, in this repository, before the fix: `node --test dist/`
+printed exactly one passing test named `dist` and exited 0 against 17 real test files (a file with no
+test registrations counts as one passing test); the unexpanded glob, as `cmd.exe` would pass it, was
+natively expanded and ran 153/153. Same day on Node v18.19.1: the unexpanded glob failed loudly
+(`Could not find …dist/*.test.js`, exit 1) and the new launcher ran 153/153. **Node 20 and 21 through
+25 were not measured**; their behaviour is reasoned from documented Node changes (test-runner glob
+support landed in 21) and sits between the measured v18 and v26 endpoints. The old PowerShell
+workaround (building the file list with `Get-ChildItem` and passing it to `node --test`) is obsolete;
+the launcher does the same thing on every platform.
 
-Until the script is fixed, verify the engine by listing files explicitly. Run from `packages/core` and
-from `packages/parser`:
-
-```powershell
-$files = Get-ChildItem dist -Filter *.test.js | ForEach-Object { "dist/$($_.Name)" }
-node --test @files
-```
-
-This requires a built `dist/`, so Gate 1 comes first.
+The root manifest now declares `"engines": { "node": ">=20" }` and `.nvmrc` pins `20`. Both are
+advisory: npm only warns on an engines mismatch (no `engine-strict` is set), and `.nvmrc` binds only
+tools that read it. `packages/web` additionally declares its own `engines` (`>=20.0.0`).
 
 ### Recorded per-workspace results
 
-Measured **2026-08-22 in the private development workspace** on Node v20.19.0 / npm 10.8.2.
-**Not reproduced in this repository**, which has no installed dependencies. Use these as the expected
-shape of a run, and as the list a new failure has to be checked against. Do not cite them as this
-repository's current numbers.
+Measured **2026-08-22 in an earlier workspace** on Node v20.19.0 / npm 10.8.2, via
+explicit file listing because the npm script of the time did not run (see the history above). The two
+engine rows were **reproduced in this repository on 2026-09-13** (Node v26.4.0, Linux, fixed script):
+core 153/153 and parser 181/181, where the parser delta against the table is known failure 1 below
+passing on Linux. The non-engine rows were not reproduced here. Use these as the expected shape of a
+run, and as the list a new failure has to be checked against.
 
-| Workspace | Recorded result (2026-08-22, private workspace) |
+| Workspace | Recorded result (2026-08-22, earlier workspace) |
 |-----------|------------------------------------------------|
-| `@repohive/core` | 153 / 153 pass, but the npm script does not run (see above) |
-| `@repohive/parser` | 180 / 181, one platform-dependent failure, script does not run |
+| `@repohive/core` | 153 / 153 pass |
+| `@repohive/parser` | 180 / 181, one platform-dependent failure (Windows) |
 | `@repohive/api-client` | 50 / 50 pass |
 | `@repohive/web` | 20 / 20 pass |
 | `@repohive/types` | 2 suites fail, pre-existing, vendored |
 | `@repohive/ui` | 1041 / 1042, one flaky failure, identity varies per run |
 
-What *is* verifiable in this repository is the number of test **files**, which matches the private
+What *is* verifiable in this repository is the number of test **files**, which matches the earlier
 workspace exactly: `core` 17, `parser` 11, `api-client` 5, `types` 3, `ui` 143, `web` 5, `shared` 0.
 That is consistency of test *surface*, not of results.
 
@@ -140,7 +146,7 @@ Output digests must be byte-identical across repeated runs and across shuffled-i
 Recorded digests for `fixtures/sample-java-project`, whose sources are tracked in this repository
 (its generated `graph.json` and `index/` are git-ignored):
 
-| Artifact | SHA-256 | Last confirmed (private workspace) |
+| Artifact | SHA-256 | Last confirmed |
 |----------|---------|------------------------------------|
 | `group` | `f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3` | 2026-08-22, 3 runs identical (4 regions, 38 nodes, depth 4) |
 | `parse` | `a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc` | recorded 2026-08-16 |
@@ -187,7 +193,9 @@ that happened to be available, and do not report an unavailable gate as passing 
 
 Two specific traps worth restating, because both produce a clean exit while proving nothing:
 
-- `node --test dist/` on Node 21+ reports one passing test and skips the suite.
+- `node --test dist/` on Node 21+ reports one passing test and skips the suite. The engine scripts no
+  longer use that form and their launcher refuses to pass on zero test files, but the trap still
+  exists for anyone invoking `node --test` by hand.
 - Gate 4 silently has nothing to check against when the mount is absent.
 
 A clean exit code is not evidence. Read the actual output.
