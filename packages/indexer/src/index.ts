@@ -89,3 +89,25 @@ export type { PrecheckAccepted, PrecheckDeps, PrecheckReason, PrecheckRejection,
 // Local artifact stores.
 export { createMemoryArtifactStore } from "./artifact-store-memory.js";
 export { createLocalArtifactStore } from "./artifact-store-local.js";
+// The job, its entry points' shared pieces, publishing and telemetry (9 and 11).
+export { runJob, ABORT_MARGIN_MS, SLOT_LEASE_MARGIN_MS } from "./run-job.js";
+export type { RunJobDeps } from "./run-job.js";
+export type { JobCounts, JobDurations, JobResult } from "./job-result.js";
+export { parseJobInput } from "./job-input.js";
+export { ConfigError, createLedger, createStore, loadConfig } from "./config.js";
+export type { IndexerConfig, LedgerConfig, StoreConfig } from "./config.js";
+export { executeJob } from "./entry.js";
+export { createS3ArtifactStore } from "./artifact-store-s3.js";
+export type { S3ArtifactStoreOptions } from "./artifact-store-s3.js";
+export { indexObjects, viewObjects } from "./snapshot-objects.js";
+export { KEEP_RECENT_SNAPSHOTS, RETIRED_GRACE_MS, publishSnapshot, snapshotsToPrune } from "./publish.js";
+export type { PublishDeps, PublishInput, PublishResult } from "./publish.js";
+export {
+  METRIC_NAMESPACE,
+  STAGE_NAMES,
+  createLogger,
+  createTelemetry,
+  silentLogger,
+  stdoutWriter,
+} from "./telemetry.js";
+export type { LineWriter, LogLevel, Logger, LoggerOptions, Runtime, StageName, Telemetry, TelemetryOptions } from "./telemetry.js";
