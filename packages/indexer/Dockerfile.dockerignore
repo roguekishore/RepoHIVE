@@ -1,0 +1,17 @@
+# Context filter for packages/indexer/Dockerfile (BuildKit reads <Dockerfile>.dockerignore).
+# Allow-list: the manifests every workspace needs, and the sources of the packages that are built.
+*
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!packages/*/package.json
+!packages/shared
+!packages/parser
+!packages/core
+!packages/engine
+!packages/views
+!packages/indexer
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.git
