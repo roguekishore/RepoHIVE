@@ -6,8 +6,8 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
 
 - **TypeScript 5.9.3** pinned in the root `devDependencies`. Workspaces range independently
   (`^5.6.0` in `api-client`, `types`, `ui`; `^5.7` in `web`), so the root pin does not govern them.
-- **Node.js**, developed on Node 20 and 21+. The root manifest declares `"engines": { "node": ">=20" }`
-  and `.nvmrc` pins `20`. Both are advisory rather than enforcement: npm only warns on an engines
+- **Node.js**, developed on Node 24 (`runtime-moves-to-node-24`). The root manifest declares `"engines": { "node": ">=20" }`
+  and `.nvmrc` pins `24`. Both are advisory rather than enforcement: npm only warns on an engines
   mismatch (no `engine-strict` is set), and `.nvmrc` binds only tools that read it. `packages/web`
   additionally declares its own `engines` (`>=20.0.0`). The engine test script no longer depends on
   the Node version or the shell; see below.
@@ -98,7 +98,7 @@ Run from the repo root.
 
 | Command | Effect |
 |---------|--------|
-| `npm run build` | `tsc -b packages/parser packages/core` |
+| `npm run build` | `tsc -b packages/parser packages/core packages/engine` |
 | `npm run typecheck` | **identical to `build`**, see below |
 | `npm test` | `npm run test --workspaces --if-present` |
 | `npm run parse -- <dir>` | parse a Java tree → `graph.json` |
@@ -107,7 +107,7 @@ Run from the repo root.
 | `npm run demo:baselines` | baseline comparison output |
 | `npm run dev --workspace @repohive/web` | viewer on port 3000 (long-running; the user starts this, not the agent) |
 
-**The root `typecheck` script is not a no-emit check.** It is `tsc -b packages/parser packages/core`,
+**The root `typecheck` script is not a no-emit check.** It is `tsc -b packages/parser packages/core packages/engine`,
 byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per package, under two
 different names: `typecheck` (`tsc --noEmit`) in `shared`, `parser`, and `core`, but `type-check` in
 `api-client`, `types`, `ui`, and `web`. There is no root script that runs the second group.

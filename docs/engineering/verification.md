@@ -31,7 +31,7 @@ against a public clone.
 npm run build
 ```
 
-Runs `tsc -b packages/parser packages/core`. Must be clean. No new type errors, no suppressed
+Runs `tsc -b packages/parser packages/core packages/engine`. Must be clean. No new type errors, no suppressed
 diagnostics.
 
 Note that the root `npm run typecheck` is **byte-identical to `build`** and emits `dist/`. It is not a
@@ -95,7 +95,7 @@ support landed in 21) and sits between the measured v18 and v26 endpoints. The o
 workaround (building the file list with `Get-ChildItem` and passing it to `node --test`) is obsolete;
 the launcher does the same thing on every platform.
 
-The root manifest now declares `"engines": { "node": ">=20" }` and `.nvmrc` pins `20`. Both are
+The root manifest now declares `"engines": { "node": ">=20" }` and `.nvmrc` pins `24`. Both are
 advisory: npm only warns on an engines mismatch (no `engine-strict` is set), and `.nvmrc` binds only
 tools that read it. `packages/web` additionally declares its own `engines` (`>=20.0.0`).
 
