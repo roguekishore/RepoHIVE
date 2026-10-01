@@ -42,6 +42,16 @@ WASM artifacts are resolved from `node_modules` at runtime by `resolveGrammarPat
 `GrammarOptions`** (`coreWasmPath` / `javaWasmPath`, declared at `ast-extractor.ts:97`). Bundlers drop
 `.wasm` files and rewrite the module resolution this relies on.
 
+## Indexer dependencies (`packages/indexer`)
+
+| Package | Version | Role |
+|---------|---------|------|
+| `@aws-sdk/client-dynamodb` | `3.1144.0` | DynamoDB `JobLedger` (low-level client, hand-written attribute maps) |
+| `aws-sdk-client-mock` | `4.1.0` | dev only; reserved for SDK client tests in later phases |
+
+Exact pins in `packages/indexer/package.json`. More indexer dependencies (`tar-stream`, S3, handler
+types) land in later indexer phases.
+
 ## Viewer dependencies
 
 In `packages/web`: `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
