@@ -3,9 +3,10 @@ import { test } from "node:test";
 import fc from "fast-check";
 import type { RawDependencyGraph } from "@repohive/shared";
 import { assess } from "./assessor.js";
-import { LouvainCommunityDetector } from "./community.js";
+import { LouvainCommunityDetector, type CommunityDetector } from "./community.js";
 import { construct, decideAction } from "./constructor.js";
 import { ingest } from "./ingestor.js";
+import { owningFileOf } from "./regions.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
 import type {
   Action,
@@ -375,4 +376,91 @@ test("decisions carry the Modularity value WHERE it is computed (R5.1)", () => {
   for (let i = 0; i < recorded.length; i++) {
     assert.equal(recorded[i]!.modularity, withModularity.decisions[i]!.modularity);
   }
+});
+
+// --- Edge pre-bucketing (hosting-1 Requirement 4) ---------------------------
+
+/**
+ * The per-region scan that `construct` used before edges were bucketed once, kept
+ * here as the oracle: for one Region, the file-level edges among its members, in
+ * `weightedEdges` order.
+ */
+function perRegionScan(
+  model: WeightedModel,
+  fileIds: readonly string[]
+): Array<{ source: string; target: string; strength: number }> {
+  const memberSet = new Set(fileIds);
+  const edges: Array<{ source: string; target: string; strength: number }> = [];
+  for (const edge of model.weightedEdges) {
+    const sourceNode = model.nodesById.get(edge.source);
+    const targetNode = model.nodesById.get(edge.target);
+    if (!sourceNode || !targetNode) continue;
+    const sourceFile = owningFileOf(sourceNode, model.nodesById);
+    const targetFile = owningFileOf(targetNode, model.nodesById);
+    if (
+      sourceFile === null ||
+      targetFile === null ||
+      sourceFile === targetFile ||
+      !memberSet.has(sourceFile) ||
+      !memberSet.has(targetFile)
+    ) {
+      continue;
+    }
+    edges.push({ source: sourceFile, target: targetFile, strength: edge.strength });
+  }
+  return edges;
+}
+
+test("each reconstructed region's detector input equals the old per-region scan, edge for edge and in order", () => {
+  fc.assert(
+    fc.property(arbitraryDependencyGraph(), (graph) => {
+      const { weighted, assessment } = assessGraph(graph);
+      const received: Array<{ nodeIds: string[]; edges: Array<{ source: string; target: string; strength: number }> }> = [];
+      const recording: CommunityDetector = {
+        detect: (subgraph, seed) => {
+          received.push({ nodeIds: [...subgraph.nodeIds], edges: subgraph.edges.map((e) => ({ ...e })) });
+          return new LouvainCommunityDetector().detect(subgraph, seed);
+        },
+      };
+      // Boundary above every possible score: every region is reconstructed.
+      construct(
+        weighted,
+        assessment,
+        { structuralQualityBoundary: 1.000001, communityDetectionSeed: 7 },
+        recording
+      );
+
+      assert.equal(received.length, assessment.regions.length);
+      assessment.regions.forEach((region, i) => {
+        assert.deepEqual(received[i]!.edges, perRegionScan(weighted, region.nodeIds), `region ${region.regionId}`);
+      });
+    }),
+    { numRuns: 100 }
+  );
+});
+
+test("only reconstructed regions get edges, and an overridden region follows its applied action", () => {
+  fc.assert(
+    fc.property(arbitraryDependencyGraph(), arbitraryOverridePicks, (graph, picks) => {
+      const { weighted, assessment } = assessGraph(graph);
+      fc.pre(assessment.regions.length > 0);
+      const overrides = overridesFrom(assessment, picks);
+      const seen: string[][] = [];
+      const recording: CommunityDetector = {
+        detect: (subgraph, seed) => {
+          seen.push([...subgraph.nodeIds].sort());
+          return new LouvainCommunityDetector().detect(subgraph, seed);
+        },
+      };
+      const result = construct(
+        weighted,
+        assessment,
+        { structuralQualityBoundary: 0.5, communityDetectionSeed: 7, overrides },
+        recording
+      );
+      const reconstructed = result.decisions.filter((d) => d.action === "reconstruct").length;
+      assert.equal(seen.length, reconstructed, "the detector ran once per reconstructed region and no other");
+    }),
+    { numRuns: 100 }
+  );
 });
