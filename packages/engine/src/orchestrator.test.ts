@@ -504,3 +504,72 @@ test("the success value carries the in-memory grouping output the group stage re
   assert(result.ok);
   assert.equal(result.value.groupingOutput, output, "the very object, not a copy");
 });
+
+// --- In-memory source (hosting-1 Requirement 5) ------------------------------
+
+const memorySource = [{ path: "src/A.java", bytes: new TextEncoder().encode("public class A {}") }];
+
+async function rejectsBeforeAnyWork(options: Parameters<typeof indexProject>[0], field: string, pattern: RegExp) {
+  const { deps, calls } = makeDeps();
+  const result = await indexProject(options, deps);
+  assert(!result.ok, "expected a failure");
+  assert(result.stage === "engine" && result.error.code === "INVALID_OPTIONS", JSON.stringify(result));
+  assert.equal(result.error.field, field);
+  assert.match(result.error.detail, pattern);
+  assert.deepEqual(calls.parseOptions, [], "parse never ran");
+  assert.deepEqual(calls.ensuredDirectories, [], "no directory was created");
+}
+
+test("both a directory and a source is INVALID_OPTIONS before any work", async () => {
+  await rejectsBeforeAnyWork(
+    { projectDirectory: "/proj", source: memorySource, outputDirectory: "/out" },
+    "source",
+    /not both/,
+  );
+});
+
+test("neither a directory nor a source is INVALID_OPTIONS before any work", async () => {
+  await rejectsBeforeAnyWork({ outputDirectory: "/out" }, "source", /neither/);
+});
+
+test("a malformed source entry is INVALID_OPTIONS before any work", async () => {
+  const entry = (path: string) => ({ path, bytes: new Uint8Array() });
+  for (const [bad, pattern] of [
+    ["/abs/A.java", /absolute/],
+    ["src/../A.java", /"\.\."/],
+    ["src/./A.java", /"\."/],
+    ["src//A.java", /empty/],
+    ["src\\A.java", /backslash/],
+  ] as const) {
+    await rejectsBeforeAnyWork({ source: [entry("ok/B.java"), entry(bad)], outputDirectory: "/out" }, "source", pattern);
+  }
+  await rejectsBeforeAnyWork(
+    { source: [entry("A.java"), entry("A.java")], outputDirectory: "/out" },
+    "source",
+    /duplicates/,
+  );
+});
+
+test("a memory source without an outputDirectory is INVALID_OPTIONS naming that field", async () => {
+  await rejectsBeforeAnyWork({ source: memorySource }, "outputDirectory", /required/);
+  await rejectsBeforeAnyWork({ source: memorySource, outputDirectory: "   " }, "outputDirectory", /required/);
+});
+
+test("a memory source is passed to parse as-is, with no project directory, and the directory guard is skipped", async () => {
+  const { deps, calls } = makeDeps();
+  const result = await indexProject({ source: memorySource, outputDirectory: "/out" }, deps);
+
+  assert(result.ok, JSON.stringify(result));
+  assert.equal(calls.parseOptions[0]?.source, memorySource);
+  assert.equal("projectDirectory" in (calls.parseOptions[0] ?? {}), false);
+  assert.deepEqual(calls.isDirectoryPaths, [], "there is no project directory to check");
+  assert.deepEqual(calls.ensuredDirectories, [resolve("/out")]);
+  assert.equal(result.value.outputDirectory, resolve("/out"));
+});
+
+test("an invalid concurrency is still reported for a memory source, and a valid one is accepted and unused", async () => {
+  await rejectsBeforeAnyWork({ source: memorySource, outputDirectory: "/out", concurrency: 0 }, "concurrency", /integer/);
+  const { deps } = makeDeps();
+  const result = await indexProject({ source: memorySource, outputDirectory: "/out", concurrency: 4 }, deps);
+  assert(result.ok);
+});
