@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { APP_SECURITY_HEADERS } from "./src/lib/auth/security-headers";
 
 /**
  * Workspace packages the server loads from node_modules at run time instead of
@@ -13,6 +14,9 @@ const SERVER_RUNTIME_PACKAGES = new Set(["@repohive/indexer", "@repohive/engine"
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@repohive/ui", "@repohive/types", "@repohive/api-client"],
+  async headers() {
+    return [{ source: "/:path*", headers: [...APP_SECURITY_HEADERS] }];
+  },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
   },
