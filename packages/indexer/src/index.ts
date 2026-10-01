@@ -49,3 +49,15 @@ export type {
   SnapshotObject,
   ViewFile,
 } from "./layout.js";
+// Brotli at quality 9 and the headers each object is stored with (Requirement 8).
+export {
+  BROTLI_QUALITY,
+  IMMUTABLE_CACHE_CONTROL,
+  JSON_CONTENT_TYPE,
+  LATEST_CACHE_CONTROL,
+  compressBrotli,
+  headersForKey,
+  prepareObject,
+  prepareObjects,
+} from "./compression.js";
+export type { PreparedObject } from "./compression.js";
