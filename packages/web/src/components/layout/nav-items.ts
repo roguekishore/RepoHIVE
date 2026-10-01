@@ -15,6 +15,7 @@ import {
   ClipboardList,
   DollarSign,
   FolderTree,
+  Gauge,
   GitCommitHorizontal,
   GitCompare,
   GitMerge,
@@ -23,11 +24,14 @@ import {
   Layers,
   Lightbulb,
   Link2,
+  LogIn,
+  LogOut,
   MessageSquare,
   Network,
   ScanSearch,
   Settings,
   ShieldCheck,
+  UserPlus,
   Users,
   Waypoints,
   Wrench,
@@ -47,7 +51,12 @@ export interface NavGroup {
 }
 
 export const GLOBAL_NAV: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/", icon: LayoutDashboard, exact: true },
+  { label: "Request index", href: "/request", icon: ClipboardList },
+  { label: "Quota", href: "/quota", icon: Gauge },
+  { label: "Sign in", href: "/auth/sign-in", icon: LogIn },
+  { label: "Sign up", href: "/auth/sign-up", icon: UserPlus },
+  { label: "Sign out", href: "/auth/sign-out", icon: LogOut },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
