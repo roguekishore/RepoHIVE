@@ -205,3 +205,8 @@ export function getAppConfig(): AppConfig {
   cached ??= parseAppConfig(process.env);
   return cached;
 }
+
+/** Vitest-only: force the next read to parse `process.env` again. */
+export function resetAppConfigForTests(): void {
+  cached = undefined;
+}
