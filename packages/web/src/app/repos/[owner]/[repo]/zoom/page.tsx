@@ -9,11 +9,11 @@ export default async function ZoomRedirect({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ owner: string; repo: string }>;
   searchParams: Promise<{ focus?: string }>;
 }) {
-  const { id } = await params;
+  const { owner, repo } = await params;
   const { focus } = await searchParams;
   const qs = focus ? `?focus=${encodeURIComponent(focus)}` : "";
-  redirect(`/repos/${id}/knowledge-graph${qs}`);
+  redirect(`/repos/${owner}/${repo}/knowledge-graph${qs}`);
 }

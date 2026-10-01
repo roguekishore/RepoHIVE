@@ -20,7 +20,10 @@ import { join } from "node:path";
 
 const WEB_SRC = join(__dirname, "..");
 const UI_SRC = join(__dirname, "../../../ui/src");
-const ROUTES = join(WEB_SRC, "app/repos/[id]");
+/** The reachable repository routes, and the vendored pages that stay in the tree unrouted. */
+const LIVE_ROUTES = join(WEB_SRC, "app/repos/[owner]/[repo]");
+const VENDORED_ROUTES = join(WEB_SRC, "vendored/repos/[id]");
+const ROUTES = VENDORED_ROUTES;
 
 /**
  * Deep links we keep pointing at a redirect on purpose. Empty since the
@@ -46,9 +49,14 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 function redirectOnlySegments(): Set<string> {
   const out = new Set<string>();
-  for (const entry of readdirSync(ROUTES)) {
+  for (const root of [LIVE_ROUTES, VENDORED_ROUTES]) collectStubs(root, out);
+  return out;
+}
+
+function collectStubs(root: string, out: Set<string>): void {
+  for (const entry of readdirSync(root)) {
     if (entry.startsWith("[")) continue;
-    const dir = join(ROUTES, entry);
+    const dir = join(root, entry);
     if (!statSync(dir).isDirectory()) continue;
     let page: string;
     try {
@@ -58,7 +66,6 @@ function redirectOnlySegments(): Set<string> {
     }
     if (page.includes("redirect") && !page.includes("return (")) out.add(entry);
   }
-  return out;
 }
 
 /** Every `${base}/seg` or `/repos/${id}/seg` written on a line carrying an href. */

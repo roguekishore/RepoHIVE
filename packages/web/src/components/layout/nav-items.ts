@@ -48,9 +48,6 @@ export interface NavGroup {
 
 export const GLOBAL_NAV: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  // Cross-repository, so it cannot be repo-scoped: it compares the assessed
-  // preserve rate of every indexed repository against the others.
-  { label: "Adaptivity", href: "/adaptivity", icon: GitCompare },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -128,6 +125,9 @@ export function repoNavGroups(repoId: string): NavGroup[] {
         // The built hierarchy itself: level flow, group DSM, determinism.
         { label: "Architecture", href: `${base}/architecture`, icon: Boxes },
         { label: "Flat baseline", href: `${base}/flat-baseline`, icon: Network },
+        // One snapshot's assessed preserve rate. The cross-repository comparison
+        // needs the repository list, which arrives in a later hosting-3 phase.
+        { label: "Adaptivity", href: `${base}/adaptivity`, icon: GitCompare },
       ],
     },
   ];

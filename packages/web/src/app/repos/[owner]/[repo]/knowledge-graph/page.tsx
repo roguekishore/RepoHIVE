@@ -24,7 +24,7 @@
  * webview); only the old web surface for it was retired.
  */
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
 import { PageShell } from "@repohive/ui/shared/page-shell";
@@ -32,6 +32,8 @@ import { ZoomCanvas } from "@repohive/ui/zoom";
 import { CO_CHANGES, indexRelationsByNode } from "@repohive/ui/zoom";
 import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
 import { useZoomMap } from "@/lib/hooks/use-graph";
+import { useBlastRadius } from "@/lib/blast-radius/use-blast-radius";
+import { useSnapshot } from "@/lib/snapshot/snapshot-context";
 import { ZoomBreadcrumb } from "@/components/zoom/zoom-breadcrumb";
 import { ZoomSearch } from "@/components/zoom/zoom-search";
 import { ZoomDetailPanel } from "@/components/zoom/zoom-detail-panel";
@@ -56,8 +58,9 @@ function zoomMapErrorReason(error: unknown): string {
   return "The index could not be read.";
 }
 
-export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: repoId } = use(params);
+export default function KnowledgeGraphPage() {
+  const { repoId } = useSnapshot();
+  const queryBlastRadius = useBlastRadius();
 
   const { zoomMap, error, isLoading } = useZoomMap(repoId);
   const canvasRef = useRef<ZoomCanvasHandle | null>(null);
@@ -103,34 +106,30 @@ export default function KnowledgeGraphPage({ params }: { params: Promise<{ id: s
   );
   const showStats = process.env.NODE_ENV === "development";
 
-  // E6: on select, fetch the node's blast radius (everything that depends on it)
-  // and light it up across the map; clear it on deselect. The route rolls the
-  // impacted leaves up to their ancestor cards, so the highlight reads at any
-  // zoom level. Aborts in-flight requests when the selection changes.
+  // E6: on select, compute the node's blast radius (everything that depends on
+  // it) in the browser and light it up across the map; clear it on deselect. The
+  // traversal rolls the impacted leaves up to their ancestor cards, so the
+  // highlight reads at any zoom level. It runs in a Web Worker over the
+  // snapshot's leaf-edge view, fetched once on first selection. A result that
+  // arrives after the selection changed is dropped.
   useEffect(() => {
     if (!selected) {
       setHighlightIds(null);
       return;
     }
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/graph/${repoId}/blast-radius?node=${encodeURIComponent(selected.id)}`,
-          { signal: controller.signal },
-        );
-        if (!res.ok) {
-          setHighlightIds(null);
-          return;
-        }
-        const data = (await res.json()) as { ids?: string[] };
-        setHighlightIds(new Set(data.ids ?? []));
-      } catch {
-        // Aborted (selection changed) or network error — leave un-highlighted.
-      }
-    })();
-    return () => controller.abort();
-  }, [selected, repoId]);
+    let current = true;
+    queryBlastRadius(selected.id)
+      .then((result) => {
+        if (current) setHighlightIds(result ? new Set(result.ids) : null);
+      })
+      .catch(() => {
+        // The view could not be loaded — leave un-highlighted.
+        if (current) setHighlightIds(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [selected, queryBlastRadius]);
 
   return (
     <PageShell

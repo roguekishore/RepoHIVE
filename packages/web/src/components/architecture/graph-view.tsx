@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import useSWR from "swr";
 import { useQueryState } from "nuqs";
 import { useSearchParams } from "next/navigation";
 import { GraphFlow } from "@/components/graph/graph-flow";
@@ -13,7 +12,7 @@ import {
   ModuleFilterSelect,
 } from "@repohive/ui/graph/graph-scope-controls";
 import type { ModuleGroup } from "@repohive/ui/graph/use-module-filter";
-import { getGraph } from "@/lib/api/graph";
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 import type { GraphExportResponse } from "@/lib/api/types";
 
 type ViewMode = "full" | "architecture" | "dead" | "hotfiles" | "unified";
@@ -78,11 +77,7 @@ export function GraphView({
   // a canvas drawing 734 nodes that came from somewhere else entirely.
   const usesFullGraph = effectiveScope === "files" && !signal;
 
-  const { data: graphData } = useSWR<GraphExportResponse>(
-    usesFullGraph ? `graph:${repoId}:${graphLimit ?? "default"}` : null,
-    () => getGraph(repoId, graphLimit),
-    { revalidateOnFocus: false, revalidateOnReconnect: false },
-  );
+  const { data: graphData } = useSnapshotJson<GraphExportResponse>(usesFullGraph ? "views/graph.json" : null);
 
   // Click a file node → open doc panel
   const handleNodeClick = useCallback(

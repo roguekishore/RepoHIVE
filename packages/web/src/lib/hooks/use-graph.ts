@@ -2,6 +2,7 @@
 
 import type { ZoomMap } from "@repohive/ui/zoom";
 import useSWR from "swr";
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 import {
   getArchitecture,
   getArchitectureGraph,
@@ -11,10 +12,8 @@ import {
   getCommunitySlice,
   getDeadCodeGraph,
   getExecutionFlows,
-  getGraph,
   getGraphMetrics,
   getHotFilesGraph,
-  getZoomMap,
 } from "@/lib/api/graph";
 import type {
   ArchitectureGraphResponse,
@@ -31,27 +30,23 @@ import type {
 
 const SWR_OPTS = { revalidateOnFocus: false, revalidateOnReconnect: false };
 
+/**
+ * The semantic-zoom map, read from the session's snapshot (`views/zoom-map.json`).
+ * The snapshot is already bound to the repository, so `repoId` only gates the
+ * fetch. The map is always the whole tree: the removed route ignored
+ * `max_depth` and `focus` as well.
+ */
 export function useZoomMap(
   repoId: string | null,
-  params?: { max_depth?: number; focus?: string },
+  _params?: { max_depth?: number; focus?: string },
 ) {
-  const key = repoId
-    ? `zoom-map:${repoId}:${params?.max_depth ?? ""}:${params?.focus ?? ""}`
-    : null;
-  const { data, error, isLoading } = useSWR<ZoomMap>(
-    key,
-    () => getZoomMap(repoId!, params),
-    SWR_OPTS,
-  );
+  const { data, error, isLoading } = useSnapshotJson<ZoomMap>(repoId ? "views/zoom-map.json" : null);
   return { zoomMap: data, error, isLoading };
 }
 
-export function useGraph(repoId: string | null, limit?: number) {
-  const { data, error, isLoading } = useSWR<GraphExportResponse>(
-    repoId ? `graph:${repoId}:${limit ?? "default"}` : null,
-    () => getGraph(repoId!, limit),
-    SWR_OPTS,
-  );
+/** The flat baseline graph (`views/graph.json`). `limit` is ignored: the view is never capped. */
+export function useGraph(repoId: string | null, _limit?: number) {
+  const { data, error, isLoading } = useSnapshotJson<GraphExportResponse>(repoId ? "views/graph.json" : null);
   return { graph: data, error, isLoading };
 }
 

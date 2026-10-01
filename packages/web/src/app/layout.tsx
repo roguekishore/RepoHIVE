@@ -13,9 +13,7 @@ import { CommandPalette } from "@/components/search/command-palette";
 import { ContextDrawerShell } from "@/components/layout/context-drawer-provider";
 import { SWRProvider } from "@/components/layout/swr-provider";
 import { UpgradeBanner } from "@/components/layout/upgrade-banner";
-import { listRepos } from "@/lib/api/repos";
-import { getWorkspace } from "@/lib/api/workspace";
-import type { WorkspaceResponse } from "@/lib/api/types";
+import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
 import "@/styles/globals.css";
 
 // Serif display face for the docs/wiki reading surfaces (--font-serif token).
@@ -30,25 +28,16 @@ export const metadata: Metadata = {
     "Hierarchical codebase indexing with recorded per-region preserve/reconstruct decisions",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch repos + workspace info server-side for the sidebar.
-  // Gracefully fall back to empty/null if the API is unavailable.
-  let repos: Awaited<ReturnType<typeof listRepos>> = [];
-  let workspace: WorkspaceResponse | null = null;
-  try {
-    const [reposResult, wsResult] = await Promise.allSettled([
-      listRepos(),
-      getWorkspace(),
-    ]);
-    if (reposResult.status === "fulfilled") repos = reposResult.value;
-    if (wsResult.status === "fulfilled") workspace = wsResult.value;
-  } catch {
-    // API not available — show empty sidebar
-  }
+  // The navigation draws the repository named in the URL (see `withActiveRepo`);
+  // there is no server-side repository list or workspace to fetch (hosting-3
+  // Requirement 2.5). The repository list page arrives with the SQLite list.
+  const repos: RepoResponse[] = [];
+  const workspace: WorkspaceResponse | null = null;
 
   return (
     <html
