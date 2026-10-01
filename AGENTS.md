@@ -88,6 +88,6 @@ This project runs on Linux, macOS, and Windows.
 - **Real date before stamping anything**: Linux/macOS `date '+%Y-%m-%d %H:%M'`; Windows
   `Get-Date -Format 'yyyy-MM-dd HH:mm'`. A session can span days.
 
-Use **Node 20**. Only `packages/web` declares an `engines` constraint, so nothing enforces this, and the
+Use **Node 24**. Only `packages/web` declares an `engines` constraint, so nothing enforces this, and the
 engine test scripts behave differently on Node 21 and later in a way that can report a false pass. See
 `docs/engineering/verification.md`.
