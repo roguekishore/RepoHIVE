@@ -3,12 +3,12 @@
 /**
  * Renders a repository's pages only once its
  * snapshot is resolved. Otherwise it says what is wrong: still loading, never
- * indexed, or an expired `?snapshot=`. The request form for a never-indexed
- * repository belongs to a later phase; this phase states the
- * fact and links home.
+ * indexed, or an expired `?snapshot=`. A signed-in visitor sees the request
+ * form prefilled for a never-indexed repository.
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { NeverIndexedNotice } from "@/components/layout/never-indexed-notice";
 import { useSnapshot } from "@/lib/snapshot/snapshot-context";
 
 function Notice({ title, children }: { title: string; children: ReactNode }) {
@@ -31,30 +31,21 @@ export function SnapshotGate({ children }: { children: ReactNode }) {
         </div>
       );
     case "never-indexed":
-      return (
-        <Notice title="This repository has not been indexed">
-          <p>
-            <span className="font-mono">{repoId}</span> has no published snapshot yet.
-          </p>
-          <p className="mt-2">
-            <Link href="/" className="text-[var(--color-accent-primary)] hover:underline">
-              Back to the repository list
-            </Link>
-          </p>
-        </Notice>
-      );
+      return <NeverIndexedNotice repoId={repoId} />;
     case "expired":
       return (
         <Notice title="This snapshot has expired">
-          <p>
-            Snapshot <span className="font-mono">{state.requested}</span> is no longer published.
-          </p>
-          <p className="mt-2">
-            {/* A plain anchor: the layout must remount to start a new session. */}
-            <a href={`/repos/${repoId}`} className="text-[var(--color-accent-primary)] hover:underline">
-              Open the latest snapshot
-            </a>
-          </p>
+          <div aria-live="polite">
+            <p>
+              Snapshot <span className="font-mono">{state.requested}</span> is no longer published.
+            </p>
+            <p className="mt-2">
+              {/* A plain anchor: the layout must remount to start a new session. */}
+              <a href={`/repos/${repoId}`} className="text-[var(--color-accent-primary)] hover:underline">
+                Open the latest snapshot
+              </a>
+            </p>
+          </div>
         </Notice>
       );
     case "error":
