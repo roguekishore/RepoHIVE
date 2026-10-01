@@ -15,9 +15,10 @@
  *   valid endpoints.
  * - **Canonical order (R9.2, R9.3).** Emission order is fully determined by
  *   content via the stable stringifier, independent of input order.
- * - **Atomic, no-partial write (R8).** The full document is serialized in
- *   memory, written to a temp file in the *same* directory, then `fs.rename`d
- *   over `graph.json`. Any failure returns `output-unwritable` and leaves no
+ * - **Atomic, no-partial write (R8).** The document is streamed as chunks (never
+ *   one whole-document string, which would hit V8's string-length limit on a
+ *   very large repository) to a temp file in the *same* directory, then
+ *   `fs.rename`d over `graph.json`. Any failure returns `output-unwritable` and leaves no
  *   partial/empty output; a prior valid file is untouched because the rename
  *   never happens (R8.4, R8.5, R10.6). On success no temp file is left behind.
  * - **In-memory handoff.** On success the canonical graph is returned on
@@ -33,13 +34,15 @@
 import * as nodeFs from "node:fs/promises";
 import * as path from "node:path";
 
+import { coalesceChunks } from "@repohive/shared";
+
 import type {
   DependencyEdge,
   GraphNode,
   RawDependencyGraph,
 } from "@repohive/shared";
 
-import { sortGraphCanonically, stringifyGraph } from "./canonical.js";
+import { sortGraphCanonically, stringifyGraphPieces } from "./canonical.js";
 import {
   err,
   makeError,
@@ -60,14 +63,28 @@ const MAX_FREQUENCY = 2_147_483_647;
  * any temp file that was created.
  */
 export interface SerializerDeps {
-  writeFile(filePath: string, data: string): Promise<void>;
+  /**
+   * Write the chunks, in order, as one UTF-8 file. The chunks are produced
+   * lazily and none is the whole document; an implementation must consume them
+   * one at a time rather than joining them.
+   */
+  writeChunks(filePath: string, chunks: Iterable<string>): Promise<void>;
   rename(oldPath: string, newPath: string): Promise<void>;
   /** Best-effort cleanup of a temp file; never rejects fatally. */
   unlink(filePath: string): Promise<void>;
 }
 
 const defaultDeps: SerializerDeps = {
-  writeFile: (filePath, data) => nodeFs.writeFile(filePath, data, "utf8"),
+  writeChunks: async (filePath, chunks) => {
+    const handle = await nodeFs.open(filePath, "w");
+    try {
+      for (const chunk of chunks) {
+        await handle.write(chunk, null, "utf8");
+      }
+    } finally {
+      await handle.close();
+    }
+  },
   rename: (oldPath, newPath) => nodeFs.rename(oldPath, newPath),
   unlink: (filePath) => nodeFs.unlink(filePath),
 };
@@ -277,21 +294,6 @@ export function createGraphSerializer(
       // input order); on already-sorted input that is a no-op.
       const canonical = sortGraphCanonically(graph);
 
-      // Serialize the entire document in memory first, so a serialization
-      // failure never leaves a partial file on disk (R8.4).
-      let document: string;
-      try {
-        document = stringifyGraph(canonical);
-      } catch (error) {
-        return err([
-          makeError(
-            "output-unwritable",
-            `Failed to serialize the dependency graph: ${describeFailure(error)}`,
-            outputPath,
-          ),
-        ]);
-      }
-
       // Temp file lives in the SAME directory as the target so the final
       // `rename` is an atomic same-filesystem move (R8, R10.6).
       const tempPath = `${outputPath}.tmp`;
@@ -300,7 +302,7 @@ export function createGraphSerializer(
       // file and return `output-unwritable`; the target is never touched, so a
       // prior valid `graph.json` is left byte-for-byte intact (R8.4, R10.6).
       try {
-        await deps.writeFile(tempPath, document);
+        await deps.writeChunks(tempPath, coalesceChunks(stringifyGraphPieces(canonical)));
       } catch (error) {
         await deps.unlink(tempPath).catch(() => {});
         return err([

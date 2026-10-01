@@ -24,6 +24,7 @@ import * as path from "node:path";
 import { after, before, test } from "node:test";
 import fc from "fast-check";
 import type { DependencyEdge, GraphNode } from "@repohive/shared";
+import { stringifyGraph } from "./canonical.js";
 import {
   createGraphSerializer,
   writeGraph,
@@ -52,7 +53,7 @@ function failingDeps(
     get renamed() {
       return state.renamed;
     },
-    async writeFile() {
+    async writeChunks() {
       if (failOn === "write") {
         const e = new Error("simulated write failure") as NodeJS.ErrnoException;
         e.code = "EACCES";
@@ -426,4 +427,85 @@ test("unique node ids are accepted and written normally (duplicate gate does not
   const outPath = path.join(tmpRoot, "no-dup-test.json");
   const result = await writeGraph(nodes, [], outPath);
   assert.equal(result.ok, true, `should succeed for unique ids: ${JSON.stringify(!result.ok && result.errors)}`);
+});
+
+// --- Streaming write (hosting-1 Requirement 2) -------------------------------
+
+/** A graph large enough that graph.json spans several chunks. */
+function largeGraph(): { nodes: GraphNode[]; edges: DependencyEdge[] } {
+  const nodes: GraphNode[] = [];
+  const edges: DependencyEdge[] = [];
+  for (let i = 0; i < 6000; i += 1) {
+    nodes.push({ id: `file:src/p${i % 50}/C${i}.java`, kind: "file", directoryPath: `src/p${i % 50}` });
+  }
+  for (let i = 1; i < nodes.length; i += 1) {
+    edges.push({
+      source: nodes[i]!.id,
+      target: nodes[i - 1]!.id,
+      importFrequency: 1,
+      methodCallFrequency: 0,
+      sharedTypeCount: 0,
+    });
+  }
+  return { nodes, edges };
+}
+
+test("the writer receives bounded chunks that rebuild the stringified document", async () => {
+  const { nodes, edges } = largeGraph();
+  const chunks: string[] = [];
+  const deps: SerializerDeps = {
+    async writeChunks(_filePath, source) {
+      for (const chunk of source) {
+        chunks.push(chunk);
+      }
+    },
+    async rename() {},
+    async unlink() {},
+  };
+  const result = await writeGraph(nodes, edges, path.join(tmpRoot, "chunked.json"), deps);
+  assert.ok(result.ok);
+
+  assert.ok(chunks.length > 1, "a multi-hundred-kilobyte document is split");
+  for (const chunk of chunks) {
+    assert.ok(chunk.length <= 1024 * 1024, `chunk of ${chunk.length} characters exceeds 1 MiB`);
+  }
+  assert.equal(chunks.join(""), stringifyGraph(result.value.graph!));
+});
+
+test("a write that fails part-way leaves no file at the final path and removes the temp file", async () => {
+  const { nodes, edges } = largeGraph();
+  const outputPath = path.join(tmpRoot, "partial.json");
+  const unlinked: string[] = [];
+  let consumed = 0;
+  const deps: SerializerDeps = {
+    async writeChunks(_filePath, source) {
+      for (const _chunk of source) {
+        consumed += 1;
+        if (consumed === 2) {
+          throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+        }
+      }
+    },
+    async rename() {
+      assert.fail("rename must not run after a failed write");
+    },
+    async unlink(filePath) {
+      unlinked.push(filePath);
+    },
+  };
+  const result = await writeGraph(nodes, edges, outputPath, deps);
+  assert.ok(!result.ok);
+  assert.equal(result.errors[0]!.reason, "output-unwritable");
+  assert.equal(consumed, 2, "the writer stopped at the failure");
+  assert.deepEqual(unlinked, [`${outputPath}.tmp`]);
+  await assert.rejects(() => nodeFs.readFile(outputPath, "utf8"));
+});
+
+test("the real writer streams a document identical to stringifyGraph", async () => {
+  const { nodes, edges } = largeGraph();
+  const outputPath = path.join(tmpRoot, "real-stream.json");
+  const result = await writeGraph(nodes, edges, outputPath);
+  assert.ok(result.ok);
+  assert.equal(await nodeFs.readFile(outputPath, "utf8"), stringifyGraph(result.value.graph!));
+  await assert.rejects(() => nodeFs.readFile(`${outputPath}.tmp`, "utf8"), "no temp file remains");
 });
