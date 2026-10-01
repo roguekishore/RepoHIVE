@@ -1,6 +1,8 @@
 /**
- * hosting-3 Requirement 3.2: uppercase owner or repository in a repo URL is a
- * permanent redirect to the lowercase URL, keeping the path and query.
+ * hosting-3 Requirements 3.1 to 3.3: repo URL rules answered before any page
+ * renders. Uppercase owner or repository is a permanent redirect to the
+ * lowercase URL (path and query kept); disallowed characters are a 404; the
+ * repo root redirects to the default surface.
  */
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
@@ -10,7 +12,7 @@ function run(url: string) {
   return middleware(new NextRequest(url));
 }
 
-describe("repo URL lowercase redirect", () => {
+describe("repo URL rules", () => {
   it("redirects permanently, keeping the surface and the query", () => {
     const response = run("http://localhost:3000/repos/Local/Sample-Java/knowledge-graph?focus=Abc&snapshot=0123456789abcdef0123456789abcdef");
     expect(response.status).toBe(308);
@@ -19,7 +21,7 @@ describe("repo URL lowercase redirect", () => {
     );
   });
 
-  it("redirects the repo root too, and lowercases only the owner and repo", () => {
+  it("lowercases the repo root before redirecting it, and only the owner and repo", () => {
     expect(run("http://localhost:3000/repos/OWNER/repo").headers.get("location")).toBe(
       "http://localhost:3000/repos/owner/repo",
     );
@@ -30,6 +32,20 @@ describe("repo URL lowercase redirect", () => {
     const response = run("http://localhost:3000/repos/local/sample-java/hierarchy");
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("redirects the repo root to the default surface, keeping the query", () => {
+    const response = run("http://localhost:3000/repos/owner/repo?snapshot=0123456789abcdef0123456789abcdef");
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/repos/owner/repo/knowledge-graph?snapshot=0123456789abcdef0123456789abcdef",
+    );
+  });
+
+  it("answers names GitHub would not allow with a 404", () => {
+    for (const path of ["bad_owner/repo/hierarchy", "owner/bad%40name/hierarchy", "owner/bad%40name", "owner/../x"]) {
+      expect(run(`http://localhost:3000/repos/${path}`).status, path).toBe(404);
+    }
   });
 
   it("only runs for repo routes", () => {
