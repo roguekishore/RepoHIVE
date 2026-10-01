@@ -31,7 +31,7 @@ against a public clone.
 npm run build
 ```
 
-Runs `tsc -b packages/parser packages/core packages/engine packages/views packages/indexer`. Must be clean. No new type errors, no suppressed
+Runs `tsc -b packages/parser packages/core packages/engine packages/views packages/indexer`, then `node packages/views/scripts/write-views-version.mjs`. Must be clean. No new type errors, no suppressed
 diagnostics.
 
 Note that the root `npm run typecheck` is **byte-identical to `build`** and emits `dist/`. It is not a
