@@ -8,6 +8,8 @@
  * the run returns them all and writes nothing (R10.4).
  */
 
+import type { RawDependencyGraph } from "@repohive/shared";
+
 /**
  * Discriminated result type. `ok: true` carries a value; `ok: false` carries
  * one or more errors.
@@ -78,6 +80,22 @@ export interface ParseSuccess {
    * Omitted when none were skipped.
    */
   excludedDirectoryCount?: number;
+  /**
+   * The graph that was just written, handed over in memory so an in-process
+   * consumer (the engine's `parse` -> `group` pipeline) can skip reading
+   * `graph.json` back off disk.
+   *
+   * It is the exact document `outputPath` contains: the same normalized,
+   * endpoint-swept nodes and edges, in the same canonical order and with the
+   * same property order the serializer emitted, so consuming this instead of
+   * the file cannot change any downstream result. `graph.json` is written
+   * either way - it is the committed artifact layout and the input to a
+   * `group`-only re-run.
+   *
+   * Optional because the field is additive: a caller that ignores it keeps the
+   * read-back path, and a `GraphSerializer` stub may omit it.
+   */
+  graph?: RawDependencyGraph;
 }
 
 /**

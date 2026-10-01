@@ -20,6 +20,10 @@
  *   over `graph.json`. Any failure returns `output-unwritable` and leaves no
  *   partial/empty output; a prior valid file is untouched because the rename
  *   never happens (R8.4, R8.5, R10.6). On success no temp file is left behind.
+ * - **In-memory handoff.** On success the canonical graph is returned on
+ *   {@link ParseSuccess.graph} as well as written, so an in-process consumer
+ *   can group straight from memory. It is the same document in the same order
+ *   as the file, so the two paths cannot diverge.
  *
  * The filesystem operations are injected via {@link SerializerDeps} so the
  * write-failure branches can be simulated deterministically in tests without
@@ -35,7 +39,7 @@ import type {
   RawDependencyGraph,
 } from "@repohive/shared";
 
-import { stringifyGraph } from "./canonical.js";
+import { sortGraphCanonically, stringifyGraph } from "./canonical.js";
 import {
   err,
   makeError,
@@ -120,16 +124,25 @@ function normalizeFrequency(value: number): number {
  * - `definedInFile`: omitted on `file` nodes and preserved on `class` /
  *   `function` nodes.
  * - `strength` never exists on a node; frequency handling is edge-only.
+ *
+ * Properties are inserted in the order the canonical stringifier emits them
+ * (`id`, `kind`, `packagePath`, `directoryPath`, `definedInFile`). Emission
+ * does not depend on this (`stringifyNode` writes a fixed key order whatever
+ * it is handed) but it makes the in-memory handoff in
+ * {@link ParseSuccess.graph} match the written document down to property
+ * order, so re-stringifying the handoff cannot produce different bytes.
  */
 function normalizeNode(node: GraphNode): GraphNode {
-  const normalized: GraphNode = {
-    id: node.id,
-    kind: node.kind,
-    directoryPath: node.directoryPath,
-  };
-  if (node.packagePath !== undefined && node.packagePath !== "") {
-    normalized.packagePath = node.packagePath;
-  }
+  const hasPackagePath =
+    node.packagePath !== undefined && node.packagePath !== "";
+  const normalized: GraphNode = hasPackagePath
+    ? {
+        id: node.id,
+        kind: node.kind,
+        packagePath: node.packagePath,
+        directoryPath: node.directoryPath,
+      }
+    : { id: node.id, kind: node.kind, directoryPath: node.directoryPath };
   if (node.kind !== "file" && node.definedInFile !== undefined) {
     normalized.definedInFile = node.definedInFile;
   }
@@ -258,11 +271,17 @@ export function createGraphSerializer(
         return err([duplicateError]);
       }
 
+      // Sort once, here, so the graph handed back in `ParseSuccess.graph` is
+      // the same document in the same order as the bytes written to disk.
+      // `stringifyGraph` sorts defensively too (its contract is independent of
+      // input order); on already-sorted input that is a no-op.
+      const canonical = sortGraphCanonically(graph);
+
       // Serialize the entire document in memory first, so a serialization
       // failure never leaves a partial file on disk (R8.4).
       let document: string;
       try {
-        document = stringifyGraph(graph);
+        document = stringifyGraph(canonical);
       } catch (error) {
         return err([
           makeError(
@@ -309,10 +328,14 @@ export function createGraphSerializer(
         ]);
       }
 
+      // Hand the written document back in memory as well (R8 unchanged: the
+      // file is still the artifact). An in-process consumer can group straight
+      // from this instead of reading `graph.json` back.
       return ok<ParseSuccess, ParseError>({
         outputPath,
-        nodeCount: graph.nodes.length,
-        edgeCount: graph.edges.length,
+        nodeCount: canonical.nodes.length,
+        edgeCount: canonical.edges.length,
+        graph: canonical,
       });
     },
   };
