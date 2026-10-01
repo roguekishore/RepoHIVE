@@ -1,5 +1,5 @@
 /** Current SQLite schema; bump when a phase adds tables or columns. */
-export const APP_DB_SCHEMA_VERSION = 2;
+export const APP_DB_SCHEMA_VERSION = 3;
 
 export const APP_DB_FILENAME = "app.sqlite";
 
@@ -70,6 +70,33 @@ export function applyAppDbSchema(db: { exec: (sql: string) => void }): void {
     CREATE TABLE IF NOT EXISTS account_inflight (
       account_id INTEGER NOT NULL PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
       job_id TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS indexed_repositories (
+      repo TEXT NOT NULL PRIMARY KEY,
+      snapshot_id TEXT NOT NULL,
+      commit_sha TEXT NOT NULL,
+      indexed_at TEXT NOT NULL,
+      node_count INTEGER NOT NULL,
+      job_id TEXT NOT NULL UNIQUE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_indexed_repositories_indexed_at
+      ON indexed_repositories (indexed_at DESC);
+
+    CREATE TABLE IF NOT EXISTS worker_checkpoint (
+      id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+      last_ended_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS worker_job_outcomes (
+      job_id TEXT NOT NULL PRIMARY KEY,
+      processed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS worker_backup_state (
+      id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+      last_backup_utc_day TEXT
     );
   `);
 }
