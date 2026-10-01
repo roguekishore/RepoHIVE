@@ -60,3 +60,5 @@ fixtures/jsoup-src
 
 # Context
 context/
+
+.agents/
