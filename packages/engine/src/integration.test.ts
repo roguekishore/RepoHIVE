@@ -478,3 +478,67 @@ test("isSelectedSourcePath drops exactly what the engine drops", async () => {
     rmSync(pre, { recursive: true, force: true });
   }
 });
+
+const WORKER_MATRIX = [1, 2, 8, 16] as const;
+
+test("worker matrix: output is byte-identical at 1, 2, 8 and 16 workers, for a directory and for a memory source", async (t) => {
+  if (!FIXTURE_PRESENT) {
+    t.skip(SKIP_REASON);
+    return;
+  }
+  const entries = entriesOf(FIXTURE);
+  const outputs: Array<{ label: string; root: string }> = [];
+  try {
+    for (const workers of WORKER_MATRIX) {
+      for (const kind of ["directory", "memory"] as const) {
+        const root = mkdtempSync(join(tmpdir(), `repohive-engine-w${workers}-`));
+        outputs.push({ label: `${kind} workers=${workers}`, root });
+        const result = await indexProject(
+          kind === "directory"
+            ? { projectDirectory: FIXTURE, outputDirectory: root, workers }
+            : { source: entries, outputDirectory: root, workers },
+        );
+        assert(result.ok, `${kind} workers=${workers}: ${JSON.stringify(result)}`);
+      }
+    }
+
+    const reference = artifactsOf((outputs[0] as { root: string }).root);
+    assert.equal(fileDigest(join((outputs[0] as { root: string }).root, "graph.json")), RECORDED_PARSE_DIGEST);
+    assert.equal(indexDigest(join((outputs[0] as { root: string }).root, "index")), RECORDED_GROUP_DIGEST);
+    for (const { label, root } of outputs.slice(1)) {
+      try {
+        assertSameArtifacts(reference, artifactsOf(root));
+      } catch (cause) {
+        throw new Error(`${label} differs from ${(outputs[0] as { label: string }).label}: ${String(cause)}`);
+      }
+    }
+  } finally {
+    for (const { root } of outputs) {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("a failing file with several workers fails the run and writes no artifact", async () => {
+  const out = mkdtempSync(join(tmpdir(), "repohive-engine-fail-"));
+  try {
+    const result = await indexProject({
+      source: [
+        { path: "ok/A.java", bytes: new TextEncoder().encode("public class A {}\n") },
+        { path: "bad/Z.java", bytes: new TextEncoder().encode("class {{{") },
+        { path: "bad/B.java", bytes: new TextEncoder().encode("class }}}{") },
+      ],
+      outputDirectory: out,
+      workers: 3,
+    });
+    assert(!result.ok && result.stage === "parse");
+    assert.deepEqual(
+      result.errors.map((e) => e.path),
+      ["bad/B.java", "bad/Z.java"],
+      "errors in canonical file order",
+    );
+    assert.deepEqual(readdirSync(out), [], "nothing was written");
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});

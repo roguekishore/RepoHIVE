@@ -573,3 +573,66 @@ test("an invalid concurrency is still reported for a memory source, and a valid 
   const result = await indexProject({ source: memorySource, outputDirectory: "/out", concurrency: 4 }, deps);
   assert(result.ok);
 });
+
+// --- Worker pool options (hosting-1 Requirement 6) ---------------------------
+
+test("an invalid workers value is INVALID_OPTIONS naming the field, before any work", async () => {
+  for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 60]) {
+    const { deps, calls } = makeDeps();
+    const result = await indexProject({ projectDirectory: "/proj", workers: bad }, deps);
+
+    assert(!result.ok, `workers ${bad} must be rejected`);
+    assert(result.stage === "engine" && result.error.code === "INVALID_OPTIONS");
+    assert.equal(result.error.field, "workers");
+    assert.match(result.error.detail, /integer >= 1/);
+    assert.deepEqual(calls.parseOptions, [], "parse never ran");
+    assert.deepEqual(calls.ensuredDirectories, [], "no directory was created");
+  }
+});
+
+test("a valid workers value is passed to parse; omitted, parse is left to its own default", async () => {
+  const given = makeDeps();
+  assert((await indexProject({ projectDirectory: "/proj", workers: 3 }, given.deps)).ok);
+  assert.equal(given.calls.parseOptions[0]?.workers, 3);
+
+  const omitted = makeDeps();
+  assert((await indexProject({ projectDirectory: "/proj" }, omitted.deps)).ok);
+  assert.equal("workers" in (omitted.calls.parseOptions[0] ?? {}), false, "the engine does not re-declare the default");
+});
+
+test("workers and concurrency are independent: both validate and both pass through", async () => {
+  const { deps, calls } = makeDeps();
+  const result = await indexProject({ projectDirectory: "/proj", workers: 5, concurrency: 7 }, deps);
+  assert(result.ok);
+  assert.equal(calls.parseOptions[0]?.workers, 5);
+  assert.equal(calls.parseOptions[0]?.concurrency, 7);
+});
+
+test("the group dependency may return a Promise, and it is awaited", async () => {
+  const output = fakeGroupingOutput();
+  let settled = false;
+  const { deps } = makeDeps({
+    group: () =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          settled = true;
+          resolve({ ok: true, value: output });
+        }, 5);
+      }),
+  });
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+
+  assert(result.ok, JSON.stringify(result));
+  assert.equal(settled, true, "the result was not produced before the group promise settled");
+  assert.equal(result.value.groupingOutput, output);
+});
+
+test("an asynchronous group failure is reported as a group-stage failure", async () => {
+  const { deps } = makeDeps({
+    group: async () => ({ ok: false, error: { code: "WRITE_FAILED", file: "x", detail: "boom" } }),
+  });
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+
+  assert(!result.ok && result.stage === "group");
+  assert.equal(result.error.code, "WRITE_FAILED");
+});
