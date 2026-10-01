@@ -20,8 +20,10 @@
  *    `graph.json` back from disk. `parseProject` populates the field, so the
  *    default pipeline takes the in-memory branch and never reads the file back;
  *    the read-back remains for a `parse` dependency that returns no graph.
- *    `graph.json` is always written either way: it is part of the committed
- *    `.repohive/` layout and what makes group-only sweeps possible.
+ *    `graph.json` is written by default: it is part of the committed
+ *    `.repohive/` layout and what makes group-only sweeps possible. With
+ *    `writeGraph: false` it is not written at all and the in-memory handoff is
+ *    the only route (a parse stage that returns no graph then fails).
  * 5. **Group** via `@repohive/core`'s `groupGraphToIndex`, writing the
  *    five-file index contract to `<outputRoot>/index`. Core validates the
  *    grouping config, groups, and serializes all-or-nothing.
@@ -137,6 +139,15 @@ export interface EngineOptions {
    */
   concurrency?: number;
   /**
+   * Whether to write `graph.json`. Defaults to `true`. With `false` the graph is
+   * handed from the parse stage to the group stage in memory and never touches
+   * the disk: no `graph.json` and no `graph.json.tmp` exist at any point, the
+   * index is byte-identical to a run that wrote the graph, and the result has no
+   * `graphPath`. Use it where nothing reads the graph back (the hosted path).
+   * Output only: it cannot change a byte of the index.
+   */
+  writeGraph?: boolean;
+  /**
    * Progress callback. Lives in options rather than as a parameter so the
    * public signature stays `indexProject(options, deps)` — the house
    * dependency-injection pattern — and mirroring how the parser's collector
@@ -237,6 +248,11 @@ function resolveOutputRoot(options: EngineOptions): string {
   return path.resolve(options.projectDirectory, DEFAULT_OUTPUT_DIRECTORY_NAME);
 }
 
+/** `{ graphPath }` when a graph was written, otherwise nothing (the field is absent, not undefined). */
+function graphPathField(writtenPath: string | undefined): { graphPath?: string } {
+  return writtenPath === undefined ? {} : { graphPath: writtenPath };
+}
+
 /** Fire a progress event when the caller registered a callback. */
 function emit(options: EngineOptions, stage: EngineStage, kind: EngineProgressKind): void {
   options.onProgress?.({ stage, kind });
@@ -329,9 +345,10 @@ async function indexProjectUnguarded(
   //    its errors pass through stage-tagged and unmodified.
   emit(options, "parse", "start");
   const parseStartedAt = deps.now();
+  const writeGraph = options.writeGraph !== false;
   const parsed = await deps.parse({
     projectDirectory: options.projectDirectory,
-    outputPath: graphPath,
+    ...(writeGraph ? { outputPath: graphPath } : { writeGraph: false }),
     ...(options.excludedSegments !== undefined
       ? { excludedSegments: options.excludedSegments }
       : {}),
@@ -355,16 +372,26 @@ async function indexProjectUnguarded(
   const groupStartedAt = deps.now();
   let graph = parsed.value.graph;
   if (graph === undefined) {
+    if (parsed.value.outputPath === undefined) {
+      return {
+        ok: false,
+        stage: "engine",
+        error: {
+          code: "INTERNAL_ERROR",
+          detail: "the parse stage returned neither an in-memory graph nor a graph.json to read",
+        },
+      };
+    }
     const read = deps.readGraph(parsed.value.outputPath);
     if (!read.ok) {
-      return { ok: false, stage: "group", error: read.error, graphPath: parsed.value.outputPath };
+      return { ok: false, stage: "group", error: read.error, ...graphPathField(parsed.value.outputPath) };
     }
     graph = read.value;
   }
   const grouped = deps.group(graph, indexDirectory, options.grouping);
   const groupMs = deps.now() - groupStartedAt;
   if (!grouped.ok) {
-    return { ok: false, stage: "group", error: grouped.error, graphPath: parsed.value.outputPath };
+    return { ok: false, stage: "group", error: grouped.error, ...graphPathField(parsed.value.outputPath) };
   }
   emit(options, "group", "complete");
 
@@ -379,8 +406,9 @@ async function indexProjectUnguarded(
 
   const value: EngineSuccess = {
     outputDirectory: outputRoot,
-    graphPath: parsed.value.outputPath,
+    ...graphPathField(parsed.value.outputPath),
     indexDirectory,
+    groupingOutput: grouped.value,
     // v1 always parses: deciding "graph.json is current" correctly is the
     // snapshot-id seam, and a wrong skip silently serves a stale index. The
     // field is part of the stable result shape for the era when skipping lands.

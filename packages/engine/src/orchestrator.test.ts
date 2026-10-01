@@ -440,3 +440,67 @@ test("omitted excludedSegments is not forwarded as an explicit undefined", async
   assert(received !== undefined, "parse must have been called");
   assert(!("excludedSegments" in received));
 });
+
+// --- writeGraph (hosting-1 Requirement 3) ------------------------------------
+
+test("writeGraph defaults to writing: parse gets the graph path and the result names it", async () => {
+  const { deps, calls } = makeDeps();
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+
+  assert(result.ok);
+  const expectedGraph = join(resolve("/proj", ".repohive"), "graph.json");
+  assert.equal(calls.parseOptions[0]?.outputPath, expectedGraph);
+  assert.equal(calls.parseOptions[0]?.writeGraph, undefined, "the parser default applies");
+  assert.equal(result.value.graphPath, expectedGraph);
+});
+
+test("writeGraph false tells parse not to write, and the result carries no graphPath", async () => {
+  const { deps, calls } = makeDeps({
+    parse: async (options) => {
+      // Mirrors the real parser: no path in, no path out, graph handed over.
+      assert.equal(options.outputPath, undefined);
+      assert.equal(options.writeGraph, false);
+      const value: EngineParseSuccess = { nodeCount: 12, edgeCount: 5, graph: parsedInMemoryGraph };
+      return { ok: true, value };
+    },
+  });
+  const result = await indexProject({ projectDirectory: "/proj", writeGraph: false }, deps);
+
+  assert(result.ok);
+  assert.equal("graphPath" in result.value, false, "the field is absent, not undefined");
+  assert.deepEqual(calls.readGraphPaths, [], "nothing is read back");
+  assert.equal(calls.groupCalls[0]?.graph, parsedInMemoryGraph, "group receives the in-memory graph");
+});
+
+test("writeGraph false with a parse stage that returns no graph is an engine failure, not a read of nothing", async () => {
+  const { deps, calls } = makeDeps({
+    parse: async () => ({ ok: true, value: { nodeCount: 1, edgeCount: 0 } }),
+  });
+  const result = await indexProject({ projectDirectory: "/proj", writeGraph: false }, deps);
+
+  assert(!result.ok);
+  assert.equal(result.stage, "engine");
+  assert(result.stage === "engine" && result.error.code === "INTERNAL_ERROR");
+  assert.deepEqual(calls.readGraphPaths, []);
+  assert.deepEqual(calls.groupCalls, []);
+});
+
+test("a group failure after a skipped graph write has no graphPath", async () => {
+  const { deps } = makeDeps({
+    parse: async () => ({ ok: true, value: { nodeCount: 1, edgeCount: 0, graph: parsedInMemoryGraph } }),
+    group: () => ({ ok: false, error: { code: "WRITE_FAILED", file: "x", detail: "boom" } }),
+  });
+  const result = await indexProject({ projectDirectory: "/proj", writeGraph: false }, deps);
+
+  assert(!result.ok && result.stage === "group");
+  assert.equal("graphPath" in result, false);
+});
+
+test("the success value carries the in-memory grouping output the group stage returned", async () => {
+  const output = fakeGroupingOutput();
+  const { deps } = makeDeps({ group: () => ({ ok: true, value: output }) });
+  const result = await indexProject({ projectDirectory: "/proj" }, deps);
+
+  assert(result.ok);
+  assert.equal(result.value.groupingOutput, output, "the very object, not a copy");
+});
