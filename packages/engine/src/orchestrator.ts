@@ -145,17 +145,27 @@ export interface EngineOptions {
    */
   grouping?: PartialGroupingConfig;
   /**
-   * Parse-stage read concurrency: how many source files the parser reads at a
-   * time in its prefetch step. An internal knob, deliberately NOT a CLI flag in
-   * v1. Omitted → the parser's default (16). Validated here as an integer >= 1,
-   * so a nonsense value is an `INVALID_OPTIONS` failure before any work starts
-   * rather than something the parser silently ignores.
+   * Parse-stage read concurrency: how many source files are being read from
+   * disk at once while the worker pool is fed. An internal knob, deliberately
+   * NOT a CLI flag in v1. Omitted → the parser's fixed default (16), never
+   * derived from the CPU count. Validated here as an integer >= 1, so a nonsense
+   * value is an `INVALID_OPTIONS` failure before any work starts rather than
+   * something the parser silently ignores. Has no effect on a memory `source`.
    *
    * Performance only. Reads dominate a cold parse and parallelize about 6.8x
    * (measured 2026-08-27 over 2985 files); the value cannot affect any artifact
-   * because the parser extracts in canonical order from the prefetched map.
+   * because every result is keyed by file index and assembled in canonical order.
    */
   concurrency?: number;
+  /**
+   * How many worker threads extract and stitch. Omitted → the machine's
+   * available parallelism. A safe integer >= 1, otherwise `INVALID_OPTIONS`
+   * before any work starts. At most one thread per file is started.
+   *
+   * Performance only: output is byte-identical at any worker count, for a
+   * directory source and for a memory source.
+   */
+  workers?: number;
   /**
    * Whether to write `graph.json`. Defaults to `true`. With `false` the graph is
    * handed from the parse stage to the group stage in memory and never touches
@@ -215,7 +225,7 @@ export interface EngineDeps {
     graph: RawDependencyGraph,
     outDir: string,
     config?: PartialGroupingConfig,
-  ): CoreResult<GroupingOutput>;
+  ): CoreResult<GroupingOutput> | Promise<CoreResult<GroupingOutput>>;
   /**
    * True when `candidatePath` exists and is a directory. Guards output-root
    * creation (see the module docstring, step 2).
@@ -349,15 +359,18 @@ async function indexProjectUnguarded(
   }
   if (options.concurrency !== undefined) {
     if (!Number.isSafeInteger(options.concurrency) || options.concurrency < 1) {
-      return {
-        ok: false,
-        stage: "engine",
-        error: {
-          code: "INVALID_OPTIONS",
-          field: "concurrency",
-          detail: `concurrency: must be an integer >= 1 (got ${JSON.stringify(options.concurrency) ?? String(options.concurrency)})`,
-        },
-      };
+      return invalidOptions(
+        "concurrency",
+        `concurrency: must be an integer >= 1 (got ${JSON.stringify(options.concurrency) ?? String(options.concurrency)})`,
+      );
+    }
+  }
+  if (options.workers !== undefined) {
+    if (!Number.isSafeInteger(options.workers) || options.workers < 1) {
+      return invalidOptions(
+        "workers",
+        `workers: must be an integer >= 1 (got ${JSON.stringify(options.workers) ?? String(options.workers)})`,
+      );
     }
   }
 
@@ -406,6 +419,7 @@ async function indexProjectUnguarded(
     ...(options.concurrency !== undefined
       ? { concurrency: options.concurrency }
       : {}),
+    ...(options.workers !== undefined ? { workers: options.workers } : {}),
   });
   const parseMs = deps.now() - parseStartedAt;
   if (!parsed.ok) {
@@ -437,7 +451,7 @@ async function indexProjectUnguarded(
     }
     graph = read.value;
   }
-  const grouped = deps.group(graph, indexDirectory, options.grouping);
+  const grouped = await deps.group(graph, indexDirectory, options.grouping);
   const groupMs = deps.now() - groupStartedAt;
   if (!grouped.ok) {
     return { ok: false, stage: "group", error: grouped.error, ...graphPathField(parsed.value.outputPath) };
