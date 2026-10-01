@@ -18,3 +18,9 @@ export function addDaysIso(from: Date, days: number): string {
 export function isoSinceMinutes(minutes: number, from: Date = new Date()): string {
   return new Date(from.getTime() - minutes * 60_000).toISOString();
 }
+
+/** UTC hour bucket `YYYY-MM-DDTHH` for pre-check rate limits. */
+export function utcHourBucket(iso: string | Date = new Date()): string {
+  const date = typeof iso === "string" ? new Date(iso) : iso;
+  return date.toISOString().slice(0, 13);
+}

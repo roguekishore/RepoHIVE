@@ -59,6 +59,12 @@ describe("parseAppConfig: local mode", () => {
       githubToken: undefined,
       clientIpHeader: undefined,
       awsRegion: undefined,
+      quota: {
+        acceptedPerAccountPerDay: 5,
+        acceptedPerIpPerDay: 10,
+        prechecksPerAccountPerHour: 20,
+        prechecksPerIpPerHour: 40,
+      },
     });
   });
 

@@ -38,6 +38,13 @@ export type AppStoreConfig = { kind: "local"; directory: string } | { kind: "s3"
 export type AppLedgerConfig = { kind: "file"; path: string } | { kind: "dynamodb"; table: string };
 export type OrchestratorConfig = { kind: "local" } | { kind: "sfn"; stateMachineArn: string };
 
+export interface QuotaLimits {
+  readonly acceptedPerAccountPerDay: number;
+  readonly acceptedPerIpPerDay: number;
+  readonly prechecksPerAccountPerHour: number;
+  readonly prechecksPerIpPerHour: number;
+}
+
 export interface AppConfig {
   readonly mode: AppMode;
   /** Scheme, host and port, no trailing slash: what a browser sends as `Origin`. */
@@ -51,6 +58,7 @@ export interface AppConfig {
   /** Lowercase header name; `undefined` in local mode, which reads the socket address. */
   readonly clientIpHeader: string | undefined;
   readonly awsRegion: string | undefined;
+  readonly quota: QuotaLimits;
 }
 
 /** Every variable this module reads, for documentation and the no-public-variable test. */
@@ -64,7 +72,18 @@ export const APP_CONFIG_VARIABLES = [
   "REPOHIVE_GITHUB_TOKEN",
   "REPOHIVE_CLIENT_IP_HEADER",
   "AWS_REGION",
+  "REPOHIVE_QUOTA_ACCOUNT_DAY",
+  "REPOHIVE_QUOTA_IP_DAY",
+  "REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR",
+  "REPOHIVE_QUOTA_PRECHECK_IP_HOUR",
 ] as const;
+
+const DEFAULT_QUOTA: QuotaLimits = {
+  acceptedPerAccountPerDay: 5,
+  acceptedPerIpPerDay: 10,
+  prechecksPerAccountPerHour: 20,
+  prechecksPerIpPerHour: 40,
+};
 
 export type AppConfigVariable = (typeof APP_CONFIG_VARIABLES)[number];
 
@@ -88,6 +107,18 @@ function required(env: Env, name: AppConfigVariable): string {
   const value = optional(env, name);
   if (value === undefined) {
     throw new ConfigError(name, "is not set");
+  }
+  return value;
+}
+
+function positiveInt(env: Env, name: AppConfigVariable, fallback: number): number {
+  const text = optional(env, name);
+  if (text === undefined) {
+    return fallback;
+  }
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new ConfigError(name, "must be a positive integer");
   }
   return value;
 }
@@ -195,7 +226,22 @@ export function parseAppConfig(env: Env, cwd: string = process.cwd()): AppConfig
     throw new ConfigError("AWS_REGION", "is not set");
   }
 
-  return { mode, siteOrigin, dataDirectory, store, ledger, orchestrator, githubToken, clientIpHeader, awsRegion };
+  const quota: QuotaLimits = {
+    acceptedPerAccountPerDay: positiveInt(env, "REPOHIVE_QUOTA_ACCOUNT_DAY", DEFAULT_QUOTA.acceptedPerAccountPerDay),
+    acceptedPerIpPerDay: positiveInt(env, "REPOHIVE_QUOTA_IP_DAY", DEFAULT_QUOTA.acceptedPerIpPerDay),
+    prechecksPerAccountPerHour: positiveInt(
+      env,
+      "REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR",
+      DEFAULT_QUOTA.prechecksPerAccountPerHour,
+    ),
+    prechecksPerIpPerHour: positiveInt(
+      env,
+      "REPOHIVE_QUOTA_PRECHECK_IP_HOUR",
+      DEFAULT_QUOTA.prechecksPerIpPerHour,
+    ),
+  };
+
+  return { mode, siteOrigin, dataDirectory, store, ledger, orchestrator, githubToken, clientIpHeader, awsRegion, quota };
 }
 
 let cached: AppConfig | undefined;

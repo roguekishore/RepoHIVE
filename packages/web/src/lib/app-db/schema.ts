@@ -1,5 +1,5 @@
 /** Current SQLite schema; bump when a phase adds tables or columns. */
-export const APP_DB_SCHEMA_VERSION = 1;
+export const APP_DB_SCHEMA_VERSION = 2;
 
 export const APP_DB_FILENAME = "app.sqlite";
 
@@ -46,5 +46,30 @@ export function applyAppDbSchema(db: { exec: (sql: string) => void }): void {
       ON sign_in_failures (account_id, failed_at);
     CREATE INDEX IF NOT EXISTS idx_sign_in_failures_ip_time
       ON sign_in_failures (ip, failed_at);
+
+    CREATE TABLE IF NOT EXISTS precheck_hourly (
+      bucket TEXT NOT NULL PRIMARY KEY,
+      count INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS index_charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      ip TEXT NOT NULL,
+      utc_day TEXT NOT NULL,
+      job_id TEXT NOT NULL UNIQUE,
+      charged_at TEXT NOT NULL,
+      refunded INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_index_charges_account_day
+      ON index_charges (account_id, utc_day, refunded);
+    CREATE INDEX IF NOT EXISTS idx_index_charges_ip_day
+      ON index_charges (ip, utc_day, refunded);
+
+    CREATE TABLE IF NOT EXISTS account_inflight (
+      account_id INTEGER NOT NULL PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      job_id TEXT NOT NULL
+    );
   `);
 }
