@@ -652,17 +652,22 @@ test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)",
 // metadata.json: repository/hierarchy/nodes/edges were replaced and metadata
 // was not, so the index described one hierarchy with another's parameters.
 
+/** Test-side chunk sink: joins the chunks, which is fine for small fixtures. */
+function writeChunksToFile(p: string, chunks: Iterable<string>): void {
+  writeFileSync(p, [...chunks].join(""), "utf8");
+}
+
 /** Real-filesystem deps, with the k-th write (1-based) forced to fail. */
 function depsFailingWriteAt(k: number): IndexSerializerDeps {
   let writes = 0;
   return {
     mkdirSync: (p) => mkdirSync(p, { recursive: true }),
-    writeFileSync: (p, data) => {
+    writeChunksSync: (p, chunks) => {
       writes += 1;
       if (writes === k) {
         throw new Error(`injected write failure at ${k}`);
       }
-      writeFileSync(p, data, "utf8");
+      writeChunksToFile(p, chunks);
     },
     renameSync: (from, to) => renameSync(from, to),
     rmSync: (p) => rmSync(p, { recursive: true, force: true }),
@@ -770,7 +775,7 @@ test("a failure during promotion leaves the previous index intact", () => {
     let renames = 0;
     const result = serializeIndex(second.hierarchy, second.metadata, dir, {
       mkdirSync: (p) => mkdirSync(p, { recursive: true }),
-      writeFileSync: (p, data) => writeFileSync(p, data, "utf8"),
+      writeChunksSync: (p, chunks) => writeChunksToFile(p, chunks),
       renameSync: (from, to) => {
         renames += 1;
         if (renames === 3) {
@@ -808,7 +813,7 @@ test("a read-only member file is detected before the target is touched", () => {
 
     const result = serializeIndex(first.hierarchy, first.metadata, dir, {
       mkdirSync: (p) => mkdirSync(p, { recursive: true }),
-      writeFileSync: (p, data) => writeFileSync(p, data, "utf8"),
+      writeChunksSync: (p, chunks) => writeChunksToFile(p, chunks),
       renameSync: (from, to) => renameSync(from, to),
       rmSync: (p) => rmSync(p, { recursive: true, force: true }),
       existsSync: (p) => existsSync(p),
