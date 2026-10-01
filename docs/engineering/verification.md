@@ -13,7 +13,7 @@ report anything as passing.
 | 1. build | `npm install` | **Yes**, after install |
 | 2. tests | `npm install`, plus a built `dist/` for the engine | **Yes**, after install and build, with the caveats below |
 | 3. determinism | install, build, and `fixtures/sample-java-project` | **Partly.** The comparison runs. The recorded digests to compare against are below, but the baseline history is in the mount |
-| 4. real-repo smoke | recorded counts in `context/STATE.md` | **No.** Needs the private mount |
+| 4. real-repo smoke | recorded counts in `context/registers/measurements.md` | **No.** Needs the private mount |
 
 `context/` is a private mount and is git-ignored. It is not missing by accident and it is not something
 to reconstruct. If you do not have it, **Gate 4 is unavailable to you.** Say that in your report rather
@@ -137,8 +137,8 @@ npm run demo:group-determinism
 
 Output digests must be byte-identical across repeated runs and across shuffled-input runs.
 
-Recorded digests for `fixtures/sample-java-project`, which is present in this repository as a
-git-ignored clone target:
+Recorded digests for `fixtures/sample-java-project`, whose sources are tracked in this repository
+(its generated `graph.json` and `index/` are git-ignored):
 
 | Artifact | SHA-256 | Last confirmed (private workspace) |
 |----------|---------|------------------------------------|
@@ -149,8 +149,8 @@ Neither digest was recomputed while writing this document.
 
 The *repeatability* half of this gate is self-contained: run the command twice and compare its own
 output. That works from a public clone. Comparing against the table above additionally assumes your
-`fixtures/sample-java-project` is the same clone that produced these values, which you cannot confirm
-without the mount.
+`fixtures/sample-java-project` matches the tracked sources that produced these values; a local edit to
+them would move the digests.
 
 If a digest moves, it is either a determinism regression or a legitimate output change. **Do not
 recapture it silently.** Identify which field changed and why, record the reason in
@@ -160,10 +160,10 @@ do the first two steps; note that the decision record is owed.
 ## Gate 4: real-repo smoke (requires the private mount)
 
 For changes to the parser, the grouping algorithm, or the contract, re-run against a real fixture and
-compare against the recorded numbers in `context/STATE.md`. A large unexplained swing in node, edge, or
-region counts is a regression signal even when tests pass.
+compare against the recorded numbers in `context/registers/measurements.md`. A large unexplained swing in
+node, edge, or region counts is a regression signal even when tests pass.
 
-**Without `context/STATE.md` there is no baseline to compare against, and this gate cannot be run.** You
+**Without the `context/` mount there is no baseline to compare against, and this gate cannot be run.** You
 can still re-run the pipeline and record your own numbers for the next person; that is useful, but it is
 not this gate. Report it as unavailable.
 
