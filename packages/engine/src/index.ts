@@ -26,6 +26,12 @@ export type {
   EngineProgressKind,
 } from "./orchestrator.js";
 
+// The two inputs a snapshot id is built from: the engine build and the options that shape output.
+export { configDigest, engineVersion } from "./snapshot-inputs.js";
+
+// The index format version this engine writes, and the only one `parseIndex` reads.
+export { INDEX_FORMAT_VERSION } from "@repohive/core";
+
 // Result and error model: a third result type discriminated by stage, carrying
 // the parser's and the core's error shapes through unmodified.
 export { describeEngineError, describeEngineFailure } from "./errors.js";
