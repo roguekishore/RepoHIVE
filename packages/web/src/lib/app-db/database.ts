@@ -17,6 +17,10 @@ function ensureSchemaVersion(db: DatabaseSync): void {
     db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(APP_DB_SCHEMA_VERSION);
     return;
   }
+  if (row.version < APP_DB_SCHEMA_VERSION) {
+    db.prepare("UPDATE schema_version SET version = ?").run(APP_DB_SCHEMA_VERSION);
+    return;
+  }
   if (row.version !== APP_DB_SCHEMA_VERSION) {
     throw new Error(`app database schema ${row.version} does not match expected ${APP_DB_SCHEMA_VERSION}`);
   }
