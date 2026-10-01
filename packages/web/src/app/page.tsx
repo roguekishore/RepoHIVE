@@ -1,16 +1,31 @@
 import type { Metadata } from "next";
 import { BrandLogo } from "@/components/layout/brand-logo";
-import { OpenRepoForm } from "@/components/home/open-repo-form";
+import { RepositoryList } from "@/components/home/repository-list";
+import { getAppDatabase } from "@/lib/app-db/database";
+import { getArtifactStore } from "@/lib/hosting/clients";
+import { getAppConfig } from "@/lib/hosting/config";
+import { listIndexedRepositories, paginateRepositories } from "@/lib/repositories/list-indexed-repositories";
 
 export const metadata: Metadata = { title: "RepoHIVE" };
 
+export const dynamic = "force-dynamic";
+
 /**
- * Landing. The list of indexed repositories (hosting-3 Requirement 11) is a
- * later phase; until then the page explains the product and opens a repository
- * by name. Nothing here reads an index: every repository page loads its
- * published snapshot.
+ * Landing with the indexed repository list (hosting-3 Requirement 11).
  */
-export default function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const pageNumber = Number.parseInt(params.page ?? "1", 10);
+  const config = getAppConfig();
+  const db = getAppDatabase();
+  const store = getArtifactStore(config);
+  const all = await listIndexedRepositories(db, config, store);
+  const page = paginateRepositories(all, pageNumber);
+
   return (
     <div className="mx-auto max-w-[880px] p-5 sm:p-8">
       <header className="flex items-start gap-3 pt-2 sm:pt-6">
@@ -26,7 +41,7 @@ export default function LandingPage() {
           </p>
         </div>
       </header>
-      <OpenRepoForm />
+      <RepositoryList items={page.items} page={page.page} totalPages={page.totalPages} />
     </div>
   );
 }
