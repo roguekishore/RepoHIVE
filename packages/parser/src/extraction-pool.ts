@@ -66,6 +66,15 @@ export interface ExtractionInput {
   workers: number;
   /** How many reads may be in flight at once. */
   readConcurrency: number;
+  /**
+   * Called as files settle (extracted, or failed to read) with how many have
+   * settled so far and how many there are. `completed` never decreases and the
+   * last call has `completed === total`; an initial call reports 0. Runs on the
+   * main thread between worker messages, so work it schedules can run while the
+   * pool is still going. A throw fails the run; the pool is torn down and the
+   * error rethrown.
+   */
+  onProgress?: (completed: number, total: number) => void;
 }
 
 /** What a successful run produces. */
@@ -201,7 +210,21 @@ async function runPool(
       pool.push(entry);
     }
 
-    const driven = drive(input, order, pool);
+    const progress = input.onProgress;
+    const guarded: ExtractionInput =
+      progress === undefined
+        ? input
+        : {
+            ...input,
+            onProgress: (completed, total) => {
+              try {
+                progress(completed, total);
+              } catch (cause) {
+                fail(cause instanceof Error ? cause : new Error(String(cause)));
+              }
+            },
+          };
+    const driven = drive(guarded, order, pool);
     // If a worker fails first the race is already settled; keep the abandoned
     // flow from surfacing as an unhandled rejection.
     driven.catch(() => undefined);
@@ -257,6 +280,10 @@ async function drive(
     // Reads ahead of the workers are bounded, so the corpus is never buffered whole.
     const bufferLimit = 2 * pool.length;
 
+    const report = (): void => {
+      input.onProgress?.(settled, files.length);
+    };
+
     const pump = (): void => {
       while (idle.length > 0 && readyToSend.length > 0) {
         const entry = idle.pop() as PoolWorker;
@@ -287,6 +314,7 @@ async function drive(
               makeError("file-unreadable", `Java source file could not be read: ${file.relativePath}`, file.relativePath),
             ]);
             settled += 1;
+            report();
             pump();
           },
         );
@@ -306,11 +334,13 @@ async function drive(
           }
           settled += 1;
           idle.push(entry);
+          report();
         }
         pump();
       };
     }
     // Start reading now rather than when the first worker reports in.
+    report();
     pump();
   });
 
