@@ -12,6 +12,7 @@
     "seed": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local scripts/seed-local.mjs",
     "worker": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local --import ./scripts/register-aliases.mjs scripts/run-worker.mjs",
     "start-local": "node scripts/start-local.mjs",
+    "e2e": "node scripts/e2e.mjs",
     "test": "vitest run"
   },
   "dependencies": {
