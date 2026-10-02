@@ -1,0 +1,59 @@
+#cloud-config
+# First boot of the app box (hosting-4 Requirement 13.5). Rendered by templatefile in box.tf. Everything here is
+# non-secret: secrets are read from SSM by repohive-env on the box and never reach user data (13.8). The
+# gz+b64 blobs are the repository's own files, so the units and scripts are written once.
+write_files:
+  - path: /etc/repohive/box.env
+    permissions: "0644"
+    content: |
+      AWS_REGION=${region}
+      SITE_DOMAIN=${site_domain}
+      ORIGIN_DOMAIN=${origin_domain}
+      ARTIFACT_BUCKET=${artifact_bucket}
+      OPS_BUCKET=${ops_bucket}
+      LEDGER_TABLE=${ledger_table}
+      STATE_MACHINE_ARN=${state_machine_arn}
+      DATA_VOLUME_ID=${data_volume_id}
+      RATE_LIMIT_PER_MINUTE=${rate_limit_per_minute}
+      RATE_LIMIT_API_POST_PER_MINUTE=${rate_limit_api_post_per_minute}
+      WEB_NODE_HEAP_MB=${web_node_heap_mb}
+      WORKER_NODE_HEAP_MB=${worker_node_heap_mb}
+  - path: /etc/systemd/system/repohive-web.service.d/10-limits.conf
+    permissions: "0644"
+    content: |
+      [Service]
+      MemoryMax=${web_memory_max_mb}M
+  - path: /etc/systemd/system/repohive-worker.service.d/10-limits.conf
+    permissions: "0644"
+    content: |
+      [Service]
+      MemoryMax=${worker_memory_max_mb}M
+  - path: /usr/local/sbin/repohive-env
+    permissions: "0755"
+    encoding: gz+b64
+    content: ${script_env}
+  - path: /usr/local/sbin/repohive-first-boot
+    permissions: "0755"
+    encoding: gz+b64
+    content: ${script_first_boot}
+  - path: /usr/local/sbin/repohive-activate
+    permissions: "0755"
+    encoding: gz+b64
+    content: ${script_activate}
+  - path: /etc/repohive/boot/logrotate-repohive
+    permissions: "0644"
+    encoding: gz+b64
+    content: ${logrotate}
+  - path: /etc/repohive/boot/amazon-cloudwatch-agent.json
+    permissions: "0644"
+    encoding: gz+b64
+    content: ${agent_config}
+%{ for name, content in units ~}
+  - path: /etc/repohive/boot/systemd/${name}
+    permissions: "0644"
+    encoding: gz+b64
+    content: ${content}
+%{ endfor ~}
+
+runcmd:
+  - [/usr/local/sbin/repohive-first-boot]
