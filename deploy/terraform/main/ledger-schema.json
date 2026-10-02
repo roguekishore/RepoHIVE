@@ -1,0 +1,6 @@
+{
+  "keySchema": [{ "attributeName": "pk", "keyType": "HASH" }],
+  "attributeDefinitions": [{ "attributeName": "pk", "attributeType": "S" }],
+  "globalSecondaryIndexes": [],
+  "ttlAttribute": "expiresAt"
+}
