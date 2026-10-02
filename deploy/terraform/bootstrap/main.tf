@@ -25,6 +25,9 @@ resource "aws_s3_bucket" "state" {
 
 resource "aws_s3_bucket" "ops" {
   bucket = local.ops_bucket
+
+  # Only an unprotected (test) account lets a destroy delete it with release bundles in it.
+  force_destroy = !var.protect
 }
 
 resource "aws_s3_bucket_public_access_block" "protected" {
@@ -126,6 +129,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "ops" {
 resource "aws_ecr_repository" "indexer" {
   name                 = "repohive/indexer"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = !var.protect
 
   image_scanning_configuration {
     scan_on_push = true
