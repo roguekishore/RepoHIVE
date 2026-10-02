@@ -144,11 +144,16 @@ Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, nev
 | `apply.sh <bootstrap\|main> [plan args]` | `init`, `plan -out`, then `apply` of that file after the owner types `apply` |
 | `deploy.sh [all\|indexer\|infra\|app\|smoke]` | the one deploy command; each stage runs alone |
 | `smoke.sh [repo]` | checks the live site through the site domain (healthz, view headers, closed prefixes, origin refusal); no AWS calls |
-| `check.sh` | the offline checks: `terraform fmt -check`, `validate` per root, `shellcheck`, `bash -n`; the only script an agent may run |
+| `check.sh` | the offline checks: `terraform fmt -check`, `validate` and the offline plan test per root, `shellcheck`, `bash -n`; the only script an agent may run |
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
-per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on every script under `deploy/`.
-`deploy/scripts/check.sh` runs them all.
+per root `terraform -chdir=<root> init -backend=false`, then `validate`, then `test`; `shellcheck` on every script under
+`deploy/`. `deploy/scripts/check.sh` runs them all. The `test` step (`tests/plan.tftest.hcl` in each root) plans the
+whole root with the real AWS provider, placeholder credentials and fixed values for the data sources that would call
+AWS, and asserts cross-file contracts (user data under 16 KB, rendered state machine, bucket and repository names,
+the S3 list grant). It cannot check what AWS validates server-side: the provider validates the state machine
+definition by an API call at plan time, so the offline test skips that resource's plan and the first real plan
+does it.
 
 ## Commands
 
