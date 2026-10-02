@@ -1,4 +1,3 @@
-# Copy to prod.tfvars (git-ignored) and replace every placeholder.
-aws_account_id = "123456789012"
-owner_tag      = "owner@example.com"
-site_domain    = "app.repohive.dev"
+# The bootstrap root has no tuning today. Its values come from the account's deploy.env (account id, owner tag, site
+# domain, protect, an existing GitHub OIDC provider) and from the origin remote (the GitHub repository); apply.sh passes
+# them. A deploy/accounts/<name>/bootstrap.tfvars, if present, is passed too.

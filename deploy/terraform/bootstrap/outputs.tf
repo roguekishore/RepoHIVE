@@ -28,3 +28,8 @@ output "certificate_validation_records" {
     }
   ]
 }
+
+output "github_build_role_arn" {
+  description = "The role the build workflow assumes in this account (its name is fixed: repohive-github-build)."
+  value       = aws_iam_role.github_build.arn
+}

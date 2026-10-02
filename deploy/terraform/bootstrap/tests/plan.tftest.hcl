@@ -24,9 +24,18 @@ provider "aws" {
 }
 
 variables {
-  aws_account_id = "123456789012"
-  owner_tag      = "owner@example.com"
-  site_domain    = "app.repohive.dev"
+  aws_account_id    = "123456789012"
+  owner_tag         = "owner@example.com"
+  site_domain       = "app.repohive.dev"
+  account_name      = "prod"
+  github_repository = "example/repohive"
+}
+
+# The trust policy names the provider by ARN, which is known only after apply.
+override_resource {
+  target          = aws_iam_openid_connect_provider.github
+  override_during = plan
+  values          = { arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" }
 }
 
 run "plan" {
@@ -41,5 +50,42 @@ run "plan" {
   assert {
     condition     = aws_ecr_repository.indexer.name == "repohive/indexer"
     error_message = "The ECR repository name no longer matches the main root and push-indexer-image.sh."
+  }
+
+  # The build workflow derives this name from the account id; only this repository's environment may assume it.
+  assert {
+    condition = aws_iam_role.github_build.name == "repohive-github-build" && strcontains(
+      data.aws_iam_policy_document.github_build_assume.json, "repo:example/repohive:environment:prod"
+    )
+    error_message = "The GitHub build role's name or trusted subject changed."
+  }
+
+  assert {
+    condition     = length(aws_iam_openid_connect_provider.github) == 1
+    error_message = "With no existing provider, the root creates one."
+  }
+
+  assert {
+    condition     = aws_ecr_repository.indexer.force_delete == false && aws_s3_bucket.ops.force_destroy == false
+    error_message = "A protected account must not let a destroy delete the registry or the ops bucket with content."
+  }
+}
+
+run "unprotected_with_existing_provider" {
+  command = plan
+
+  variables {
+    protect                  = false
+    github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  }
+
+  assert {
+    condition     = length(aws_iam_openid_connect_provider.github) == 0
+    error_message = "An existing provider must be reused, not created again."
+  }
+
+  assert {
+    condition     = aws_ecr_repository.indexer.force_delete == true && aws_s3_bucket.ops.force_destroy == true
+    error_message = "An unprotected account lets a destroy delete the registry and the ops bucket."
   }
 }
