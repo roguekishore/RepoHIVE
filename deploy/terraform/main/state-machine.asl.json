@@ -131,7 +131,7 @@
         "Cluster": "${cluster_arn}",
         "TaskDefinition": "${task_definition_family}",
         "LaunchType": "FARGATE",
-        "StartedBy": "{% $job.jobId %}",
+        "Group": "{% 'job-' & $job.jobId %}",
         "NetworkConfiguration": {
           "AwsvpcConfiguration": {
             "Subnets": ["${subnet_a}", "${subnet_b}"],
@@ -185,7 +185,7 @@
         "Cluster": "${cluster_arn}",
         "TaskDefinition": "${task_definition_family}",
         "LaunchType": "FARGATE",
-        "StartedBy": "{% $job.jobId %}",
+        "Group": "{% 'job-' & $job.jobId %}",
         "NetworkConfiguration": {
           "AwsvpcConfiguration": {
             "Subnets": ["${subnet_a}", "${subnet_b}"],
@@ -234,15 +234,46 @@
 
     "ListRunningTasks": {
       "Type": "Task",
-      "Comment": "After a timeout or error, find any task of this job that is still running.",
+      "Comment": "After a timeout or error, list the indexer tasks still running; DescribeRunningTasks keeps this job's.",
       "Resource": "arn:aws:states:::aws-sdk:ecs:listTasks",
       "Arguments": {
         "Cluster": "${cluster_arn}",
-        "StartedBy": "{% $job.jobId %}",
+        "Family": "${task_definition_family}",
         "DesiredStatus": "RUNNING"
       },
       "Assign": {
         "taskArns": "{% $append([], $states.result.TaskArns) %}"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ReleaseSlot"
+        }
+      ],
+      "Next": "AnyRunningTasks"
+    },
+
+    "AnyRunningTasks": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Condition": "{% $count($taskArns) > 0 %}",
+          "Next": "DescribeRunningTasks"
+        }
+      ],
+      "Default": "ReleaseSlot"
+    },
+
+    "DescribeRunningTasks": {
+      "Type": "Task",
+      "Comment": "The run task states put each task in the group job-<jobId> (ecs:runTask.sync does not accept StartedBy).",
+      "Resource": "arn:aws:states:::aws-sdk:ecs:describeTasks",
+      "Arguments": {
+        "Cluster": "${cluster_arn}",
+        "Tasks": "{% $taskArns %}"
+      },
+      "Assign": {
+        "taskArns": "{% $append([], $states.result.Tasks[Group = 'job-' & $job.jobId].TaskArn) %}"
       },
       "Catch": [
         {
