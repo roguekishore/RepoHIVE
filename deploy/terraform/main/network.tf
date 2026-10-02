@@ -130,7 +130,7 @@ resource "aws_vpc_security_group_egress_rule" "box_http" {
 
 resource "aws_vpc_security_group_egress_rule" "box_https" {
   security_group_id = aws_security_group.box.id
-  description       = "HTTPS to AWS APIs, Let's Encrypt and the site"
+  description       = "HTTPS to AWS APIs, the ACME CA and the site"
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
