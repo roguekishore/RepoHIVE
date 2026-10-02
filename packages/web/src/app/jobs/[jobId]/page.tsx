@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { isTerminalJobState } from "@repohive/indexer";
 import type { PublicJobResponse } from "@/lib/intake/job-response";
 import { repoKeyToViewerPath } from "@/lib/worker/repositories";
 
@@ -12,6 +11,10 @@ interface JobEventData {
   readonly progress?: PublicJobResponse["progress"];
   readonly result?: { readonly snapshotId: string };
   readonly failure?: { readonly code: string };
+}
+
+function isTerminalJobState(state: PublicJobResponse["state"]): boolean {
+  return state === "succeeded" || state === "failed";
 }
 
 async function fetchJob(jobId: string): Promise<PublicJobResponse | undefined> {
