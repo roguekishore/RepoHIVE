@@ -1,0 +1,4 @@
+# Copy to prod.tfvars (git-ignored) and replace every placeholder.
+aws_account_id = "123456789012"
+owner_tag      = "owner@example.com"
+site_domain    = "app.repohive.dev"
