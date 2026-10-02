@@ -27,16 +27,14 @@ data "aws_iam_policy_document" "indexer_job" {
     resources = [for p in local.indexer_object_prefixes : "${local.artifact_bucket_arn}/${p}/*"]
   }
 
+  # Bucket-wide on purpose. S3 answers a GetObject on a missing key with 404 only to a caller allowed
+  # s3:ListBucket on the bucket; under an s3:prefix condition the answer is 403, which the store reads as an
+  # error. The job's pre-check reads r/<repo>/latest.json and publish reads meta/<repo>/history.json, both
+  # missing on a repository's first index. It reveals key names only, never object contents.
   statement {
-    sid       = "ListSnapshotsAndIndexes"
+    sid       = "ListArtifactBucket"
     actions   = ["s3:ListBucket"]
     resources = [local.artifact_bucket_arn]
-
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["s/*", "idx/*"]
-    }
   }
 
   statement {
