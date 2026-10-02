@@ -138,9 +138,11 @@ github_repository() {
   printf '%s' "${url}"
 }
 
-# Every aws call goes through here so --region is always explicit.
+# Every aws call goes through here so --region is always explicit. Under Git Bash the AWS CLI is a Windows program,
+# and MSYS would rewrite arguments such as /repohive/github-token or commands=/usr/local/sbin/... into Windows paths;
+# MSYS2_ARG_CONV_EXCL stops that and is ignored elsewhere. Pass a local file in Windows form (cygpath -m).
 aws_cli() {
-  aws --region "${AWS_REGION}" "$@"
+  MSYS2_ARG_CONV_EXCL='*' aws --region "${AWS_REGION}" "$@"
 }
 
 # Stops unless the caller's account is the configured one. Run before anything else that touches AWS.
