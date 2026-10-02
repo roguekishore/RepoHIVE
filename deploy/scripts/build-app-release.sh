@@ -35,9 +35,15 @@ docker buildx build \
 # that lost something in the export is caught before it is uploaded.
 sh "${DEPLOY_DIR}/box/verify-app-tree.sh" "${tree}"
 
+# The export directory is private (0700), and tar as root on the box restores the archive root's mode onto the
+# release directory, which the repohive and caddy users must enter.
+chmod 0755 "${tree}"
+
 # Sorted names, fixed owner and time, no gzip timestamp: the same tree gives the same bytes.
 tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='2000-01-01 00:00:00 UTC' \
   -C "${tree}" -cf - . | gzip -n -9 >"${bundle}"
+root_mode="$(tar -tvzf "${bundle}" | sed -n 1p | cut -c1-10)"
+[[ "${root_mode}" == "drwxr-xr-x" ]] || die "the bundle's root directory is ${root_mode}, not drwxr-xr-x"
 (cd "${out_dir}" && sha256sum "repohive-${version}.tar.gz" >"repohive-${version}.tar.gz.sha256")
 rm -rf -- "${tree}"
 
