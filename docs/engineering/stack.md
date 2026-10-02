@@ -114,6 +114,7 @@ Run by the owner, never by an agent against AWS (`context/specs/hosting-4-deploy
 | Terraform | `>= 1.11.0, < 2.0.0` (S3 native locking needs 1.11); developed on 1.16.2 | BUSL-1.1. A build tool the owner runs; nothing of it is linked or shipped |
 | `hashicorp/aws` provider | 6.67.0 | MPL-2.0 |
 | `hashicorp/random` provider | 3.9.1 | MPL-2.0 |
+| `@aws-sdk/client-ssm` (`packages/indexer`) | 3.1144.0, the version of the other `@aws-sdk` clients there | Apache-2.0 |
 
 Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (the owner runs Terraform on Windows; owner
 ruling 2026-10-02). Running Terraform from another platform, such as WSL, needs `terraform providers lock

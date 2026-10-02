@@ -234,3 +234,5 @@ deploy/RUNBOOK.md             the owner's step-by-step
 
 Every file under `deploy/` is LF (`deploy/.gitattributes`): it runs on Linux. Names derived from the account id
 are built once in `deploy/terraform/main/locals.tf`. Engine packages stay free of AWS code.
+
+The ledger table is described twice and a test keeps the two equal: `deploy/terraform/main/ledger-schema.json` (Terraform reads it) and `LEDGER_TABLE_LAYOUT` in `packages/indexer/src/ledger-table.ts` (what the DynamoDB `JobLedger` relies on; `ledger-table.test.ts`). The table has a string partition key `pk`, no sort key, no secondary index, and TTL on `expiresAt`. Secrets are SSM SecureString parameters under `/repohive/`; the indexer's Lambda entry points read the GitHub token from `REPOHIVE_GITHUB_TOKEN_PARAMETER` once per cold start (`src/github-token.ts`).
