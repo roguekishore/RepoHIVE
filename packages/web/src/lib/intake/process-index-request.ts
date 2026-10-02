@@ -2,6 +2,7 @@
  * hosting-3 Requirement 8.1: intake flow for `POST /api/index`.
  */
 import { randomBytes } from "node:crypto";
+import path from "node:path";
 import {
   precheck,
   type ArtifactStore,
@@ -21,6 +22,7 @@ import {
   releaseReservedCharge,
   reserveAcceptedJobCharge,
 } from "@/lib/quota/quota";
+import { createLocalPrecheckFetch } from "@/lib/hosting/local-fixtures";
 import { INTAKE_BUSY_RETRY_SECONDS, quotaMessage } from "./api-error";
 
 export type IndexOutcome =
@@ -74,11 +76,16 @@ export async function processIndexRequest(
   }
 
   const token = deps.config.githubToken ?? "local-stub";
+  const precheckFetch =
+    deps.precheckFetch ??
+    (deps.config.mode === "local"
+      ? createLocalPrecheckFetch(path.join(deps.config.dataDirectory, "tarballs"))
+      : undefined);
   const precheckResult = await precheck(input.repoText, {
     token,
     store: deps.store,
     viewsVersion: getViewsVersion(),
-    ...(deps.precheckFetch === undefined ? {} : { fetch: deps.precheckFetch }),
+    ...(precheckFetch === undefined ? {} : { fetch: precheckFetch }),
   });
 
   if (!precheckResult.ok) {
