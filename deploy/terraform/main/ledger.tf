@@ -49,5 +49,5 @@ resource "aws_dynamodb_table" "ledger" {
     enabled = false
   }
 
-  deletion_protection_enabled = true
+  deletion_protection_enabled = var.protect
 }

@@ -5,6 +5,9 @@
 
 resource "aws_s3_bucket" "artifacts" {
   bucket = local.artifact_bucket
+
+  # Only an unprotected (test) account lets a destroy delete the bucket with its snapshots in it.
+  force_destroy = !var.protect
 }
 
 resource "aws_s3_bucket_public_access_block" "artifacts" {
