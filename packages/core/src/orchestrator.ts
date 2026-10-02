@@ -16,7 +16,7 @@ import {
   validateHierarchyConfig,
 } from "./hierarchy-builder.js";
 import { buildMetadata } from "./metadata.js";
-import { serializeIndex } from "./index-serializer.js";
+import { serializeIndex, serializeIndexAsync } from "./index-serializer.js";
 import { ingest } from "./ingestor.js";
 import { computeWeights, DEFAULT_WEIGHT_COEFFICIENTS, type WeightCoefficients } from "./weights.js";
 import { sortIds } from "./canonical.js";
@@ -228,24 +228,42 @@ function runConfigurationOf(config: GroupingConfig): RunConfiguration {
   };
 }
 
-/** Run the full in-memory pipeline over a raw dependency graph. */
-export function groupGraph(
-  input: RawDependencyGraph | null | undefined,
-  partialConfig?: PartialGroupingConfig,
-  detector: CommunityDetector = new LouvainCommunityDetector()
-): Result<GroupingOutput> {
-  try {
-    return groupGraphUnguarded(input, partialConfig, detector);
-  } catch (cause) {
-    return internalError(cause);
-  }
+/**
+ * The grouping sub-stages, in the order they run. {@link groupGraphToIndexAsync}
+ * reports each one as it begins; `"write"` exists only on the path that writes
+ * the index.
+ */
+export type GroupingSubstage = "ingest" | "weight" | "assess" | "construct" | "hierarchy" | "metadata" | "write";
+
+/** A progress event from the grouping pipeline: a sub-stage is about to run. */
+export interface GroupingProgressEvent {
+  substage: GroupingSubstage;
 }
 
-function groupGraphUnguarded(
+/** Options for {@link groupGraphToIndexAsync}. */
+export interface GroupingRunOptions {
+  /** Community detector. Defaults to the Louvain detector. */
+  detector?: CommunityDetector;
+  /**
+   * Called as each sub-stage begins. Not awaited. The pipeline then yields to
+   * the event loop before running the sub-stage, so work the callback schedules
+   * can run first. A throw is reported as `INTERNAL_ERROR`. Cannot change any
+   * output byte.
+   */
+  onProgress?: (event: GroupingProgressEvent) => void;
+}
+
+/**
+ * The pipeline as a generator: it yields the name of each sub-stage just before
+ * running it and returns the result. One body serves the synchronous entry
+ * points (which just run it through) and the asynchronous one (which lets the
+ * event loop breathe between sub-stages), so the two can never drift apart.
+ */
+function* groupPipeline(
   input: RawDependencyGraph | null | undefined,
   partialConfig: PartialGroupingConfig | undefined,
   detector: CommunityDetector
-): Result<GroupingOutput> {
+): Generator<GroupingSubstage, Result<GroupingOutput>, undefined> {
   const config = resolveConfig(partialConfig);
 
   // The configuration gate runs first, before any work: an invalid parameter
@@ -255,12 +273,16 @@ function groupGraphUnguarded(
     return err(validated.error);
   }
 
+  yield "ingest";
   const ingested = ingest(input);
   if (!ingested.ok) {
     return ingested;
   }
+  yield "weight";
   const weighted = computeWeights(ingested.value, config.weightCoefficients);
+  yield "assess";
   const assessment = assess(weighted, config.assessment);
+  yield "construct";
   const constructed = construct(
     weighted,
     assessment,
@@ -271,6 +293,7 @@ function groupGraphUnguarded(
     },
     detector
   );
+  yield "hierarchy";
   const hierarchy = buildHierarchy(constructed, weighted, config.hierarchy);
   if (!hierarchy.ok) {
     return hierarchy;
@@ -278,6 +301,7 @@ function groupGraphUnguarded(
   // Join the audit record to the tree (Gap 12): each decision names the group
   // nodes it produced, so a consumer can go from "this region was reconstructed
   // with score 0.31" to the boxes on screen.
+  yield "metadata";
   const groupIdsOfRegion = hierarchy.value.groupIdsOfRegion;
   const decisions = constructed.decisions.map((decision) => {
     const groupIds = groupIdsOfRegion?.get(decision.regionId);
@@ -293,6 +317,36 @@ function groupGraphUnguarded(
   });
 
   return ok({ hierarchy: hierarchy.value, metadata });
+}
+
+/** Run a pipeline generator to completion without yielding to anything. */
+function runToCompletion<T>(pipeline: Generator<GroupingSubstage, T, undefined>): T {
+  for (;;) {
+    const step = pipeline.next();
+    if (step.done === true) {
+      return step.value;
+    }
+  }
+}
+
+/** Let the event loop run one turn, so work scheduled by a callback can start. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    setImmediate(resolve);
+  });
+}
+
+/** Run the full in-memory pipeline over a raw dependency graph. */
+export function groupGraph(
+  input: RawDependencyGraph | null | undefined,
+  partialConfig?: PartialGroupingConfig,
+  detector: CommunityDetector = new LouvainCommunityDetector()
+): Result<GroupingOutput> {
+  try {
+    return runToCompletion(groupPipeline(input, partialConfig, detector));
+  } catch (cause) {
+    return internalError(cause);
+  }
 }
 
 /** Run the pipeline and write the Index_File_Set to `outDir`. */
@@ -315,6 +369,45 @@ export function groupGraphToIndex(
     return internalError(cause);
   }
   return output;
+}
+
+/**
+ * {@link groupGraphToIndex} for a caller that wants to watch it and keep its
+ * event loop alive: it reports each sub-stage as it begins, yields to the event
+ * loop before running it, and writes the five index files concurrently.
+ * Results and bytes are identical to the synchronous entry point.
+ */
+export async function groupGraphToIndexAsync(
+  input: RawDependencyGraph | null | undefined,
+  outDir: string,
+  partialConfig?: PartialGroupingConfig,
+  options: GroupingRunOptions = {}
+): Promise<Result<GroupingOutput>> {
+  try {
+    const pipeline = groupPipeline(input, partialConfig, options.detector ?? new LouvainCommunityDetector());
+    let output: Result<GroupingOutput>;
+    for (;;) {
+      const step = pipeline.next();
+      if (step.done === true) {
+        output = step.value;
+        break;
+      }
+      options.onProgress?.({ substage: step.value });
+      await yieldToEventLoop();
+    }
+    if (!output.ok) {
+      return output;
+    }
+    options.onProgress?.({ substage: "write" });
+    await yieldToEventLoop();
+    const written = await serializeIndexAsync(output.value.hierarchy, output.value.metadata, outDir);
+    if (!written.ok) {
+      return written;
+    }
+    return output;
+  } catch (cause) {
+    return internalError(cause);
+  }
 }
 
 /** Load a graph.json from disk (malformed input → MALFORMED_FILE). */
