@@ -51,7 +51,13 @@ export type { ParseError, ParseErrorReason, ParseOptions, ParseSuccess } from "@
 // to drop what the engine would drop before handing entries over.
 export { isSelectedSourcePath } from "@repohive/parser";
 export type { SourceEntry, SourceSelectionOptions } from "@repohive/parser";
-export type { GroupingError, GroupingOutput, PartialGroupingConfig } from "@repohive/core";
+export type {
+  GroupingError,
+  GroupingOutput,
+  GroupingProgressEvent,
+  GroupingSubstage,
+  PartialGroupingConfig,
+} from "@repohive/core";
 export type {
   DependencyEdge,
   GraphNode,

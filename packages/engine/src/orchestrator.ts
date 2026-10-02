@@ -24,9 +24,10 @@
  *    `.repohive/` layout and what makes group-only sweeps possible. With
  *    `writeGraph: false` it is not written at all and the in-memory handoff is
  *    the only route (a parse stage that returns no graph then fails).
- * 5. **Group** via `@repohive/core`'s `groupGraphToIndex`, writing the
+ * 5. **Group** via `@repohive/core`'s `groupGraphToIndexAsync`, writing the
  *    five-file index contract to `<outputRoot>/index`. Core validates the
- *    grouping config, groups, and serializes all-or-nothing.
+ *    grouping config, groups (reporting each sub-stage and yielding to the event
+ *    loop between them), and writes the files concurrently, all-or-nothing.
  * 6. Return an {@link EngineSuccess} carrying paths, counts, `parseSkipped`
  *    (always `false` in v1 — the engine always parses; skip-when-current is the
  *    snapshot-id seam), and monotonic-clock durations. Timing data lives only
@@ -52,9 +53,11 @@ import {
   type SourceEntry,
 } from "@repohive/parser";
 import {
-  groupGraphToIndex,
+  groupGraphToIndexAsync,
   readGraphFile,
   type GroupingOutput,
+  type GroupingProgressEvent,
+  type GroupingSubstage,
   type PartialGroupingConfig,
   type Result as CoreResult,
 } from "@repohive/core";
@@ -69,25 +72,27 @@ const GRAPH_FILE_NAME = "graph.json";
 const INDEX_DIRECTORY_NAME = "index";
 
 /**
- * Kinds of progress event. v1 fires `"start"` and `"complete"` at stage
- * boundaries only. `"progress"` is **reserved**: it is declared now so the type
- * never has to change, but it is never emitted in v1. When per-item granularity
- * lands (progress is a first-class engine output for the hosted path's SSE),
- * the engine starts emitting `"progress"` events with `completed`/`total`
- * populated — a pure behavior addition, no signature change.
+ * Kinds of progress event. `"start"` and `"complete"` mark stage boundaries.
+ * `"progress"` fires inside a stage: during `parse` once per selected file as it
+ * settles (with `completed` and `total`), and during `group` once per grouping
+ * sub-stage as it begins (with `substage`).
  */
 export type EngineProgressKind = "start" | "complete" | "progress";
 
-/** A coarse progress event. See {@link EngineProgressKind} for the v1 semantics. */
+/** A progress event. See {@link EngineProgressKind} for what each kind carries. */
 export interface EngineProgressEvent {
   /** The pipeline stage this event belongs to. */
   stage: EngineStage;
-  /** Boundary events in v1; `"progress"` is reserved and never emitted yet. */
   kind: EngineProgressKind;
-  /** Items completed within the stage. Only on `"progress"` events (reserved). */
+  /**
+   * Files settled so far. On `parse` `"progress"` events. Starts at 0 and never
+   * decreases; the last event of a successful stage equals `total`.
+   */
   completed?: number;
-  /** Total items in the stage, when known. Only on `"progress"` events (reserved). */
+  /** Number of selected files. On `parse` `"progress"` events. */
   total?: number;
+  /** The grouping sub-stage that is about to run. On `group` `"progress"` events. */
+  substage?: GroupingSubstage;
 }
 
 /**
@@ -179,9 +184,17 @@ export interface EngineOptions {
    * Progress callback. Lives in options rather than as a parameter so the
    * public signature stays `indexProject(options, deps)` — the house
    * dependency-injection pattern — and mirroring how the parser's collector
-   * already threads callbacks through its options object. v1 fires coarse
-   * stage-boundary events only: parse start/complete, group start/complete; a
-   * failing stage emits `start` but no `complete`. A throwing callback aborts
+   * already threads callbacks through its options object.
+   *
+   * Events: stage `start` and `complete` (a failing stage emits `start` but no
+   * `complete`), a `progress` event per file during parse, and a `progress`
+   * event per sub-stage during group (see {@link EngineProgressEvent}).
+   *
+   * The engine does not await the callback and does not throttle it; a caller
+   * that cannot take one event per file throttles on its side. Work the callback
+   * schedules can run before the stage that emitted the event completes: parse
+   * is driven by worker messages and group yields to the event loop between
+   * sub-stages. Events cannot change any output byte. A throwing callback aborts
    * the run through the `INTERNAL_ERROR` backstop.
    */
   onProgress?: (event: EngineProgressEvent) => void;
@@ -218,13 +231,14 @@ export interface EngineDeps {
   readGraph(graphPath: string): CoreResult<RawDependencyGraph>;
   /**
    * Stage 2: group and serialize the five-file index. Defaults to core's
-   * `groupGraphToIndex`. Callers needing a custom `CommunityDetector` inject a
+   * `groupGraphToIndexAsync`. Callers needing a custom `CommunityDetector` inject a
    * wrapper here; the engine itself always uses core's default detector.
    */
   group(
     graph: RawDependencyGraph,
     outDir: string,
     config?: PartialGroupingConfig,
+    onProgress?: (event: GroupingProgressEvent) => void,
   ): CoreResult<GroupingOutput> | Promise<CoreResult<GroupingOutput>>;
   /**
    * True when `candidatePath` exists and is a directory. Guards output-root
@@ -247,7 +261,8 @@ export function defaultEngineDeps(): EngineDeps {
   return {
     parse: parseProject,
     readGraph: readGraphFile,
-    group: groupGraphToIndex,
+    group: (graph, outDir, config, onProgress) =>
+      groupGraphToIndexAsync(graph, outDir, config, onProgress === undefined ? {} : { onProgress }),
     isDirectory: (candidatePath) => {
       try {
         return statSync(candidatePath).isDirectory();
@@ -288,10 +303,6 @@ function graphPathField(writtenPath: string | undefined): { graphPath?: string }
   return writtenPath === undefined ? {} : { graphPath: writtenPath };
 }
 
-/** Fire a progress event when the caller registered a callback. */
-function emit(options: EngineOptions, stage: EngineStage, kind: EngineProgressKind): void {
-  options.onProgress?.({ stage, kind });
-}
 
 /**
  * Run the full pipeline — parse then group — over a local Java project.
@@ -336,6 +347,31 @@ async function indexProjectUnguarded(
   deps: EngineDeps,
 ): Promise<EngineResult> {
   const startedAt = deps.now();
+
+  // Progress goes through one guard. A throw from the caller's callback is
+  // remembered, so that when it fires inside a stage that reports failures as
+  // values (the parser, core) the run still ends as an engine-level
+  // INTERNAL_ERROR rather than as that stage's own failure.
+  let callbackFault: { cause: unknown } | undefined;
+  const report = (event: EngineProgressEvent): void => {
+    if (options.onProgress === undefined) {
+      return;
+    }
+    try {
+      options.onProgress(event);
+    } catch (cause) {
+      callbackFault ??= { cause };
+      throw cause;
+    }
+  };
+  const emit = (stage: EngineStage, kind: EngineProgressKind): void => {
+    report({ stage, kind });
+  };
+  const rethrowCallbackFault = (): void => {
+    if (callbackFault !== undefined) {
+      throw callbackFault.cause;
+    }
+  };
 
   // 1. Engine-level option validation, before any side effect.
   const hasDirectory = options.projectDirectory !== undefined;
@@ -403,7 +439,7 @@ async function indexProjectUnguarded(
 
   // 3. Parse. The parser resolves and validates the project directory itself;
   //    its errors pass through stage-tagged and unmodified.
-  emit(options, "parse", "start");
+  emit("parse", "start");
   const parseStartedAt = deps.now();
   const writeGraph = options.writeGraph !== false;
   const parsed = await deps.parse({
@@ -420,18 +456,26 @@ async function indexProjectUnguarded(
       ? { concurrency: options.concurrency }
       : {}),
     ...(options.workers !== undefined ? { workers: options.workers } : {}),
+    ...(options.onProgress !== undefined
+      ? {
+          onProgress: (completed: number, total: number) => {
+            report({ stage: "parse", kind: "progress", completed, total });
+          },
+        }
+      : {}),
   });
+  rethrowCallbackFault();
   const parseMs = deps.now() - parseStartedAt;
   if (!parsed.ok) {
     return { ok: false, stage: "parse", errors: parsed.errors };
   }
-  emit(options, "parse", "complete");
+  emit("parse", "complete");
 
   // 4 + 5. Group. Acquiring the stage's input counts toward its duration: the
   //    read-back, when a parse dependency leaves one to do, is real work the
   //    group stage pays for. The default pipeline hands the graph over in
   //    memory, so that branch is skipped entirely.
-  emit(options, "group", "start");
+  emit("group", "start");
   const groupStartedAt = deps.now();
   let graph = parsed.value.graph;
   if (graph === undefined) {
@@ -451,12 +495,22 @@ async function indexProjectUnguarded(
     }
     graph = read.value;
   }
-  const grouped = await deps.group(graph, indexDirectory, options.grouping);
+  const grouped = await deps.group(
+    graph,
+    indexDirectory,
+    options.grouping,
+    options.onProgress === undefined
+      ? undefined
+      : ({ substage }) => {
+          report({ stage: "group", kind: "progress", substage });
+        },
+  );
+  rethrowCallbackFault();
   const groupMs = deps.now() - groupStartedAt;
   if (!grouped.ok) {
     return { ok: false, stage: "group", error: grouped.error, ...graphPathField(parsed.value.outputPath) };
   }
-  emit(options, "group", "complete");
+  emit("group", "complete");
 
   // 6. Assemble the success value from what the stages actually reported.
   const decisions = grouped.value.metadata.regionDecisions;
