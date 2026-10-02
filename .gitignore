@@ -75,5 +75,8 @@ context/
 !*.tfvars.example
 crash.log
 deploy/out/
+# One folder per AWS account (deploy.env, tfvars, bootstrap state, Terraform working directories, plans)
+deploy/accounts/*
+!deploy/accounts/README.md
 deploy/deploy.env
 deploy/terraform/main/backend.hcl

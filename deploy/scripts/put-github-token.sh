@@ -2,7 +2,8 @@
 # Stores the GitHub token in SSM Parameter Store as /repohive/github-token.
 # The token is read from standard input without echo and never appears on a command line or in output.
 #
-#   AWS_PROFILE=<owner profile> deploy/scripts/put-github-token.sh
+#   REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh            # prompts, input hidden
+#   REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh <token-file   # or from a file (one line)
 #
 # Run again to rotate: it overwrites the parameter. Create the token as the runbook describes (a fine-grained
 # personal access token with read-only access to public repositories and no other permission).
