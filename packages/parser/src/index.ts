@@ -10,6 +10,13 @@
 
 export { parseProject } from "./orchestrator.js";
 export type { ParseOptions, ParseDeps } from "./orchestrator.js";
+export { createWorkerPoolPipeline } from "./extraction-pool.js";
+export type {
+  ExtractionInput,
+  ExtractionOutput,
+  ExtractionPipeline,
+  FileSource,
+} from "./extraction-pool.js";
 
 // In-memory source and the shared selection policy.
 export { findInvalidSourceEntry } from "./memory-source.js";
