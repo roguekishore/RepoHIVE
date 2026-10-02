@@ -6,6 +6,7 @@
 import { getViewsVersion } from "@repohive/views";
 import type { ArtifactStore } from "./artifact-store.js";
 import { createLedger, createStore, loadConfig, type IndexerConfig } from "./config.js";
+import { resolveGithubToken } from "./github-token.js";
 import type { JobLedger } from "./job-ledger.js";
 import type { JobResult } from "./job-result.js";
 import type { JobInput } from "./job-types.js";
@@ -17,15 +18,29 @@ import { createLogger, createTelemetry, type Logger } from "./telemetry.js";
 /** Clients are built once per process (a warm Lambda container reuses them). */
 interface Shared {
   readonly config: IndexerConfig;
+  /** The token, from the environment or read once from SSM. */
+  readonly githubToken: string | undefined;
   readonly store: ArtifactStore;
   readonly ledger: JobLedger;
 }
-let shared: Shared | undefined;
+let shared: Promise<Shared> | undefined;
 
-function sharedDeps(env: NodeJS.ProcessEnv): Shared {
+function sharedDeps(env: NodeJS.ProcessEnv): Promise<Shared> {
   if (shared === undefined) {
     const config = loadConfig(env);
-    shared = { config, store: createStore(config), ledger: createLedger(config) };
+    const pending = resolveGithubToken(config).then((githubToken) => ({
+      config,
+      githubToken,
+      store: createStore(config),
+      ledger: createLedger(config),
+    }));
+    // A failed read is not kept: the next invocation tries again.
+    pending.catch(() => {
+      if (shared === pending) {
+        shared = undefined;
+      }
+    });
+    shared = pending;
   }
   return shared;
 }
@@ -37,8 +52,7 @@ export async function executeJob(
   env: NodeJS.ProcessEnv = process.env,
   log?: Logger,
 ): Promise<JobResult> {
-  const { config, store, ledger } = sharedDeps(env);
-  const token = config.githubToken;
+  const { config, githubToken: token, store, ledger } = await sharedDeps(env);
   const logger = log ?? createLogger({ jobId: input.jobId, secrets: token === undefined ? [] : [token] });
   return runJob(input, {
     fetcher: createGithubSourceFetcher({ token: token ?? "" }),

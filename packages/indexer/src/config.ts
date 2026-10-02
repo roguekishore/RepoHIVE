@@ -4,7 +4,9 @@
  *
  * - `REPOHIVE_STORE`: `local:<dir>` or `s3:<bucket>`
  * - `REPOHIVE_LEDGER`: `memory`, `file:<path>` or `dynamodb:<table>`
- * - `REPOHIVE_GITHUB_TOKEN`: the server-side token (required outside `local`)
+ * - `REPOHIVE_GITHUB_TOKEN`: the server-side token (required outside `local`, unless the parameter below is set)
+ * - `REPOHIVE_GITHUB_TOKEN_PARAMETER`: the SSM parameter holding the token; the Lambda entry points read it once per
+ *   cold start when `REPOHIVE_GITHUB_TOKEN` is not set
  * - `REPOHIVE_RUNTIME`: `lambda`, `fargate` or `local`
  * - `AWS_REGION`: from the platform (required for `s3:` and `dynamodb:`)
  */
@@ -29,6 +31,8 @@ export interface IndexerConfig {
   readonly store: StoreConfig;
   readonly ledger: LedgerConfig;
   readonly githubToken: string | undefined;
+  /** SSM parameter name to read the token from when `githubToken` is not set. */
+  readonly githubTokenParameter: string | undefined;
   readonly runtime: Runtime;
 }
 
@@ -72,13 +76,17 @@ export function loadConfig(env: NodeJS.ProcessEnv): IndexerConfig {
   }
 
   const githubToken = env.REPOHIVE_GITHUB_TOKEN?.trim() || undefined;
-  if (runtime !== "local" && githubToken === undefined) {
+  const githubTokenParameter = env.REPOHIVE_GITHUB_TOKEN_PARAMETER?.trim() || undefined;
+  if (runtime !== "local" && githubToken === undefined && githubTokenParameter === undefined) {
     throw new ConfigError("REPOHIVE_GITHUB_TOKEN is not set");
   }
-  if ((store.kind === "s3" || ledger.kind === "dynamodb") && (env.AWS_REGION ?? "") === "") {
+  if (
+    (store.kind === "s3" || ledger.kind === "dynamodb" || githubTokenParameter !== undefined) &&
+    (env.AWS_REGION ?? "") === ""
+  ) {
     throw new ConfigError("AWS_REGION is not set");
   }
-  return { store, ledger, githubToken, runtime };
+  return { store, ledger, githubToken, githubTokenParameter, runtime };
 }
 
 export function createStore(config: IndexerConfig): ArtifactStore {

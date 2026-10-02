@@ -97,6 +97,7 @@ export { parseJobInput } from "./job-input.js";
 export { ConfigError, createLedger, createStore, loadConfig } from "./config.js";
 export type { IndexerConfig, LedgerConfig, StoreConfig } from "./config.js";
 export { executeJob } from "./entry.js";
+export { resolveGithubToken } from "./github-token.js";
 export { createS3ArtifactStore } from "./artifact-store-s3.js";
 export type { S3ArtifactStoreOptions } from "./artifact-store-s3.js";
 export { indexObjects, viewObjects } from "./snapshot-objects.js";
