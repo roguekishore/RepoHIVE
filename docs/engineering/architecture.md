@@ -191,6 +191,7 @@ Tracked at the repository root:
 packages/            see above
 fixtures/            sample-java-project (its sources are tracked even though .gitignore lists it;
                      its generated graph.json and index/ are ignored)
+deploy/              AWS deployment as code (Terraform, box files, scripts, runbook); not a workspace
 docs/engineering/    these documents
 tsconfig.base.json   shared compiler options
 components.json      shadcn component configuration
@@ -216,3 +217,20 @@ context/registers/    the large registers
 
 A contributor working from a public clone will not have `context/`. Anything that depends on it is
 optional by construction. `docs/engineering/` is the durable, public half and must stand on its own.
+
+## Deploy tree (`deploy/`)
+
+`deploy/` holds everything needed to run the hosted stack on AWS (ap-south-1), as code. It is **not an npm
+workspace and no package imports it**; it reaches `packages/indexer` and `packages/web` only by building them
+(the indexer image, the app release bundle), never by importing.
+
+```
+deploy/terraform/bootstrap/   applied once, local state: state bucket, ops bucket, ECR, CloudFront certificate
+deploy/terraform/main/        the stack; state in the bootstrap's bucket (S3 native locking)
+deploy/box/                   Caddyfile, systemd units, CloudWatch agent config, cloud-init, release Dockerfile
+deploy/scripts/               bash deploy scripts
+deploy/RUNBOOK.md             the owner's step-by-step
+```
+
+Every file under `deploy/` is LF (`deploy/.gitattributes`): it runs on Linux. Names derived from the account id
+are built once in `deploy/terraform/main/locals.tf`. Engine packages stay free of AWS code.
