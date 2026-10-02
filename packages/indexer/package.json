@@ -21,9 +21,13 @@
     "test": "node ../../scripts/run-node-tests.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1144.0",
     "@repohive/core": "0.0.0",
     "@repohive/engine": "0.0.0",
     "@repohive/views": "0.0.0"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "4.1.0"
   },
   "license": "AGPL-3.0-or-later"
 }
