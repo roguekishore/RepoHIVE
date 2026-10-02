@@ -57,3 +57,13 @@ variable "github_oidc_provider_arn" {
   description = "An existing token.actions.githubusercontent.com OIDC provider in this account, if there is one (an account holds at most one per URL). Empty: this root creates it."
   default     = ""
 }
+
+variable "github_subject_prefix" {
+  type        = string
+  description = "The repository part of the OIDC subject GitHub issues, for example repo:owner@123/repo@456 when the repository uses immutable subjects (apply.sh reads it from GitHub's OIDC customization API). Empty: repo:<github_repository>."
+  default     = ""
+  validation {
+    condition     = var.github_subject_prefix == "" || can(regex("^repo:[^:]+$", var.github_subject_prefix))
+    error_message = "github_subject_prefix must be empty or repo:<owner>/<repo> in either GitHub form, with no environment part."
+  }
+}

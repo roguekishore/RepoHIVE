@@ -6,6 +6,8 @@
 locals {
   github_oidc_url          = "token.actions.githubusercontent.com"
   github_oidc_provider_arn = var.github_oidc_provider_arn != "" ? var.github_oidc_provider_arn : aws_iam_openid_connect_provider.github[0].arn
+  # A repository with immutable subjects puts the owner and repository ids in the subject (repo:owner@id/repo@id).
+  github_subject_prefix = var.github_subject_prefix != "" ? var.github_subject_prefix : "repo:${var.github_repository}"
 }
 
 # An account holds at most one provider per URL; reuse an existing one through github_oidc_provider_arn.
@@ -35,7 +37,7 @@ data "aws_iam_policy_document" "github_build_assume" {
     condition {
       test     = "StringEquals"
       variable = "${local.github_oidc_url}:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.account_name}"]
+      values   = ["${local.github_subject_prefix}:environment:${var.account_name}"]
     }
   }
 }
