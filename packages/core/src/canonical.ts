@@ -243,3 +243,76 @@ function render(value: unknown, indent: string): string {
   }
   throw new TypeError(`stableStringify: unsupported value of type ${typeof value}`);
 }
+
+/**
+ * Minified counterpart of {@link stableStringify}: the same values with the same
+ * key ordering and `undefined` rules, but no indentation and no spaces, ending in
+ * one `
+`. Used for the index files, where size matters and nobody reads the
+ * text. Refuses non-finite numbers like the pretty form.
+ */
+export function compactStringify(value: unknown): string {
+  return `${renderCompact(value)}\n`;
+}
+
+/**
+ * The same text as {@link compactStringify}, as a lazy sequence of pieces whose
+ * concatenation equals it exactly. Each array *element* is rendered whole and
+ * yielded as one piece, so a piece is bounded by one element's rendering. Wrap in
+ * `coalesceChunks` from `@repohive/shared` for write-sized chunks. Restartable.
+ */
+export function* compactStringifyPieces(value: unknown): Generator<string, void, undefined> {
+  yield* renderCompactPieces(value);
+  yield "\n";
+}
+
+function* renderCompactPieces(value: unknown): Generator<string, void, undefined> {
+  if (Array.isArray(value) && value.length > 0) {
+    yield "[";
+    for (let i = 0; i < value.length; i += 1) {
+      const element: unknown = value[i];
+      yield `${i === 0 ? "" : ","}${renderCompact(element === undefined ? null : element)}`;
+    }
+    yield "]";
+    return;
+  }
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => compareIds(a, b));
+    if (entries.length > 0) {
+      yield "{";
+      for (let i = 0; i < entries.length; i += 1) {
+        const [key, member] = entries[i] as [string, unknown];
+        yield `${i === 0 ? "" : ","}${JSON.stringify(key)}:`;
+        yield* renderCompactPieces(member);
+      }
+      yield "}";
+      return;
+    }
+  }
+  yield renderCompact(value);
+}
+
+function renderCompact(value: unknown): string {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`compactStringify: refusing to serialize non-finite number ${String(value)}`);
+    }
+    return JSON.stringify(value);
+  }
+  if (value === null || typeof value === "boolean" || typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => renderCompact(v === undefined ? null : v)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => compareIds(a, b))
+      .map(([k, v]) => `${JSON.stringify(k)}:${renderCompact(v)}`);
+    return `{${entries.join(",")}}`;
+  }
+  throw new TypeError(`compactStringify: unsupported value of type ${typeof value}`);
+}
