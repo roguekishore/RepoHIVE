@@ -15,7 +15,7 @@
  * that converts any unexpected throw into an `INTERNAL_ERROR` value.
  */
 
-import { describeError, type GroupingError } from "@repohive/core";
+import { describeError, type GroupingError, type GroupingOutput } from "@repohive/core";
 import type { ParseError } from "@repohive/parser";
 
 /** The two pipeline stages the engine orchestrates. Group includes writing the five-file index. */
@@ -74,8 +74,11 @@ export interface EngineDurations {
 export interface EngineSuccess {
   /** Absolute path of the output root holding `graph.json` and `index/`. */
   outputDirectory: string;
-  /** Absolute path of the written `graph.json`, as reported by the parse stage. */
-  graphPath: string;
+  /**
+   * Absolute path of the written `graph.json`, as reported by the parse stage.
+   * Absent when the run was asked not to write one (`writeGraph: false`).
+   */
+  graphPath?: string;
   /** Absolute path of the directory holding the five-file index contract. */
   indexDirectory: string;
   /**
@@ -86,6 +89,13 @@ export interface EngineSuccess {
    * semantics land in the snapshot-id era.
    */
   parseSkipped: boolean;
+  /**
+   * What the group stage produced, in memory: the `hierarchy` and `metadata`
+   * that were serialized into `indexDirectory`. Lets a caller build views
+   * without reading the index back. It is the same object the serializer
+   * rendered, so it cannot disagree with the files.
+   */
+  groupingOutput: GroupingOutput;
   /** Stage and total durations. Result-only; never reaches an artifact. */
   durationMs: EngineDurations;
   /** Number of nodes written to `graph.json` (the parse stage's count). */
@@ -123,8 +133,9 @@ export interface EngineSuccess {
  *   `graph.json` (a prior valid file is left byte-for-byte intact), and the
  *   group stage never ran, so the previous `index/` is also untouched.
  * - `"group"`: the group stage (including the `graph.json` read-back and the
- *   index write) failed. `graph.json` WAS written — `graphPath` names it, and a
- *   `group`-only re-run can start from it. The index serializer stages all five
+ *   index write) failed. Unless the run skipped the graph write
+ *   (`writeGraph: false`), `graph.json` WAS written — `graphPath` names it, and
+ *   a `group`-only re-run can start from it. The index serializer stages all five
  *   files before promoting, so an existing `index/` survives every failure that
  *   happens before promotion begins; only a failure inside the five-rename
  *   promotion window can leave a mixed set (a recorded, accepted design bound).
@@ -132,7 +143,7 @@ export interface EngineSuccess {
 export type EngineFailure =
   | { ok: false; stage: "engine"; error: EngineError }
   | { ok: false; stage: "parse"; errors: readonly ParseError[] }
-  | { ok: false; stage: "group"; error: GroupingError; graphPath: string };
+  | { ok: false; stage: "group"; error: GroupingError; graphPath?: string };
 
 /** Discriminated result of {@link indexProject}: success value or stage-tagged failure. */
 export type EngineResult = { ok: true; value: EngineSuccess } | EngineFailure;
