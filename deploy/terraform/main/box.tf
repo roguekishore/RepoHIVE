@@ -23,10 +23,11 @@ locals {
     script_env                     = base64gzip(file("${local.box_files}/bin/repohive-env"))
     script_first_boot              = base64gzip(file("${local.box_files}/bin/repohive-first-boot"))
     script_activate                = base64gzip(file("${local.box_files}/bin/repohive-activate"))
+    script_heartbeat               = base64gzip(file("${local.box_files}/bin/repohive-heartbeat"))
     logrotate                      = base64gzip(file("${local.box_files}/logrotate-repohive"))
     agent_config                   = base64gzip(file("${local.box_files}/amazon-cloudwatch-agent.json"))
     units = {
-      for name in fileset("${local.box_files}/systemd", "*.service") :
+      for name in fileset("${local.box_files}/systemd", "*.{service,timer}") :
       name => base64gzip(file("${local.box_files}/systemd/${name}"))
     }
   })
@@ -247,7 +248,7 @@ resource "aws_cloudwatch_metric_alarm" "box_recover" {
   evaluation_periods  = 2
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"
-  alarm_actions       = ["arn:aws:automate:${local.region}:ec2:recover"]
+  alarm_actions       = ["arn:aws:automate:${local.region}:ec2:recover", aws_sns_topic.alerts.arn]
 }
 
 output "box_instance_id" {

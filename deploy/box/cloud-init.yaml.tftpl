@@ -40,6 +40,10 @@ write_files:
     permissions: "0755"
     encoding: gz+b64
     content: ${script_activate}
+  - path: /usr/local/sbin/repohive-heartbeat
+    permissions: "0755"
+    encoding: gz+b64
+    content: ${script_heartbeat}
   - path: /etc/repohive/boot/logrotate-repohive
     permissions: "0644"
     encoding: gz+b64

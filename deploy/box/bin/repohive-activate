@@ -31,6 +31,7 @@ previous_target() {
 install_from_release() {
   local dir="$1"
   install -m 0644 "${dir}"/box/systemd/*.service /etc/systemd/system/
+  install -m 0644 "${dir}"/box/systemd/*.timer /etc/systemd/system/
   install -m 0644 "${dir}/box/logrotate-repohive" /etc/logrotate.d/repohive
   install -m 0755 "${dir}/box/bin/repohive-env" /usr/local/sbin/repohive-env
   install -m 0755 "${dir}/box/bin/repohive-first-boot" /usr/local/sbin/repohive-first-boot
@@ -41,6 +42,7 @@ install_from_release() {
   fi
   install -m 0644 "${dir}/box/amazon-cloudwatch-agent.json" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   systemctl daemon-reload
+  systemctl enable --now repohive-heartbeat.timer
   /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
     -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json >/dev/null
 }

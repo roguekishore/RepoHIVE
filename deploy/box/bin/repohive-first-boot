@@ -61,11 +61,13 @@ fi
 grep -q '^/swapfile ' /etc/fstab || printf '/swapfile none swap sw 0 0\n' >>/etc/fstab
 
 # --- units, logrotate, the CloudWatch agent -------------------------------------------------------------
-install -m 0644 "${BOOT_DIR}"/systemd/*.service /etc/systemd/system/
+install -m 0644 "${BOOT_DIR}"/systemd/*.service "${BOOT_DIR}"/systemd/*.timer /etc/systemd/system/
 install -m 0644 "${BOOT_DIR}/logrotate-repohive" /etc/logrotate.d/repohive
 systemctl daemon-reload
 # Enabled now, started by the first release activation: until then /opt/repohive/current does not exist.
 systemctl enable repohive-env.service caddy.service repohive-web.service repohive-worker.service
+# The heartbeat needs no release: it reports SiteUp = 0 until the site answers, which is true.
+systemctl enable --now repohive-heartbeat.timer
 
 if ! rpm -q amazon-cloudwatch-agent >/dev/null 2>&1; then
   dnf install -y amazon-cloudwatch-agent
