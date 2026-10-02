@@ -105,6 +105,24 @@ choice for this without a decision," not "never introduce anything new." Record 
 `context/decisions/` and update this file in the same change. Licence compatibility with
 AGPL-3.0-or-later remains a hard rule.
 
+## Deploy tree (`deploy/`)
+
+Run by the owner, never by an agent against AWS (`context/specs/hosting-4-deploy`). Exact pins:
+
+| Tool | Pin | Licence note |
+|------|-----|--------------|
+| Terraform | `>= 1.11.0, < 2.0.0` (S3 native locking needs 1.11); developed on 1.16.2 | BUSL-1.1. A build tool the owner runs; nothing of it is linked or shipped |
+| `hashicorp/aws` provider | 6.67.0 | MPL-2.0 |
+| `hashicorp/random` provider | 3.9.1 | MPL-2.0 |
+
+Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (the owner runs Terraform on Windows; owner
+ruling 2026-10-02). Running Terraform from another platform, such as WSL, needs `terraform providers lock
+-platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. Later phases add Caddy, `xcaddy`, the Node 24 binary
+and base images here.
+
+Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
+per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on `deploy/scripts/*`.
+
 ## Commands
 
 Run from the repo root.
