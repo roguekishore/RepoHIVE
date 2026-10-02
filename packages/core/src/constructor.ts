@@ -1,5 +1,5 @@
 /**
- * Adaptive_Hierarchy_Constructor (Requirements 4 and 5): decide preserve vs
+ * Adaptive_Hierarchy_Constructor: decide preserve vs
  * reconstruct per Primary_Region by comparing its Structural_Quality_Score
  * against the Structural_Quality_Boundary, execute the chosen action, and
  * record complete decision metadata.
@@ -42,16 +42,29 @@ export function construct(
   const regionGroups = new Map<string, RegionGroup[]>();
   const decisions: RegionDecision[] = [];
 
-  // assessment.regions is in canonical Region order already; keep it so.
-  for (const region of assessment.regions) {
+  // Decide every region's action first, so the edge list is bucketed once, and
+  // only for the regions that will be reconstructed.
+  const regions = assessment.regions.map((region) => {
     const automaticAction = decideAction(region.score, config.structuralQualityBoundary);
     const override = config.overrides?.get(region.regionId);
-    const action = override ?? automaticAction;
+    return { region, automaticAction, override, action: override ?? automaticAction };
+  });
+  const edgesByRegion = bucketEdgesByRegion(
+    model,
+    regions.filter((entry) => entry.action === "reconstruct").map((entry) => entry.region),
+  );
 
+  // assessment.regions is in canonical Region order already; keep it so.
+  for (const { region, automaticAction, override, action } of regions) {
     const groups =
       action === "preserve"
         ? [{ fileIds: [...region.nodeIds] }]
-        : reconstructRegion(model, region.nodeIds, config.communityDetectionSeed, detector);
+        : reconstructRegion(
+            region.nodeIds,
+            edgesByRegion.get(region.regionId) ?? [],
+            config.communityDetectionSeed,
+            detector,
+          );
 
     regionGroups.set(region.regionId, groups);
     decisions.push({
@@ -71,18 +84,41 @@ export function construct(
 }
 
 /**
- * Reconstruct one Region: run community detection over the Region's File
- * nodes and the strength-weighted edges among them (edges attributed at file
- * granularity), then emit one group per community in content order.
+ * Bucket the file-level edges of every given region in ONE pass over
+ * `model.weightedEdges`, instead of one pass per region.
+ *
+ * A region's edges are those whose two owning files are both members of it and
+ * differ. The per-region scan this replaces made grouping cost edges x regions
+ * (about 3 s on Broadleaf's 14,325 edges and 502 regions, and quadratic growth
+ * on a repository an order of magnitude larger). Each bucket receives its edges
+ * in their original `weightedEdges` order, which is the order the community
+ * detector has always been handed, so output is unchanged. A file in more than
+ * one region's membership (the types do not forbid it) lands the edge in every
+ * region holding both endpoints, exactly as the per-region membership test did.
  */
-function reconstructRegion(
+function bucketEdgesByRegion(
   model: WeightedModel,
-  fileIds: readonly NodeId[],
-  seed: number,
-  detector: CommunityDetector
-): RegionGroup[] {
-  const memberSet = new Set(fileIds);
-  const edges: CommunitySubgraph["edges"] = [];
+  regions: readonly RegionAssessment["regions"][number][],
+): Map<string, CommunitySubgraph["edges"]> {
+  const buckets = new Map<string, CommunitySubgraph["edges"]>();
+  if (regions.length === 0) {
+    return buckets;
+  }
+  const regionsOfFile = new Map<NodeId, string[]>();
+  for (const region of regions) {
+    buckets.set(region.regionId, []);
+    for (const fileId of region.nodeIds) {
+      const list = regionsOfFile.get(fileId);
+      if (list) {
+        if (!list.includes(region.regionId)) {
+          list.push(region.regionId);
+        }
+      } else {
+        regionsOfFile.set(fileId, [region.regionId]);
+      }
+    }
+  }
+
   for (const edge of model.weightedEdges) {
     const sourceNode = model.nodesById.get(edge.source);
     const targetNode = model.nodesById.get(edge.target);
@@ -91,18 +127,34 @@ function reconstructRegion(
     }
     const sourceFile = owningFileOf(sourceNode, model.nodesById);
     const targetFile = owningFileOf(targetNode, model.nodesById);
-    if (
-      sourceFile === null ||
-      targetFile === null ||
-      sourceFile === targetFile ||
-      !memberSet.has(sourceFile) ||
-      !memberSet.has(targetFile)
-    ) {
+    if (sourceFile === null || targetFile === null || sourceFile === targetFile) {
       continue;
     }
-    edges.push({ source: sourceFile, target: targetFile, strength: edge.strength });
+    const sourceRegions = regionsOfFile.get(sourceFile);
+    const targetRegions = regionsOfFile.get(targetFile);
+    if (sourceRegions === undefined || targetRegions === undefined) {
+      continue;
+    }
+    for (const regionId of sourceRegions) {
+      if (targetRegions.includes(regionId)) {
+        buckets.get(regionId)?.push({ source: sourceFile, target: targetFile, strength: edge.strength });
+      }
+    }
   }
+  return buckets;
+}
 
+/**
+ * Reconstruct one Region: run community detection over the Region's File
+ * nodes and the strength-weighted edges among them (already bucketed, at file
+ * granularity), then emit one group per community in content order.
+ */
+function reconstructRegion(
+  fileIds: readonly NodeId[],
+  edges: CommunitySubgraph["edges"],
+  seed: number,
+  detector: CommunityDetector
+): RegionGroup[] {
   const assignment = detector.detect({ nodeIds: [...fileIds], edges }, seed);
 
   const membersOf = new Map<number, NodeId[]>();
