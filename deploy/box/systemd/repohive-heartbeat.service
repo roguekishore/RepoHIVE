@@ -1,0 +1,8 @@
+[Unit]
+Description=RepoHIVE: site heartbeat (one SiteUp metric line)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/repohive-heartbeat

@@ -15,6 +15,18 @@ indexer_image_digest = "sha256:0000000000000000000000000000000000000000000000000
 # fargate_cpu_units          = 8192
 # fargate_memory_mb          = 16384
 
+# Alarms and budget (defaults shown; counts are totals per 5 minutes, heartbeat_bad_minutes is consecutive minutes):
+# alarm_thresholds = {
+#   executions_failed     = 1
+#   executions_timed_out  = 1
+#   indexer_errors        = 3
+#   indexer_throttles     = 1
+#   control_errors        = 1
+#   jobs_failed_system    = 3
+#   heartbeat_bad_minutes = 5
+# }
+# monthly_budget_usd = 25
+
 # The box (all unmeasured defaults):
 # box_root_volume_gb          = 12
 # box_data_volume_gb          = 8

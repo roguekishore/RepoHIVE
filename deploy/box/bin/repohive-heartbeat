@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# The site heartbeat, run every minute by repohive-heartbeat.timer. Fetches
+# https://<site domain>/healthz through CloudFront and appends one embedded-metric-format line, SiteUp = 1 or 0,
+# no dimensions, to /var/log/repohive/heartbeat.log. The CloudWatch agent ships that file; the alarm treats missing
+# data as breaching, so a dead box alarms too. The line holds no address, email or token.
+set -euo pipefail
+
+BOX_ENV=/etc/repohive/box.env
+LOG=/var/log/repohive/heartbeat.log
+
+site_domain="$(sed -n 's/^SITE_DOMAIN=//p' "${BOX_ENV}")"
+[[ -n "${site_domain}" ]] || {
+  echo "heartbeat: SITE_DOMAIN missing from ${BOX_ENV}" >&2
+  exit 1
+}
+
+up=0
+body="$(curl -fsS --max-time 10 "https://${site_domain}/healthz" 2>/dev/null || true)"
+case "${body}" in
+  *'"status":"ok"'* | *'"status": "ok"'*) up=1 ;;
+  *) ;;
+esac
+
+printf '{"_aws":{"Timestamp":%s,"CloudWatchMetrics":[{"Namespace":"RepoHIVE/Hosted","Dimensions":[[]],"Metrics":[{"Name":"SiteUp","Unit":"Count"}]}]},"SiteUp":%s}\n' \
+  "$(date +%s%3N)" "${up}" >>"${LOG}"
