@@ -38,7 +38,7 @@ done
   exit 1
 }
 if ! blkid "${device}" >/dev/null 2>&1; then
-  mkfs.xfs -L repohive-data "${device}"
+  mkfs.xfs -L repohivedata "${device}" # an XFS label holds at most 12 characters
 fi
 uuid="$(blkid -s UUID -o value "${device}")"
 install -d -m 0755 "${DATA_MOUNT}"
