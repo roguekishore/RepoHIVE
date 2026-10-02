@@ -154,4 +154,22 @@ run "plan" {
     ])
     error_message = "The box role cannot read snapshot objects under s/."
   }
+
+  assert {
+    condition     = aws_instance.box.disable_api_termination == true && aws_dynamodb_table.ledger.deletion_protection_enabled == true && aws_s3_bucket.artifacts.force_destroy == false
+    error_message = "A protected account must keep termination and deletion protection on."
+  }
+}
+
+run "unprotected" {
+  command = plan
+
+  variables {
+    protect = false
+  }
+
+  assert {
+    condition     = aws_instance.box.disable_api_termination == false && aws_dynamodb_table.ledger.deletion_protection_enabled == false && aws_s3_bucket.artifacts.force_destroy == true
+    error_message = "An unprotected account must let a destroy remove the box, the table and the artifact bucket."
+  }
 }

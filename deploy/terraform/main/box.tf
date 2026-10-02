@@ -178,7 +178,7 @@ resource "aws_instance" "box" {
   vpc_security_group_ids      = [aws_security_group.box.id]
   iam_instance_profile        = aws_iam_instance_profile.box.name
   associate_public_ip_address = true # a temporary address for first boot; the Elastic IP replaces it
-  disable_api_termination     = true
+  disable_api_termination     = var.protect
   user_data                   = local.box_user_data
 
   metadata_options {
