@@ -111,6 +111,7 @@ tf_root_setup() {
     plan_vars+=(
       "-var=account_name=${REPOHIVE_ACCOUNT}"
       "-var=github_repository=$(github_repository)"
+      "-var=github_subject_prefix=$(github_subject_prefix)"
       "-var=github_oidc_provider_arn=${GITHUB_OIDC_PROVIDER_ARN}"
     )
   else
@@ -136,6 +137,19 @@ github_repository() {
   url="${url#git@github.com:}"
   [[ "${url}" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || die "cannot read owner/repo from the origin remote: ${url}"
   printf '%s' "${url}"
+}
+
+# The repository part of the OIDC subject GitHub issues for the build workflow: repo:owner/repo, or
+# repo:owner@<id>/repo@<id> when the repository uses immutable subjects. REPOHIVE_GITHUB_SUBJECT_PREFIX overrides it.
+github_subject_prefix() {
+  local prefix="${REPOHIVE_GITHUB_SUBJECT_PREFIX:-}"
+  if [[ -z "${prefix}" ]]; then
+    command -v gh >/dev/null 2>&1 || die "the GitHub CLI (gh) is needed to read the repository's OIDC subject"
+    prefix="$(MSYS2_ARG_CONV_EXCL='*' gh api "repos/$(github_repository)/actions/oidc/customization/sub"       --jq '.sub_claim_prefix // empty')" || die "cannot read the OIDC subject of $(github_repository) from GitHub"
+    [[ -n "${prefix}" ]] || prefix="repo:$(github_repository)"
+  fi
+  [[ "${prefix}" =~ ^repo:[^:]+$ ]] || die "unexpected OIDC subject prefix from GitHub: ${prefix}"
+  printf '%s' "${prefix}"
 }
 
 # Every aws call goes through here so --region is always explicit. Under Git Bash the AWS CLI is a Windows program,
