@@ -23,8 +23,10 @@ box_value() {
   sed -n "s/^$1=//p" "${BOX_ENV}"
 }
 
+# Empty when there is no current release yet: readlink -f would print the path of a missing link, and switching
+# back to it would point current at itself.
 previous_target() {
-  readlink -f "${CURRENT}" 2>/dev/null || true
+  readlink -e "${CURRENT}" 2>/dev/null || true
 }
 
 # Installs what ships in a release: units, the agent configuration, the scripts, the logrotate rule.
@@ -129,6 +131,10 @@ mkdir -p "${target}.partial"
 tar -xzf "${bundle}" -C "${target}.partial"
 rm -rf -- "${target}"
 mv -T "${target}.partial" "${target}"
+# The units run as repohive and caddy, so the release root must be enterable whatever mode the archive carried; and
+# the archive's fixed mtime would tie every release, so the unpack time orders them for prune and --rollback.
+chmod 0755 "${target}"
+touch "${target}"
 printf 'activate: unpacked %s\n' "${target}"
 
 switch_to "${target}"
