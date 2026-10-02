@@ -34,9 +34,16 @@ umask 077
 request="$(mktemp)"
 trap 'rm -f "${request}"' EXIT
 
-printf '%s' "${token}" | jq -R --arg name "${PARAMETER_NAME}" \
+# jq is a Windows program under Git Bash too: keep MSYS from rewriting the parameter name into a path.
+printf '%s' "${token}" | MSYS2_ARG_CONV_EXCL='*' jq -R --arg name "${PARAMETER_NAME}" \
   '{Name: $name, Type: "SecureString", Tier: "Standard", Overwrite: true, Value: .}' >"${request}"
 unset token
 
-aws_cli ssm put-parameter --cli-input-json "file://${request}" --query Version --output text >/dev/null
+# Under Git Bash the AWS CLI is a Windows program, and MSYS does not convert a path inside a file:// argument.
+request_uri="${request}"
+if command -v cygpath >/dev/null 2>&1; then
+  request_uri="$(cygpath -m "${request}")"
+fi
+
+aws_cli ssm put-parameter --cli-input-json "file://${request_uri}" --query Version --output text >/dev/null
 printf 'Stored %s (SecureString, standard tier).\n' "${PARAMETER_NAME}"
