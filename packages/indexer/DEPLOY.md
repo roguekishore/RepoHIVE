@@ -72,7 +72,11 @@ the same commit.
 ## What the job needs
 
 - **S3** on the one bucket: `PutObject`, `GetObject`, `ListBucket`, `DeleteObject` (the prune). No bucket versioning
-  and no object tags are used; ownership and cost tags belong on the bucket.
+  and no object tags are used; ownership and cost tags belong on the bucket. `ListBucket` must cover the whole bucket,
+  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first pre-check's `latest.json`, a first
+  publish's `history.json`) answers 403 instead of 404, and the store reports it as an error. `ListBucket` must cover the whole bucket,
+  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first pre-check's `latest.json`, a first
+  publish's `history.json`) answers 403 instead of 404, and the store reports it as an error.
 - **DynamoDB** on the one table: `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`. Partition key `pk` (string), no sort
   key, TTL attribute `expiresAt` (epoch seconds). Records: `JOB#<jobId>` (the job), `REPO#<repo>` (the per-repository
   lock, created with `attribute_not_exists(pk)`), `INFLIGHT` (the in-flight counter, incremented under a cap) and
