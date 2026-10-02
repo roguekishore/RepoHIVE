@@ -1,23 +1,25 @@
 # RepoHIVE deploy runbook
 
-How the owner deploys, verifies, operates and tears down the hosted stack in ap-south-1. Nothing in this tree has
-been run against AWS. Every command below is written, not tested: the first apply is the first real test, and
-Section 17 lists what was never exercised. Where a step fails, stop and read the message before retrying; do not
-re-run an apply to "see if it works".
+How the hosted stack is deployed into an AWS account (ap-south-1), verified, operated and torn down. The same steps
+deploy into any account: each account has its own folder `deploy/accounts/<name>/`, and every command names it with
+`REPOHIVE_ACCOUNT=<name>`. The intended order is a **test account first** (an older account with credits,
+`PROTECT=false`), then the **production account** (`PROTECT=true`).
 
-Every step gives **Command**, **Success** and **If it fails**. Scripts live in `deploy/scripts/` and read
-`deploy/deploy.env`; each one that calls AWS stops unless `aws sts get-caller-identity` matches the account id in
-that file.
+Every step gives **Command**, **Success** and **If it fails**. An agent can run every command; the steps marked
+**Owner** need a person (a console, an email, a DNS provider, a secret). Scripts live in `deploy/scripts/`; each one
+that calls AWS stops unless `aws sts get-caller-identity` matches the account's `deploy.env`. The first plan and apply
+against AWS are the first real test of the Terraform: Section 17 says what was and was not run. Where a step fails,
+stop and read the message; do not re-run an apply to "see if it works".
 
 ## Contents
 
 1. Prerequisites
-2. The account
+2. The account and its credentials
 3. Quotas
 4. The domain
-5. Bootstrap, then the backend file, then the certificate
+5. Bootstrap and the certificate
 6. The GitHub token
-7. The image
+7. The build (GitHub Actions)
 8. The main apply, DNS and the first alarms
 9. The app release and the smoke test
 10. First indexes
@@ -27,417 +29,329 @@ that file.
 14. Teardown
 15. Known risks
 16. Default alarm thresholds
-17. What was never run
+17. What has and has not been run
 
 ## 1. Prerequisites
 
-- Terraform 1.11 or later (developed on 1.16.2), AWS CLI v2, Docker 25 or later with buildx and arm64 emulation,
-  `shellcheck`, `jq`, `curl`, `git`.
-- **On Windows, run everything from WSL 2.** The scripts are bash and the box files are LF. Clone the repository
-  inside the WSL file system, not under `/mnt/c`.
-- **The provider lock files cover `windows_amd64` only** (owner ruling, 2026-10-02). From WSL or Linux, add your
-  platform once per root before `init`:
+- Terraform 1.11 or later (developed on 1.16.2), AWS CLI v2, `git`, `jq`, `curl`, and the GitHub CLI `gh` logged in as
+  an administrator of the repository (`gh auth status`). Docker is **not** needed: the image and the release are built
+  in GitHub Actions on arm64 (Section 7).
+- **Shell.** The scripts are bash. On Windows, Git Bash works for every script here (all were run from it); WSL 2 works
+  too. Box files must keep LF line endings (`deploy/.gitattributes` enforces it).
+- **Provider lock files cover `windows_amd64` only** (owner ruling, 2026-10-02). On Linux or macOS, add your platform once
+  per root before the first `init`: `terraform -chdir=deploy/terraform/<root> providers lock -platform=linux_amd64` (or
+  `darwin_arm64`, `linux_arm64`). Do not commit the changed lock files unless you mean to.
+- **The branch must be on GitHub** (`git push -u origin <branch>`): the build runs from a pushed commit.
 
-  ```
-  terraform -chdir=deploy/terraform/bootstrap providers lock -platform=linux_amd64
-  terraform -chdir=deploy/terraform/main providers lock -platform=linux_amd64
-  ```
+**Command:** `terraform version && aws --version && jq --version && gh auth status && deploy/scripts/check.sh`
+**Success:** every tool prints a version, and `check.sh` ends `0 failed` (a missing `shellcheck` shows as "not run").
+**If it fails:** install the missing tool.
 
-  Use `linux_arm64` on an arm64 machine. Do not commit the changed lock files unless you mean to.
-- **Build the image and the release on a Linux arm64 machine** (a short-lived Graviton instance, for example). Both
-  target linux/arm64; on an x86-64 host every step runs under emulation, and on 2026-10-02 the release build took
-  over 30 minutes that way (Caddy's Go build alone 1,368 s). Docker Desktop on Windows cannot export the release
-  tree at all: the `type=local` export fails creating the bundle's symlinks, after `verify-app-tree.sh` has passed
-  inside the build.
-- On an x86-64 host, register arm64 emulation once (the scripts print this and do not run it):
-  `docker run --privileged --rm tonistiigi/binfmt --install arm64`.
+## 2. The account and its credentials
 
-**Command:** `terraform version && aws --version && docker buildx version && shellcheck --version && jq --version`
-**Success:** every tool prints a version; Docker is 25 or later.
-**If it fails:** install the missing tool. `deploy/scripts/check.sh` reports a missing `terraform` or `shellcheck` as
-"not run" instead of passing.
+1. **Owner: credentials.** Create an access key for the account (the owner chose the root user's key and accepted the risk;
+   an IAM user with AdministratorAccess works the same) and put it in `~/.aws/credentials` under the profile
+   `repohive`, by hand, so no agent sees it:
 
-Then run the offline checks once: `deploy/scripts/check.sh`. **Success:** `0 failed`, and nothing "not run" except what
-you know is missing.
+   ```
+   [repohive]
+   aws_access_key_id = ...
+   aws_secret_access_key = ...
+   ```
 
-## 2. The account
+   Every script uses the profile `repohive` unless `AWS_PROFILE` names another. To switch accounts, replace the two lines
+   (or keep one profile per account and set `AWS_PROFILE`). Keep MFA on root, and delete the key when you are done with it.
+2. **The account folder.** `mkdir -p deploy/accounts/<name>` and copy `deploy/deploy.env.example` to
+   `deploy/accounts/<name>/deploy.env`. Fill in the account id, the site domain (Section 4), `OWNER_TAG`, `ALERT_EMAIL` and
+   `PROTECT` (`false` for the test account, `true` for production). If the account already has a GitHub OIDC provider
+   (IAM, Identity providers, `token.actions.githubusercontent.com`), set `GITHUB_OIDC_PROVIDER_ARN` to it.
+3. **Owner, production account only:** note the date six months after the account was created if it is on the Free plan
+   (the plan closes the account then unless moved to the Paid plan; data is deleted 90 days later). After the bootstrap
+   apply, activate the cost allocation tags `Project`, `Environment`, `ManagedBy`, `Owner`, `CostCenter` in Billing.
 
-1. Create the **fresh ap-south-1 account on the Free plan** (`hosting-runs-in-a-fresh-ap-south-1-account`). Turn on
-   root MFA, then stop using root.
-2. In IAM Identity Center create an administrator user and an administrator permission set; set up an AWS CLI profile
-   for it (`aws configure sso`), the **owner profile**. Every later command runs with `AWS_PROFILE=<owner profile>`.
-3. **Activate the cost allocation tags** in Billing and Cost Management: `Project`, `Environment`, `ManagedBy`, `Owner`,
-   `CostCenter` (the default tags of Requirement 3.2). They appear in the console only after a resource carries them,
-   so do this after the bootstrap apply.
-4. **Write down the date six months after the account was created.** The Free plan closes the account then unless it
-   is moved to the Paid plan, and data is deleted 90 days after closure. Move to the Paid plan before that date.
-5. Copy `deploy/deploy.env.example` to `deploy/deploy.env` and fill it in (account id, `ap-south-1`, site domain,
-   the three bucket names, which are `repohive-artifacts-<id>`, `repohive-ops-<id>`, `repohive-tfstate-<id>`).
-
-**Command:** `AWS_PROFILE=<owner profile> aws sts get-caller-identity --query Account --output text`
+**Command:** `aws sts get-caller-identity --profile repohive --query Account --output text`
 **Success:** prints the account id in `deploy.env`.
-**If it fails:** `aws sso login --profile <owner profile>`; if the id differs, you are in the wrong account: stop.
+**If it fails:** the profile is missing or its key is wrong; if the id differs, you are in the wrong account: stop.
 
 ## 3. Quotas
 
-The global in-flight cap (default 5) plus the control function must fit under Lambda's concurrency limit, a 3,008 MB
-function must be allowed, and Fargate needs 8 vCPU for one L or XL run at a time (`registers/hosting.md` § 5 item 9).
+The global in-flight cap (default 5) plus the control function must fit under Lambda's concurrency limit, which every
+other function in the account shares; a 3,008 MB function must be allowed; Fargate needs 8 vCPU for one L or XL run.
 
 ```
-aws --region ap-south-1 lambda get-account-settings
-aws --region ap-south-1 service-quotas get-service-quota --service-code lambda --quota-code L-B99A9384
-aws --region ap-south-1 service-quotas get-service-quota --service-code fargate --quota-code L-3032A538
+aws --profile repohive --region ap-south-1 lambda get-account-settings --query AccountLimit
+aws --profile repohive --region ap-south-1 service-quotas list-service-quotas --service-code fargate \
+  --query "Quotas[?contains(QuotaName, 'vCPU')].[QuotaName,Value]" --output table
 ```
 
-**Success:** Lambda concurrent executions of at least 6 (the control function takes a slot too; more is better); Fargate
-On-Demand vCPU of at least 8.
+**Success:** `ConcurrentExecutions` minus what other functions use is at least 6; Fargate On-Demand vCPU at least 8.
 **If it fails or is short:**
 
-- A quota code was not found: list them with `aws service-quotas list-service-quotas --service-code lambda` (or
-  `fargate`) and read the names. The codes above are from memory and unchecked.
-- Concurrency below 6: lower the global in-flight cap (the ledger's cap, default 5), or ask for an increase
-  (`aws service-quotas request-service-quota-increase`). A fresh account's limit can be low enough that AWS refuses reserved
-  concurrency, which is why the function has none.
-- The 3,008 MB memory setting is refused at the first apply: set `lambda_memory_mb` lower in `prod.tfvars` (for example
-  2048), apply, and record the quota. The heap default of 2,400 MB then no longer fits: lower `NODE_OPTIONS` in the
-  image or the function before indexing M repositories.
-- Fargate vCPU below 8: set `fargate_cpu_units = 4096` and `fargate_memory_mb = 8192` (valid together) and expect L and
-  XL runs to be slower, or request an increase.
+- Concurrency short: lower the ledger's in-flight cap, or request an increase (`aws service-quotas
+  request-service-quota-increase`). The function has no reserved concurrency on purpose.
+- The 3,008 MB memory setting is refused at the first apply: put `lambda_memory_mb = 2048` in
+  `deploy/accounts/<name>/main.tfvars` and lower the image's `NODE_OPTIONS` heap before indexing M repositories.
+- Fargate vCPU below 8: `fargate_cpu_units = 4096` and `fargate_memory_mb = 8192` in `main.tfvars`; L and XL runs are slower.
 
 ## 4. The domain
 
-Choose the **site domain**: `repohive.dev` or a name under it, for example `app.repohive.dev`. The origin domain is
-`origin.<site domain>`. DNS stays in Netlify DNS and every record is added by hand.
+Choose the **site domain**: `repohive.dev` or a name under it. The origin domain is `origin.<site domain>`. DNS stays in
+Netlify DNS and every record is added by hand. **A name can be on only one CloudFront distribution in the world**, so
+the test account and production need different names while both exist (for example `test.repohive.dev` and
+`app.repohive.dev`), or the test account is torn down (Section 14) before production takes its name.
 
-**Checks:**
+**Owner checks:**
 
-1. In Netlify, confirm no site currently serves the chosen name (a Netlify site on the name would keep answering).
-2. Read any CAA records on `repohive.dev`: `dig CAA repohive.dev +short`. **Success:** none, or records that allow
-   both `amazon.com` (CloudFront's certificate) and `letsencrypt.org` (Caddy's origin certificate).
-   **If it fails:** add `0 issue "amazon.com"` and `0 issue "letsencrypt.org"` in Netlify DNS.
+1. In Netlify, confirm no site currently serves the chosen name.
+2. `dig CAA repohive.dev +short` returns nothing, or records allowing both `amazon.com` and `letsencrypt.org`. If not,
+   add `0 issue "amazon.com"` and `0 issue "letsencrypt.org"`.
 
-## 5. Bootstrap, the backend file, the certificate
+## 5. Bootstrap and the certificate
 
-**5.1 Bootstrap apply** (state bucket, ops bucket, ECR repository, CloudFront certificate; local state).
+The bootstrap root creates the state bucket, the ops bucket, the ECR repository, the CloudFront certificate (us-east-1),
+the GitHub OIDC provider and the build role `repohive-github-build`. Its state is local:
+`deploy/accounts/<name>/bootstrap.tfstate`.
 
-```
-cp deploy/terraform/bootstrap/prod.tfvars.example deploy/terraform/bootstrap/prod.tfvars   # then edit it
-AWS_PROFILE=<owner profile> deploy/scripts/apply.sh bootstrap
-```
-
-Read the plan, then type `apply`. **Success:** the apply ends with outputs. **Keep `deploy/terraform/bootstrap/terraform.tfstate`
-safe**: it is local state and the only record of these resources (it is git-ignored). Copy it somewhere private.
-**If it fails:** an `allowed_account_ids` error means the profile or `aws_account_id` is wrong. A bucket-name clash means
-the name is taken: it is derived from the account id, so check that id.
-
-**5.2 The backend file for the main root.**
+**Command:**
 
 ```
-terraform -chdir=deploy/terraform/bootstrap output state_bucket
-cp deploy/terraform/main/backend.hcl.example deploy/terraform/main/backend.hcl   # put the bucket name in it
-cp deploy/terraform/main/prod.tfvars.example deploy/terraform/main/prod.tfvars   # then edit it
+REPOHIVE_ACCOUNT=<name> deploy/scripts/apply.sh bootstrap --plan-only     # prints the plan and a summary
+REPOHIVE_ACCOUNT=<name> deploy/scripts/apply.sh bootstrap --apply-saved   # after the owner has read it and said go
 ```
 
-**Success:** `backend.hcl` names `repohive-tfstate-<account id>`; `prod.tfvars` has real values. Leave
-`indexer_image_digest` as the placeholder until Section 7.
+(`apply.sh bootstrap` without a mode plans and asks for `apply` at the terminal.)
 
-**5.3 Certificate validation records.**
+**Success:** the apply ends with outputs. **Back up `deploy/accounts/<name>/bootstrap.tfstate`** somewhere private: it is the
+only record of these resources.
+**If it fails:** an `allowed_account_ids` error means the profile and `deploy.env` disagree. `EntityAlreadyExists` on the OIDC
+provider means the account has one: set `GITHUB_OIDC_PROVIDER_ARN` (Section 2) and plan again. A bucket-name clash means the
+id is wrong (names derive from it).
+
+**Owner: certificate validation.**
 
 ```
-terraform -chdir=deploy/terraform/bootstrap output certificate_validation_records
+REPOHIVE_ACCOUNT=<name> deploy/scripts/tf-output.sh bootstrap certificate_validation_records
 ```
 
-Add each record (a CNAME) in Netlify DNS. Then wait, checking every few minutes:
+Add each CNAME in Netlify DNS (enter the name without the `repohive.dev` suffix if Netlify shows it doubled), then wait:
 
 ```
-aws --region us-east-1 acm describe-certificate --certificate-arn <certificate_arn> --query Certificate.Status --output text
+aws --profile repohive --region us-east-1 acm describe-certificate --certificate-arn <certificate_arn> \
+  --query Certificate.Status --output text
 ```
 
-**Success:** `ISSUED`. **If it stays `PENDING_VALIDATION`:** `dig CNAME <record name> +short` must return the value;
-Netlify adds the zone name automatically, so enter the name without the `repohive.dev` suffix if it shows doubled.
-The main apply fails clearly until this is `ISSUED`.
+**Success:** `ISSUED`. The main apply fails clearly until it is.
 
 ## 6. The GitHub token
 
-Create a **fine-grained personal access token** on GitHub: resource owner = your account, **public repositories read-only,
-no other permission**, the longest expiry you accept. Note the expiry date; when it passes, every index request fails
-until the token is replaced (the alarm for failed jobs and the logs will show it).
-
-**Store it:**
+**Owner:** create a **fine-grained personal access token**: resource owner your account, **public repositories read-only,
+no other permission**, the longest expiry you accept, and note the expiry. Store it:
 
 ```
-AWS_PROFILE=<owner profile> deploy/scripts/put-github-token.sh
+REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh                 # prompts; input hidden
+REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh <token-file     # or from a one-line file you then delete
 ```
 
-The script reads the token from standard input without echoing it. **Success:** it reports the parameter
-`/repohive/github-token`. **If it fails:** it needs `jq`; check the account guard message.
+**Success:** `Stored /repohive/github-token`. **Rotate it:** run the same command, then restart the box's units
+(`deploy.sh app` re-activates the current release, which restarts them). New Lambda and Fargate runs pick it up.
 
-**Rotate it:** create the new token, run the same script (it overwrites the parameter), then restart the box's units
-so they re-read it: `AWS_PROFILE=<owner profile> deploy/scripts/deploy-app.sh <current version>` or, without a new
-release, a Session Manager shell and `sudo systemctl restart repohive-env repohive-web repohive-worker`. The Lambda
-function reads it once per cold start and the Fargate task at start, so new runs pick it up; revoke the old token on
-GitHub afterwards.
+## 7. The build (GitHub Actions)
 
-## 7. The image
+`.github/workflows/build.yml` builds the indexer image and the app release **natively on arm64** from one commit, tests the
+bundle against the image (`verify-release.sh`: the snapshot inputs match, the web server answers `/healthz`, the worker
+runs, Caddy validates its file and has both modules), and pushes the image to the account's ECR and the bundle to its ops
+bucket. It runs only when a tag is pushed: `build-<account>-<sha>` (build, test, publish) or `verify-<sha>` (build and test,
+no AWS). Nothing else starts it, and nothing goes to `main`.
 
-**The indexer image has never been built.** `packages/indexer/DEPLOY.md` and the Dockerfile were written without a
-running Docker. The first thing to check is the `npm ci --workspace @repohive/indexer --include-workspace-root` stage
-of `packages/indexer/Dockerfile`: a lockfile that names every workspace may reject the partial install. Suspected
-problems, none confirmed: neither base image is pinned by digest, and the production stage's `npm ci --omit=dev` and
-copy loop fail only at the last step if a package has no `dist/`. If the build fails, fix the Dockerfile (that is a
-code change, not a deploy step) and rebuild.
+It reaches AWS through the role `repohive-github-build` (Section 5), which trusts only this repository's GitHub environment
+`<account>`. That environment admits only `build-<account>-*` tags and holds the variables `AWS_ACCOUNT_ID` and
+`SITE_DOMAIN`; `build-in-github.sh` creates or updates it each time. No AWS key is stored in GitHub; the workflow masks the
+account id in its logs (the repository is public).
 
-**7.1 Build.**
+**Command** (from the commit you want to deploy, committed and pushed):
 
 ```
-deploy/scripts/build-indexer-image.sh
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh build
 ```
 
-**Success:** the image `repohive-indexer:<short git sha>` exists (`docker image ls repohive-indexer`). The script refuses an
-uncommitted change under `packages/`.
+**Success:** `build build-<name>-<sha>: ok`, and the run's summary names the image digest and `releases/repohive-<sha>.tar.gz`.
+The version is the 12-character commit SHA; every later stage uses HEAD's unless `REPOHIVE_VERSION` names another.
+**If it fails:** `gh run view <id> --log-failed`. A failure in "Test the bundle against the image" is a real defect: the
+bundle would not have worked on the box. "Not authorized to perform sts:AssumeRoleWithWebIdentity" means the bootstrap
+was not applied, or the environment name and the role's trusted subject differ.
 
-**7.2 The local run** (Requirement 7.5). `deploy/scripts/run-indexer-image-locally.sh` runs the image on the
-`sample-java-project` tarball, no AWS. It has three modes: `cli` (the whole job, the real proof the image holds a
-working job), `lambda` (the default command under the runtime interface emulator; it must answer with a job-input error)
-and `fargate` (it must exit 1 naming `REPOHIVE_JOB_INPUT`). The last two prove only that each entry point loads: the
-entry points always build the GitHub fetcher, so the sample job cannot run through them without calling GitHub.
-
-**Success:** `all` ends with each mode reporting its expected result. **Record the result and the date in
-`context/registers/measurements.md`.** **If it fails:** read the container's output; an `exec format error` means arm64
-emulation is not registered (Section 1).
-
-**7.3 Push.**
-
-```
-AWS_PROFILE=<owner profile> deploy/scripts/push-indexer-image.sh
-```
-
-**Success:** it prints `indexer_image_digest = "sha256:..."` and also writes it to `deploy/out/indexer-image.digest`. Put
-that value in `deploy/terraform/main/prod.tfvars` (or let `deploy.sh infra` pass it). **If it fails:** an ECR login error
-is usually an expired SSO session; a tag-immutability error means that tag was pushed before: build from a new commit.
+`deploy/scripts/build-in-github.sh --verify-only` runs the same build and test with no account.
 
 ## 8. The main apply, DNS and the first alarms
 
 **8.1 Apply.**
 
 ```
-AWS_PROFILE=<owner profile> deploy/scripts/apply.sh main
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only     # digest read from ECR for the version
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --apply-saved   # after the owner has read it and said go
 ```
 
-(or `deploy/scripts/deploy.sh infra`, which passes the recorded digest). Read the plan. **It lists the first creation of
-every resource, so expect a long plan.** **Success:** the apply ends and prints outputs, including `dns_records`,
-`cloudfront_domain_name`, `box_elastic_ip`.
+**Success:** the apply prints outputs, including `dns_records`, `cloudfront_domain_name` and `box_elastic_ip`. The first plan
+lists every resource. **Note:** the AWS provider validates the state machine definition with an API call during the plan, so
+a JSONata fault shows up in the plan, before anything is created.
+**If it fails**, the likely first-apply faults:
 
-**If it fails**, the likely first-apply faults, in rough order of how little they were checked:
-
-- the certificate is not `ISSUED` yet (Section 5.3);
-- the state machine definition is rejected: the JSONata forms (`Items`, `Arguments`, `Assign`, the `Error` expression
-  on `Fail`, `TaskDefinition` as a bare family name, `ListTasks` with `StartedBy`) were never validated;
+- the certificate is not `ISSUED` yet (Section 5);
+- the state machine definition is rejected (the JSONata forms `Items`, `Arguments`, `Assign`, the `Error` expression on `Fail`,
+  `TaskDefinition` as a bare family name, `ListTasks` with `StartedBy` were checked only offline);
 - `lambda_memory_mb = 3008` refused (Section 3);
 - the CloudFront arguments, or the metric-math alarm (`jobs_failed_system`);
-- an AWS Budgets resource refused on the Free plan (the spec assumed it is allowed): remove `aws_budgets_budget.monthly`
-  and tell the owner.
+- an AWS Budgets resource refused on the Free plan: remove `aws_budgets_budget.monthly` and tell the owner.
 
-Fix the code, commit, re-run. A failed apply leaves a partial state; run `plan` again, never `import` by hand.
+Fix the code, commit, push, rebuild if a package changed, plan again. A failed apply leaves a partial state; plan again, never
+`import` by hand.
 
-**8.2 DNS.** In Netlify DNS add the records from `terraform -chdir=deploy/terraform/main output dns_records`:
+**8.2 Owner: DNS.** In Netlify DNS add the two records from
+`REPOHIVE_ACCOUNT=<name> deploy/scripts/tf-output.sh main dns_records`:
 
 | Name | Type | Value |
 |------|------|-------|
 | the site domain | CNAME | the distribution's domain name (`...cloudfront.net`) |
 | `origin.<site domain>` | A | the box's Elastic IP |
 
-Check both:
+**Success:** `dig +short <site domain>` returns CloudFront addresses; `dig +short origin.<site domain>` the Elastic IP.
 
-```
-dig +short <site domain>
-dig +short origin.<site domain>
-```
+**8.3 Owner: the SNS email.** AWS emails `ALERT_EMAIL` a confirmation link for the alarm topic; click it, or no alarm reaches
+you (the site works either way; the budget emails do not use SNS). The heartbeat alarm fires after the first apply because the
+site does not answer yet; it clears after Section 9.
 
-**Success:** the first returns CloudFront addresses (or the `cloudfront.net` name then addresses), the second the Elastic
-IP. **If it fails:** the apex of a zone cannot hold a CNAME at some providers; use a name under `repohive.dev`, as
-Section 4 suggests.
-
-**8.3 Confirm the SNS subscription.** AWS emails `alert_email` a confirmation: click it. Without it no alarm is delivered.
-The heartbeat alarm fires after the first apply because the site does not answer yet; it clears after Section 9.
-
-**8.4 Caddy's origin certificate.** Caddy fetches it by HTTP-01 on port 80 once the A record resolves; it retries until
-then. After Section 9 starts Caddy, check from a Session Manager shell:
-
-```
-aws ssm start-session --target <box_instance_id>
-sudo journalctl -u caddy --since "10 min ago" | tail -n 40
-```
-
-**Success:** a log line saying the certificate was obtained for `origin.<site domain>`. **If it fails:** the A record is
-wrong or port 80 is blocked (the box's security group allows 80 from anywhere); Let's Encrypt rate-limits repeated failures.
+**8.4 Caddy's origin certificate.** Caddy gets it by HTTP-01 once the A record resolves and retries until then. After
+Section 9: `aws ssm start-session --target <box_instance_id>`, then `sudo journalctl -u caddy --since "10 min ago" | tail -n 40`.
+**Success:** a line saying the certificate was obtained for `origin.<site domain>`.
 
 ## 9. The app release and the smoke test
 
-**The release build is the first Linux check of the standalone output.** On Windows `next build` could not create the
-`node_modules/@repohive/*` links (symlink `EPERM`), so the build copies those packages in as real directories and
-`deploy/box/verify-app-tree.sh` fails the build if any is missing. If it fails, read which package and fix
-`deploy/box/Dockerfile.release`. On 2026-10-02 the build and this check passed under emulation; the tree was never run.
-
-**Before the first deploy, start the bundle once on the build host** (local mode, no AWS), so a worker import failure
-shows up here and not on the box:
+The bundle was uploaded by the build (Section 7) and tested there. Activate it:
 
 ```
-mkdir -p /tmp/rh && tar -xzf deploy/out/repohive-<version>.tar.gz -C /tmp/rh
-cd /tmp/rh/app/packages/web
-env REPOHIVE_MODE=local REPOHIVE_SITE_ORIGIN=http://localhost:3000 REPOHIVE_DATA_DIR=/tmp/rh/data \
-  REPOHIVE_STORE=local:/tmp/rh/store REPOHIVE_LEDGER=file:/tmp/rh/ledger.json REPOHIVE_ORCHESTRATOR=local \
-  PORT=3000 HOSTNAME=127.0.0.1 /tmp/rh/bin/node server.js &
-curl -s http://127.0.0.1:3000/healthz            # expect "status":"ok"
-env REPOHIVE_MODE=local REPOHIVE_SITE_ORIGIN=http://localhost:3000 REPOHIVE_DATA_DIR=/tmp/rh/data \
-  REPOHIVE_STORE=local:/tmp/rh/store REPOHIVE_LEDGER=file:/tmp/rh/ledger.json REPOHIVE_ORCHESTRATOR=local \
-  timeout 30 /tmp/rh/bin/node --import ./scripts/register-aliases.mjs scripts/run-worker.mjs; echo "exit $?"
-/tmp/rh/bin/caddy validate --config /tmp/rh/box/Caddyfile --adapter caddyfile   # needs the caddy.env variables set
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh app
 ```
 
-**Success:** `/healthz` answers ok, and the worker runs until `timeout` stops it (exit 124) without an import error.
-
-**Command:**
-
-```
-AWS_PROFILE=<owner profile> deploy/scripts/deploy.sh app      # build-app-release.sh, then deploy-app.sh
-```
-
-**Success:** the activation output ends with `activate: <version> is live`. The script health-checks
-`http://127.0.0.1:3000/healthz` for 60 s and switches back to the previous release if it never reports `ok`.
-**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-worker -n 80`
-and `/var/log/repohive/web.log`. Unverified: the worker runs from TypeScript sources under Node 24's type stripping, and
-the web unit reads `/run/repohive/web.env`; both were checked only by reading.
+**Success:** the activation output ends `activate: <version> is live`. The box checks `http://127.0.0.1:3000/healthz` for 60 s
+and switches back to the previous release if it never reports `ok`.
+**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-worker -n 80` and
+`/var/log/repohive/web.log`.
 
 **Smoke test:**
 
 ```
-deploy/scripts/smoke.sh                           # before any index exists: snapshot checks are skipped and say so
-deploy/scripts/smoke.sh github.com/<owner>/<repo>  # after Section 10: the full set
+REPOHIVE_ACCOUNT=<name> deploy/scripts/smoke.sh                            # before any index: snapshot checks skipped
+REPOHIVE_ACCOUNT=<name> deploy/scripts/smoke.sh github.com/<owner>/<repo>  # after Section 10: the full set
 ```
 
-**Success:** `smoke test passed`. **If it fails:** each failing line names the check. A `/healthz` failure through
-CloudFront with the box healthy means DNS, the origin secret header or Caddy's certificate (check Section 8).
+**Success:** `smoke test passed`. A `/healthz` failure through CloudFront with the box healthy means DNS, the origin secret
+header or Caddy's certificate (Section 8).
 
 ## 10. First indexes
 
-Sign up and sign in at `https://<site domain>`, then request each index from the site and watch it through progress to
-the viewer.
+Sign up and sign in at `https://<site domain>`, then request each index and watch it through progress to the viewer:
 
-1. **A small public Java repository** (S tier): proves the Lambda path, the ledger, the state machine and the viewer.
-   If it fails with `snapshot id does not match this build`, the web release and the indexer image were built from
-   different commits (or their engine builds differ): rebuild and push both from the same commit, then redeploy.
-2. **`BroadleafCommerce/BroadleafCommerce`** (M tier): proves a realistic size on Lambda.
-3. **One L or XL repository**: proves the Fargate path, the large slot and the retier loop.
-
-Every step is the first time that code touches AWS: the `hosting-2` AWS implementations (S3 store, DynamoDB ledger,
-Lambda and Fargate entry points) and the `hosting-3` Step Functions orchestrator. Watch:
+1. **A small public Java repository** (S tier): the Lambda path, the ledger, the state machine and the viewer. A failure
+   `snapshot id does not match this build` means the web release and the indexer image came from different commits: the
+   build makes both from one commit and checks them, so redeploy both from one build.
+2. **`BroadleafCommerce/BroadleafCommerce`** (M tier): a realistic size on Lambda.
+3. **One L or XL repository**: the Fargate path, the large slot and the retier loop.
 
 ```
-aws --region ap-south-1 stepfunctions list-executions --state-machine-arn <arn> --max-results 5
-aws --region ap-south-1 logs tail /aws/lambda/repohive-indexer --since 15m
-aws --region ap-south-1 logs tail /repohive/fargate/indexer --since 15m
+aws --profile repohive --region ap-south-1 stepfunctions list-executions --state-machine-arn <arn> --max-results 5
+aws --profile repohive --region ap-south-1 logs tail /aws/lambda/repohive-indexer --since 15m
+aws --profile repohive --region ap-south-1 logs tail /repohive/fargate/indexer --since 15m
 ```
 
-**Success:** the execution ends `SUCCEEDED`, the site shows the viewer, and `smoke.sh github.com/<owner>/<repo>` passes in
-full. **If it fails:** an execution `FAILED` with an error named after a code (`slot-wait-timeout`, `runtime-timeout`,
-`runtime-error`, `runtime-not-started`, `retier-limit`) says which path failed; the job's own record in the ledger
-says why. Step Functions logs only errors (no execution data): use the Console's execution history.
+**Success:** the execution ends `SUCCEEDED`, the site shows the viewer, and the full smoke test passes. **If it fails:** an
+execution `FAILED` with an error named after a code (`slot-wait-timeout`, `runtime-timeout`, `runtime-error`,
+`runtime-not-started`, `retier-limit`) says which path failed; the job's ledger record says why.
 
 ## 11. Operating
 
-**Logs and metrics.** Log groups (retention 14 days by default): `/aws/lambda/repohive-indexer`, `/aws/lambda/repohive-control`,
+**Logs and metrics.** Log groups (14 days by default): `/aws/lambda/repohive-indexer`, `/aws/lambda/repohive-control`,
 `/repohive/fargate/indexer`, `/aws/vendedlogs/states/repohive-index`, `/repohive/box/web`, `/repohive/box/worker`,
-`/repohive/box/caddy` (visitor IPs), `/repohive/box/heartbeat`. Metrics are in the namespace `RepoHIVE/Hosted`. Embedded-metric
-extraction from the box files is an assumption: confirm it (Section 12).
+`/repohive/box/caddy` (visitor IPs), `/repohive/box/heartbeat`. Metrics: namespace `RepoHIVE/Hosted`.
 
 **A shell on the box** (no SSH): `aws ssm start-session --target <box_instance_id>`.
 
-**Roll back the app:** `AWS_PROFILE=<owner profile> deploy/scripts/rollback-app.sh`. **Success:** `rolled back to <path>`.
-It switches to the newest other release; rolling back twice returns to the release you left.
+**Deploy a new version:** commit, push, then `deploy.sh build`, `deploy.sh infra --plan-only` / `--apply-saved` (only needed
+when the indexer image or the Terraform changed; the plan says so), `deploy.sh app`.
 
-**Restore SQLite from `backup/`:** follow `packages/web/README.md`, "Restore". In short: in a Session Manager shell stop
-`repohive-web` and `repohive-worker`, copy the chosen object from `s3://<artifact bucket>/backup/` over
-`/var/lib/repohive/data/app.sqlite` (the app's restore function keeps a `.before-restore` copy), start both units.
+**Roll back the app:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/rollback-app.sh`. It switches to the newest other release;
+rolling back twice returns to the release you left.
 
-**Rotate the origin secret:** run `AWS_PROFILE=<owner profile> deploy/scripts/apply.sh main -replace=random_password.origin_secret`
-(extra arguments go to `plan`). It updates the parameter and the CloudFront header together; then re-run the app
-activation (or restart `repohive-env` and `caddy`) so Caddy reads the new value. CloudFront takes minutes to roll the header
-out: expect brief 403s.
+**Restore SQLite from `backup/`:** `packages/web/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
+`repohive-worker`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
+both.
 
-**Replace the box without losing the data volume:** the data volume has `prevent_destroy`, the instance has termination
-protection. Taint the instance (`apply.sh main -replace=aws_instance.box`), after disabling termination protection by
-setting `disable_api_termination = false` and applying once. The volume detaches (the instance is stopped first) and
-re-attaches; the Elastic IP re-associates. Re-run Section 9 to put a release on the new box. Caddy's certificate lives on
-the data volume and survives.
+**Rotate the origin secret:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only
+-replace=random_password.origin_secret`, apply it, then `deploy.sh app` so Caddy reads the new value. Expect brief 403s while
+CloudFront rolls the header out.
+
+**Replace the box without losing the data volume:** the volume has `prevent_destroy`. In a protected account, first apply
+once with termination protection off (`deploy.sh infra --plan-only -var=protect=false`, which also lifts the table's deletion
+protection for that apply), then `deploy.sh infra --plan-only -replace=aws_instance.box`, then a normal apply to turn
+protection back on. Re-run Section 9. Caddy's certificate lives on the data volume and survives.
 
 ## 12. Post-ship measurement
 
 Nothing hosted was measured before ship. Record each result in `context/registers/measurements.md` with the date and
 **whether it was cold or warm** (they differ by roughly eight times on this codebase). The checklist is `registers/hosting.md` § 5:
 
-- **Item 3, Graviton2 per-core speed:** run the same job on Lambda and read `StageMs` and `EndToEndMs` from the
-  `RepoHIVE/Hosted` metrics; compare with the probe machine's figures.
-- **Item 6, Fargate startup, with and without zstd layers (Requirement 7.4):** read the task's `createdAt`,
-  `pullStartedAt`, `pullStoppedAt`, `startedAt` with `aws ecs describe-tasks`. For the zstd experiment build a second image
-  with `--output type=image,compression=zstd,force-compression=true` (Lambda's support for zstd layers is unverified), push it
-  under a new tag, point a copy of the task definition at it, and compare. Do not change the Lambda image.
-- **Item 8, viewer memory on a t4g.small serving Elasticsearch-sized views:** on the box, `systemctl status repohive-web`
-  (memory) and `ps -o rss` while loading a large view.
+- **Item 3, Graviton2 per-core speed:** read `StageMs` and `EndToEndMs` from `RepoHIVE/Hosted` for a Lambda job.
+- **Item 6, Fargate startup:** `aws ecs describe-tasks` gives `createdAt`, `pullStartedAt`, `pullStoppedAt`, `startedAt`.
+- **Item 8, viewer memory on the t4g.small:** `systemctl status repohive-web` and `ps -o rss` while loading a large view.
 - **Item 9, quotas:** Section 3.
-- **Item 10, Linux arm64 output matches the reference digests:** index `fixtures/sample-java-project` through the hosted path
-  and compare the logical digest with `registers/measurements.md`.
-- **Item 11, cold against warm on the target runtimes:** run the same repository twice, the second within minutes; label them.
-- **The Elasticsearch XL run inside 15 minutes.** This is the hard requirement (`hosting-verifies-on-broadleaf-then-ships`).
-  Request `elastic/elasticsearch`, read the execution's start and end times and the Fargate task's, and record cold and warm.
-  If it exceeds 15 minutes, the XL tier does not meet its requirement: say so, do not average it away.
-- **Embedded metrics from the box (Requirement 16.3):** after a few minutes, `aws cloudwatch list-metrics --namespace RepoHIVE/Hosted --metric-name SiteUp`
-  must list the metric. If it does not, the file-based EMF assumption is wrong: the agent needs its EMF endpoint, or the
-  heartbeat must call `aws cloudwatch put-metric-data` instead (a code change).
+- **Item 10, Linux arm64 output matches the reference digests:** index `fixtures/sample-java-project` hosted and compare the
+  logical digest with `registers/measurements.md`.
+- **Item 11, cold against warm:** the same repository twice, the second within minutes; label them.
+- **The Elasticsearch XL run inside 15 minutes** (`hosting-verifies-on-broadleaf-then-ships`): request `elastic/elasticsearch`
+  and record cold and warm. If it exceeds 15 minutes, say so.
+- **Embedded metrics from the box:** `aws cloudwatch list-metrics --namespace RepoHIVE/Hosted --metric-name SiteUp` must list
+  it a few minutes after Section 9. If not, the heartbeat must call `put-metric-data` instead (a code change).
 
 ## 13. Re-reading the prices
 
-The prices in `registers/hosting.md` § 2 were read for us-east-1 on 2026-10-01. Re-read them for **ap-south-1** (the AWS
-pricing pages for Lambda, Fargate Graviton, EC2 t4g, DynamoDB on-demand, CloudFront price class 200, CloudWatch), then update
-§§ 2 and 4 with the values and the date (`hosting-runs-in-a-fresh-ap-south-1-account`). Compare the monthly estimate with
-the budget (default $25) and with the Free plan credits.
+The prices in `registers/hosting.md` § 2 were read for us-east-1 on 2026-10-01. Re-read them for **ap-south-1** and update
+§§ 2 and 4 with values and date; compare the estimate with the budget (default $25) and the account's credits.
 
 ## 14. Teardown
 
-`terraform destroy` on the main root removes everything except what is protected:
+**A test account (`PROTECT=false`):**
 
-- **Protected, kept on purpose:** the data volume (`prevent_destroy`), the DynamoDB table (deletion protection), the state
-  bucket (`prevent_destroy`). A destroy stops at them with an error; that is the design.
-- **Order to remove them deliberately:** (1) back up what you need: the SQLite file from `backup/` and the data volume
-  (a snapshot); (2) in the main root set `disable_api_termination = false` on the box and remove the `prevent_destroy` line
-  from `aws_ebs_volume.data`, set `deletion_protection_enabled = false` on the table, apply; (3) `terraform destroy` the main
-  root; (4) empty and delete the artifact bucket if Terraform could not (objects present); (5) remove `prevent_destroy` from
-  the state bucket in the bootstrap root and destroy that root last, after emptying its versioned bucket (every version and
-  delete marker); (6) ECR images are removed with the repository (set `force_delete` if it refuses).
-- **Remove the Netlify DNS records** (the site CNAME, the origin A record, the certificate validation CNAMEs) *before*
-  releasing the Elastic IP, so no name points at an address that another account can receive.
-- Closing the account is a separate step in the console.
+```
+REPOHIVE_ACCOUNT=<name> deploy/scripts/teardown.sh --confirm <account id>
+```
+
+It deletes everything RepoHIVE created there, data included: the main root (after one apply with protection off), the data
+volume (outside Terraform, since it keeps `prevent_destroy`), the GitHub token parameter, the bootstrap root, the versioned
+state bucket (every version), and the account's GitHub environment. It refuses an account whose `deploy.env` says
+`PROTECT=true`, and skips a root whose state is empty, so it can be run again after a failure.
+**Owner afterwards:** remove the Netlify records of that site domain (the site CNAME, the origin A record and the certificate
+validation CNAMEs) before the Elastic IP is reused by anyone, and delete the root access key.
+
+**A production account:** back up the SQLite file from `backup/` and snapshot the data volume, set `PROTECT=false` in its
+`deploy.env`, then the same command. Closing an account is a separate step in the console.
 
 ## 15. Known risks
 
-- **The origin secret is in the Terraform state.** The state bucket is private, encrypted and versioned, but anyone who can
-  read it can read the secret. Rotation: Section 11.
-- **Caddy access logs hold visitor IP addresses.** They are kept only for the retention period (14 days by default).
-- **The unverified assumptions of the spec** (`requirements.md`, "Assumptions"): EMF lines shipped by the agent become
-  metrics; the managed prefix list counts as 55 rules of 60; Step Functions error names for throttling; Amazon Linux 2023 ships
-  the AWS CLI v2 and offers the CloudWatch agent package; AWS Budgets is available on the Free plan; Lambda concurrency fits the
-  in-flight cap; custom metrics exceed the 10 free ones (a few dollars a month, an estimate).
+- **Root access keys** (owner's choice): they cannot be limited. Keep MFA on root and delete the key after use.
+- **The origin secret is in the Terraform state.** The state bucket is private, encrypted and versioned. Rotation: Section 11.
+- **Caddy access logs hold visitor IP addresses**, kept for the retention period (14 days by default).
+- **The account id appears in GitHub only as an environment variable**, masked in the public build logs.
+- **The unverified assumptions of the spec** (`requirements.md`, "Assumptions"): the managed prefix list counts as 55 rules of
+  60; Step Functions error names for throttling; AWS Budgets on the Free plan; custom metrics beyond the 10 free ones.
 - **The Free plan closes the account after six months** unless moved to the Paid plan (Section 2).
-- **Windows-only provider locks** (Section 1) and **Terraform's BUSL licence** (a tool you run, nothing linked or shipped; the
-  owner should confirm it is acceptable).
+- **Windows-only provider locks** (Section 1) and **Terraform's BUSL licence** (a tool you run; nothing is linked or shipped).
 - **Accounts are unverified in v1**: per-IP caps and Caddy's rate limits back the quota.
 - **Fargate vCPU 8** means one L or XL run at a time.
 - **The job cannot cancel the engine**: past its time limit it reports failed while the run finishes in the background.
-- **Rolling back twice** returns to the release you left (Section 11).
 
 ## 16. Default alarm thresholds
 
-All thresholds are Terraform variables (`alarm_thresholds`, `monthly_budget_usd`); counts are totals over one 5-minute period.
+All thresholds are Terraform variables (`alarm_thresholds`, `monthly_budget_usd`, in `main.tfvars`); counts are totals over
+one 5-minute period.
 
 | Alarm | Fires when | Default |
 |-------|-----------|---------|
@@ -453,26 +367,20 @@ All thresholds are Terraform variables (`alarm_thresholds`, `monthly_budget_usd`
 
 ## 17. What has and has not been run
 
-**Run on 2026-10-02 (Windows, Docker Desktop, linux/arm64 under emulation, no AWS account):**
+**Run on 2026-10-02, with no AWS account:**
 
-- The indexer image builds. Inside it, a real job against GitHub (`spring-guides/gs-rest-service`) succeeded through the
-  Lambda handler and again through the Fargate entry point (exit 0), with a local store and a file ledger. The control
-  function loads and answers. Timings under emulation mean nothing.
-- The release build ran to the end of assembly, and `verify-app-tree.sh` passed inside it. Exporting the tree to a
-  Windows folder failed (symlinks), so the bundle was never run: not the web server, not the worker, not Caddy.
-- `check.sh`, now with an offline `terraform test` plan of each root: the real provider renders every policy, the
-  state machine and cloud-init. Rendered user data: 14,128 bytes (limit 16,384).
-- All 42 JSONata expressions in the state machine parse, and its Decide and Conclude branches route correctly in ten
-  scenarios (checked with the `jsonata` package, not by Step Functions).
-- `cloud-init schema` accepts the user data on Amazon Linux 2023; `amazon-cloudwatch-agent` and `xfsprogs` are in its
-  repositories.
-- `shellcheck` 0.10.0 is clean on all 17 scripts.
+- The indexer image built (Windows, arm64 under emulation). Inside it, real jobs against GitHub
+  (`spring-guides/gs-rest-service`) succeeded through the Lambda handler and through the Fargate entry point; the control
+  function answered. The snapshot inputs it computes equal the web workspace's.
+- The release build ran to the end of assembly with `verify-app-tree.sh` passing (Windows could not export the tree).
+- `check.sh`: `terraform fmt`, `validate` and an offline `terraform test` plan of each root (protected and unprotected), which
+  renders every policy, the state machine and cloud-init (user data 14,128 bytes of 16,384). `shellcheck` and `actionlint`
+  clean.
+- The state machine's 42 JSONata expressions parse and its decisions route correctly in ten scenarios (the `jsonata`
+  package, not Step Functions). `cloud-init schema` accepts the user data on Amazon Linux 2023.
+- The account scripts' loading, guards and Terraform paths, from Git Bash with no credentials.
+- The build workflow's verify path: see `context/specs/hosting-4-deploy/progress.md` for the run and its result.
 
-**Never run:** any plan or apply against AWS (Step Functions validates the definition at plan time; CloudFront, the
-alarms and the budget are checked only by AWS), the release bundle itself (start the web server and the worker from it
-on the build host before the first `deploy.sh app`; the worker runs its TypeScript sources through Node's type
-stripping, which has never been exercised), Caddy parsing the Caddyfile, the box's first boot, the CloudWatch agent,
-and whether the web release and the indexer image agree on the engine version. If they disagree, every hosted job is
-refused with "snapshot id does not match this build", so check it in the first smoke test (Section 9). The progress file
-of the spec (`context/specs/hosting-4-deploy/progress.md`) lists, phase by phase, what to expect to break at the first
-apply.
+**Never run:** any plan or apply against AWS, the build workflow's publish path (it needs the bootstrap's role), any
+deploy script against an account, the box's first boot, the CloudWatch agent, CloudFront, `teardown.sh`. The progress file of
+the spec lists, phase by phase, what to expect to break at the first apply.

@@ -225,12 +225,19 @@ workspace and no package imports it**; it reaches `packages/indexer` and `packag
 (the indexer image, the app release bundle), never by importing.
 
 ```
-deploy/terraform/bootstrap/   applied once, local state: state bucket, ops bucket, ECR, CloudFront certificate
-deploy/terraform/main/        the stack; state in the bootstrap's bucket (S3 native locking)
+deploy/terraform/bootstrap/   applied once per account, local state: state bucket, ops bucket, ECR, CloudFront
+                              certificate, GitHub OIDC build role
+deploy/terraform/main/        the stack; state in the account's state bucket (S3 native locking)
 deploy/box/                   Caddyfile, systemd units, CloudWatch agent config, cloud-init, release Dockerfile
 deploy/scripts/               bash deploy scripts
-deploy/RUNBOOK.md             the owner's step-by-step
+deploy/accounts/<name>/       one folder per AWS account (git-ignored): deploy.env, bootstrap state, plans
+deploy/RUNBOOK.md             the step-by-step
+.github/workflows/build.yml   builds and tests the image and the release on arm64, started only by a pushed tag
 ```
+
+The same tree deploys into any number of accounts. Everything account-specific lives in that account's folder and is
+passed to Terraform as variables; resource names are fixed within an account or derived from its id, so two accounts
+never collide, except on the site domain, which CloudFront allows on one distribution only.
 
 Every file under `deploy/` is LF (`deploy/.gitattributes`): it runs on Linux. Names derived from the account id
 are built once in `deploy/terraform/main/locals.tf`. Engine packages stay free of AWS code.
