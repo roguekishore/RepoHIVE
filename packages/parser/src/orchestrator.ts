@@ -77,6 +77,12 @@ import {
 } from "./symbol-table.js";
 import { createStitcher, type Stitcher } from "./stitcher.js";
 import { createGraphSerializer, type GraphSerializer } from "./serializer.js";
+import {
+  decodeSourceBytes,
+  findInvalidSourceEntry,
+  selectMemorySource,
+  type SourceEntry,
+} from "./memory-source.js";
 
 /** The name of the sole persisted artifact (R8.1). */
 const OUTPUT_FILE_NAME = "graph.json";
@@ -97,8 +103,23 @@ const DEFAULT_READ_CONCURRENCY = 16;
  * Options for {@link parseProject} (design: "Orchestrator (Parser_System)").
  */
 export interface ParseOptions {
-  /** Path to the local Java project directory to parse. */
-  projectDirectory: string;
+  /**
+   * Path to the local Java project directory to parse. Give this or
+   * {@link ParseOptions.source}: when `source` is given it is used and this is
+   * ignored (the engine, which validates exactly-one-of, is the layer that
+   * rejects both or neither).
+   */
+  projectDirectory?: string;
+  /**
+   * The Java sources as in-memory entries, instead of a directory. They go
+   * through the same selection policy as a directory walk and are decoded the
+   * way a file read decodes them, so the same tree gives the same graph. No
+   * source file is read from disk. A malformed list is a `source-invalid` error
+   * before any work. With a memory source there is no project directory to
+   * default the output path from, so `outputPath` is required unless
+   * `writeGraph` is `false`.
+   */
+  source?: readonly SourceEntry[];
   /**
    * Where to write `graph.json`. Defaults to
    * `<validated projectDirectory>/graph.json` (the validated absolute path is
@@ -290,6 +311,23 @@ function createMemoryReader(
 }
 
 /**
+ * The reader for a memory source: decode the entry's bytes on demand, one file
+ * at a time. A path with no entry throws, as the prefetch reader does, which
+ * routes it into the extractor's `file-unreadable` branch.
+ */
+function createBytesReader(
+  bytes: ReadonlyMap<string, Uint8Array>,
+): (absolutePath: string) => string {
+  return (absolutePath) => {
+    const entry = bytes.get(absolutePath);
+    if (entry === undefined) {
+      throw new Error(`Source was not provided: ${absolutePath}`);
+    }
+    return decodeSourceBytes(entry);
+  };
+}
+
+/**
  * Parse a Java project into a single contract-conforming `graph.json`.
  *
  * See the module docstring for the full sequence and the R10 gating rules.
@@ -327,48 +365,86 @@ async function parseProjectUnguarded(
 ): Promise<Result<ParseSuccess, ParseError>> {
   // 1. Validate the project directory; a fatal input error short-circuits with
   //    exactly one error and no further work (R1, R1.7).
-  const validation = await deps.validator.validate(options.projectDirectory);
-  if (!validation.ok) {
-    return validation;
-  }
-  const validated = validation.value;
-
   // Recoverable errors are recorded from collection onward: an unrepresentable
   // path is found during the walk, before extraction begins.
   const errors = new ParseErrorCollector();
 
-  // 2. Collect Java source files in canonical order; fatal collection errors
-  //    (unreadable directory, no `.java` files) are returned immediately
-  //    (R2.4, R2.5).
+  let validated: ValidatedPath | undefined;
+  let files: CollectedFile[];
+  let readSourceText: (absolutePath: string) => string;
   let excludedDirectoryCount = 0;
-  const collection = await deps.collector.collect(validated, {
-    excludedSegments: options.excludedSegments,
-    onExcludedDirectory: () => {
-      excludedDirectoryCount += 1;
-    },
-    onUnsupportedPath: (error) => {
-      errors.add(error);
-    },
-  });
-  if (!collection.ok) {
-    return collection;
-  }
-  const files: CollectedFile[] = collection.value;
 
-  // 3. Prefetch the collected files concurrently into memory. Reads dominate a
-  //    cold parse and parallelize about 6.8x; nothing downstream can observe
-  //    the concurrency, because the loop below is unchanged and still drives
-  //    the canonical order (see the module docstring).
-  const sources = await prefetchSources(
-    files,
-    resolveConcurrency(options.concurrency),
-    deps.readSource ?? defaultReadSource,
-  );
+  if (options.source !== undefined) {
+    // 1-3 (memory). No directory, no walk, no reads: select and keep the bytes.
+    const problem = findInvalidSourceEntry(options.source);
+    if (problem !== undefined) {
+      return err([
+        makeError(
+          "source-invalid",
+          `Source entry ${problem.index}${problem.path !== undefined ? ` (${problem.path})` : ""}: ${problem.problem}`,
+          problem.path,
+        ),
+      ]);
+    }
+    const selection = selectMemorySource(options.source, {
+      excludedSegments: options.excludedSegments,
+    });
+    for (const unsupported of selection.unsupported) {
+      errors.add(unsupported);
+    }
+    if (selection.files.length === 0) {
+      return err([
+        makeError(
+          "no-java-files",
+          "No Java source files were found in the in-memory source.",
+        ),
+      ]);
+    }
+    files = selection.files;
+    excludedDirectoryCount = selection.excludedDirectoryCount;
+    readSourceText = createBytesReader(selection.bytes);
+  } else {
+    // 1. Validate the project directory; a fatal input error short-circuits
+    //    with exactly one error and no further work (R1, R1.7).
+    const validation = await deps.validator.validate(options.projectDirectory);
+    if (!validation.ok) {
+      return validation;
+    }
+    validated = validation.value;
+
+    // 2. Collect Java source files in canonical order; fatal collection errors
+    //    (unreadable directory, no `.java` files) are returned immediately
+    //    (R2.4, R2.5).
+    const collection = await deps.collector.collect(validated, {
+      excludedSegments: options.excludedSegments,
+      onExcludedDirectory: () => {
+        excludedDirectoryCount += 1;
+      },
+      onUnsupportedPath: (error) => {
+        errors.add(error);
+      },
+    });
+    if (!collection.ok) {
+      return collection;
+    }
+    files = collection.value;
+
+    // 3. Prefetch the collected files concurrently into memory. Reads dominate
+    //    a cold parse and parallelize about 6.8x; nothing downstream can
+    //    observe the concurrency, because the loop below is unchanged and
+    //    still drives the canonical order (see the module docstring).
+    const sources = await prefetchSources(
+      files,
+      resolveConcurrency(options.concurrency),
+      deps.readSource ?? defaultReadSource,
+    );
+    readSourceText = createMemoryReader(sources);
+  }
 
   // 4. Extract nodes + references from every file in canonical order,
   //    accumulating recoverable per-file errors and continuing (R10.1, R10.2).
   //    No output is written during this phase (R10.3).
-  const extractor = await deps.createExtractor(createMemoryReader(sources));
+  const extractor = await deps.createExtractor(readSourceText);
 
   const nodes: GraphNode[] = [];
   const references: RawReference[] = [];
@@ -408,10 +484,21 @@ async function parseProjectUnguarded(
   }
 
   // 7. Serialize atomically and return success (R7, R8, R9).
-  const outputPath =
-    options.writeGraph === false
-      ? undefined
-      : resolveOutputPath(validated, options.outputPath);
+  let outputPath: string | undefined;
+  if (options.writeGraph !== false) {
+    if (validated !== undefined) {
+      outputPath = resolveOutputPath(validated, options.outputPath);
+    } else if (options.outputPath !== undefined && options.outputPath.trim().length > 0) {
+      outputPath = options.outputPath;
+    } else {
+      return err([
+        makeError(
+          "output-unwritable",
+          "An in-memory source has no project directory to default the output path from; pass outputPath, or set writeGraph to false.",
+        ),
+      ]);
+    }
+  }
   const written = await deps.serializer.write(nodes, edges, outputPath);
   if (written.ok) {
     if (crossScopeAmbiguities > 0) {
