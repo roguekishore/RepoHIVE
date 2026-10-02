@@ -1,5 +1,5 @@
 /**
- * Shared indexer collaborators for the app process (store and job ledger).
+ * Shared indexer collaborators for the app process (store, job ledger and repo lock reader).
  */
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
@@ -12,9 +12,16 @@ import {
   type JobLedger,
 } from "@repohive/indexer";
 import { getAppConfig, type AppConfig } from "./config";
+import { createRepoLockReader, type RepoLockReader } from "./repo-lock";
 
 let cachedStore: ArtifactStore | undefined;
 let cachedLedger: JobLedger | undefined;
+let cachedDynamo: DynamoDBClient | undefined;
+
+function getDynamoClient(config: AppConfig): DynamoDBClient {
+  cachedDynamo ??= new DynamoDBClient({ region: config.awsRegion });
+  return cachedDynamo;
+}
 
 export function getArtifactStore(config: AppConfig = getAppConfig()): ArtifactStore {
   if (cachedStore === undefined) {
@@ -31,11 +38,16 @@ export function getJobLedger(config: AppConfig = getAppConfig()): JobLedger {
     cachedLedger =
       config.ledger.kind === "file"
         ? createFileJobLedger({ path: config.ledger.path })
-        : createDynamoDbJobLedger(new DynamoDBClient({ region: config.awsRegion }), {
+        : createDynamoDbJobLedger(getDynamoClient(config), {
             tableName: config.ledger.table,
           });
   }
   return cachedLedger;
+}
+
+/** Reads the per-repository lock from the same ledger the job ledger writes (the DynamoDB table when hosted). */
+export function getRepoLockReader(config: AppConfig = getAppConfig()): RepoLockReader {
+  return createRepoLockReader(config, config.ledger.kind === "dynamodb" ? getDynamoClient(config) : undefined);
 }
 
 /** Vitest-only: replace or clear cached clients. */
