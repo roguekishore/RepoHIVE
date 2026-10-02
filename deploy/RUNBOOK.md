@@ -44,6 +44,11 @@ that file.
   ```
 
   Use `linux_arm64` on an arm64 machine. Do not commit the changed lock files unless you mean to.
+- **Build the image and the release on a Linux arm64 machine** (a short-lived Graviton instance, for example). Both
+  target linux/arm64; on an x86-64 host every step runs under emulation, and on 2026-10-02 the release build took
+  over 30 minutes that way (Caddy's Go build alone 1,368 s). Docker Desktop on Windows cannot export the release
+  tree at all: the `type=local` export fails creating the bundle's symlinks, after `verify-app-tree.sh` has passed
+  inside the build.
 - On an x86-64 host, register arm64 emulation once (the scripts print this and do not run it):
   `docker run --privileged --rm tonistiigi/binfmt --install arm64`.
 
@@ -272,7 +277,25 @@ wrong or port 80 is blocked (the box's security group allows 80 from anywhere); 
 **The release build is the first Linux check of the standalone output.** On Windows `next build` could not create the
 `node_modules/@repohive/*` links (symlink `EPERM`), so the build copies those packages in as real directories and
 `deploy/box/verify-app-tree.sh` fails the build if any is missing. If it fails, read which package and fix
-`deploy/box/Dockerfile.release`.
+`deploy/box/Dockerfile.release`. On 2026-10-02 the build and this check passed under emulation; the tree was never run.
+
+**Before the first deploy, start the bundle once on the build host** (local mode, no AWS), so a worker import failure
+shows up here and not on the box:
+
+```
+mkdir -p /tmp/rh && tar -xzf deploy/out/repohive-<version>.tar.gz -C /tmp/rh
+cd /tmp/rh/app/packages/web
+env REPOHIVE_MODE=local REPOHIVE_SITE_ORIGIN=http://localhost:3000 REPOHIVE_DATA_DIR=/tmp/rh/data \
+  REPOHIVE_STORE=local:/tmp/rh/store REPOHIVE_LEDGER=file:/tmp/rh/ledger.json REPOHIVE_ORCHESTRATOR=local \
+  PORT=3000 HOSTNAME=127.0.0.1 /tmp/rh/bin/node server.js &
+curl -s http://127.0.0.1:3000/healthz            # expect "status":"ok"
+env REPOHIVE_MODE=local REPOHIVE_SITE_ORIGIN=http://localhost:3000 REPOHIVE_DATA_DIR=/tmp/rh/data \
+  REPOHIVE_STORE=local:/tmp/rh/store REPOHIVE_LEDGER=file:/tmp/rh/ledger.json REPOHIVE_ORCHESTRATOR=local \
+  timeout 30 /tmp/rh/bin/node --import ./scripts/register-aliases.mjs scripts/run-worker.mjs; echo "exit $?"
+/tmp/rh/bin/caddy validate --config /tmp/rh/box/Caddyfile --adapter caddyfile   # needs the caddy.env variables set
+```
+
+**Success:** `/healthz` answers ok, and the worker runs until `timeout` stops it (exit 124) without an import error.
 
 **Command:**
 
@@ -302,6 +325,8 @@ Sign up and sign in at `https://<site domain>`, then request each index from the
 the viewer.
 
 1. **A small public Java repository** (S tier): proves the Lambda path, the ledger, the state machine and the viewer.
+   If it fails with `snapshot id does not match this build`, the web release and the indexer image were built from
+   different commits (or their engine builds differ): rebuild and push both from the same commit, then redeploy.
 2. **`BroadleafCommerce/BroadleafCommerce`** (M tier): proves a realistic size on Lambda.
 3. **One L or XL repository**: proves the Fargate path, the large slot and the retier loop.
 
@@ -426,9 +451,28 @@ All thresholds are Terraform variables (`alarm_thresholds`, `monthly_budget_usd`
 | `repohive-site-heartbeat` | `SiteUp` below 1 for 5 minutes in a row; missing data counts as bad | 5 minutes |
 | Budget `repohive-monthly` | 80% of actual and 100% of forecast spend | $25 |
 
-## 17. What was never run
+## 17. What has and has not been run
 
-Everything. The plan, the apply, every script except `check.sh`, the image build and its local run, the release build, the
-box's first boot, Caddy, the CloudWatch agent, the state machine, CloudFront, every runbook step, real AWS and GitHub calls,
-Linux and arm64. Only syntax and types were checked, on Windows. The progress file of the spec
-(`context/specs/hosting-4-deploy/progress.md`) lists, phase by phase, what to expect to break at the first apply.
+**Run on 2026-10-02 (Windows, Docker Desktop, linux/arm64 under emulation, no AWS account):**
+
+- The indexer image builds. Inside it, a real job against GitHub (`spring-guides/gs-rest-service`) succeeded through the
+  Lambda handler and again through the Fargate entry point (exit 0), with a local store and a file ledger. The control
+  function loads and answers. Timings under emulation mean nothing.
+- The release build ran to the end of assembly, and `verify-app-tree.sh` passed inside it. Exporting the tree to a
+  Windows folder failed (symlinks), so the bundle was never run: not the web server, not the worker, not Caddy.
+- `check.sh`, now with an offline `terraform test` plan of each root: the real provider renders every policy, the
+  state machine and cloud-init. Rendered user data: 14,128 bytes (limit 16,384).
+- All 42 JSONata expressions in the state machine parse, and its Decide and Conclude branches route correctly in ten
+  scenarios (checked with the `jsonata` package, not by Step Functions).
+- `cloud-init schema` accepts the user data on Amazon Linux 2023; `amazon-cloudwatch-agent` and `xfsprogs` are in its
+  repositories.
+- `shellcheck` 0.10.0 is clean on all 17 scripts.
+
+**Never run:** any plan or apply against AWS (Step Functions validates the definition at plan time; CloudFront, the
+alarms and the budget are checked only by AWS), the release bundle itself (start the web server and the worker from it
+on the build host before the first `deploy.sh app`; the worker runs its TypeScript sources through Node's type
+stripping, which has never been exercised), Caddy parsing the Caddyfile, the box's first boot, the CloudWatch agent,
+and whether the web release and the indexer image agree on the engine version. If they disagree, every hosted job is
+refused with "snapshot id does not match this build", so check it in the first smoke test (Section 9). The progress file
+of the spec (`context/specs/hosting-4-deploy/progress.md`) lists, phase by phase, what to expect to break at the first
+apply.
