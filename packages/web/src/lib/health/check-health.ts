@@ -38,8 +38,11 @@ async function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
 async function checkLedgerReachable(config: AppConfig): Promise<boolean> {
   try {
     const ledger = getJobLedger(config);
-    await withTimeout(ledger.get("__health_probe__"), undefined);
-    return true;
+    // A read that does not answer within the timeout counts as unreachable, not as reachable.
+    return await withTimeout(
+      ledger.get("__health_probe__").then(() => true),
+      false,
+    );
   } catch {
     return false;
   }

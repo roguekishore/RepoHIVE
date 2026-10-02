@@ -62,4 +62,15 @@ describe("GET /healthz", () => {
     expect(body.lastCompletedJobAt).toBe("2026-05-01T12:00:00.000Z");
     expect(JSON.stringify(body).includes("acme")).toBe(false);
   });
+
+  it("reports degraded when the ledger read does not answer in time", async () => {
+    const hanging = { ...createMemoryJobLedger(), get: () => new Promise<never>(() => {}) };
+    resetHostingClientsForTests(undefined, hanging);
+
+    const response = await healthGet();
+    expect(response.status).toBe(503);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.status).toBe("degraded");
+    expect(body.ledgerReachable).toBe(false);
+  });
 });
