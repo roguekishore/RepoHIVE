@@ -69,29 +69,28 @@ data "aws_iam_policy_document" "ec2_assume" {
 }
 
 data "aws_iam_policy_document" "box" {
+  # Repository pointers (the intake pre-check) and snapshot objects (the worker reads each finished job's
+  # manifest and hierarchy scale view under s/<snapshot id>/). Read only.
   statement {
-    sid       = "ReadRepositoryPointers"
+    sid       = "ReadPointersAndSnapshots"
     actions   = ["s3:GetObject"]
-    resources = ["${local.artifact_bucket_arn}/r/*"]
+    resources = ["${local.artifact_bucket_arn}/r/*", "${local.artifact_bucket_arn}/s/*"]
   }
 
-  # The SQLite backup: read, write, delete and a list limited to its prefix.
+  # The SQLite backup: read, write and delete under its prefix.
   statement {
     sid       = "BackupObjects"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = ["${local.artifact_bucket_arn}/backup/*"]
   }
 
+  # Bucket-wide on purpose: without it a GetObject on a missing key is 403, not 404, and the store reads
+  # that as an error. A repository's first pre-check reads an r/<repo>/latest.json that does not exist yet.
+  # It reveals key names only, never object contents.
   statement {
-    sid       = "ListBackups"
+    sid       = "ListArtifactBucket"
     actions   = ["s3:ListBucket"]
     resources = [local.artifact_bucket_arn]
-
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["backup/*"]
-    }
   }
 
   statement {
