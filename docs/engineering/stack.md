@@ -127,8 +127,8 @@ The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by dig
 
 Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (the owner runs Terraform on Windows; owner
 ruling 2026-10-02). Running Terraform from another platform, such as WSL, needs `terraform providers lock
--platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. Later phases add Caddy, `xcaddy`, the Node 24 binary
-and base images here.
+-platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. The table above is every pinned tool of the deploy
+tree. `deploy/RUNBOOK.md` is the owner's step-by-step.
 
 Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, never by an agent). Every script that calls AWS loads `deploy/deploy.env` and stops unless `aws sts get-caller-identity` matches its account id (`lib.sh`):
 
@@ -147,7 +147,8 @@ Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, nev
 | `check.sh` | the offline checks: `terraform fmt -check`, `validate` per root, `shellcheck`, `bash -n`; the only script an agent may run |
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
-per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on `deploy/scripts/*`.
+per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on every script under `deploy/`.
+`deploy/scripts/check.sh` runs them all.
 
 ## Commands
 
