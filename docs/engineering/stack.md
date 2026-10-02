@@ -120,6 +120,15 @@ Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (Terraf
 -platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. Later phases add Caddy, `xcaddy`, the Node 24 binary
 and base images here.
 
+Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, never by an agent). Every script that calls AWS loads `deploy/deploy.env` and stops unless `aws sts get-caller-identity` matches its account id (`lib.sh`):
+
+| Script | Effect |
+|--------|--------|
+| `put-github-token.sh` | stores `/repohive/github-token` (token read from stdin, hidden) |
+| `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the short git SHA; refuses uncommitted changes under `packages/` |
+| `push-indexer-image.sh [tag]` | logs in to ECR, pushes, prints the digest for `indexer_image_digest` |
+| `run-indexer-image-locally.sh [cli\|lambda\|fargate\|all]` | runs the built image locally; no AWS |
+
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on `deploy/scripts/*`.
 
