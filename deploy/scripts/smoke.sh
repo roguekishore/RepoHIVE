@@ -2,7 +2,7 @@
 # The smoke test (hosting-4 Requirement 18.6), through the site domain. It calls no AWS API and needs no credentials,
 # only curl, and jq when a repository is given.
 #
-#   deploy/scripts/smoke.sh [<repository key>]     for example github.com/owner/repo, an index that exists
+#   REPOHIVE_ACCOUNT=<name> deploy/scripts/smoke.sh [<repository key>]   for example github.com/owner/repo, an index that exists
 #
 # Without a repository the checks that need a published snapshot are skipped, and the script says so.
 # Exits non-zero if any check fails.
