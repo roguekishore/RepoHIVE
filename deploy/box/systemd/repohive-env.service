@@ -1,0 +1,17 @@
+[Unit]
+Description=RepoHIVE: render the app and Caddy environment files from SSM
+Wants=network-online.target
+After=network-online.target
+# Hosting-4 Requirement 13.6: runs first; the three services below wait for it.
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/repohive-env
+# Secrets live only in /run (tmpfs), mode 0600, and are never written to the journal.
+UMask=0077
+RuntimeDirectory=repohive
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target

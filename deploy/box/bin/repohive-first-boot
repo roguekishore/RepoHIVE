@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Run once by cloud-init, and safe to run again (hosting-4 Requirement 13.5): users and directories, the data
+# volume, swap, the units and the CloudWatch agent. Reads /etc/repohive/box.env and /etc/repohive/boot/ (the
+# unit files, logrotate rule and agent configuration that cloud-init wrote there).
+set -euo pipefail
+
+BOX_ENV=/etc/repohive/box.env
+BOOT_DIR=/etc/repohive/boot
+DATA_MOUNT=/var/lib/repohive
+
+data_volume_id="$(sed -n 's/^DATA_VOLUME_ID=//p' "${BOX_ENV}")"
+[[ "${data_volume_id}" =~ ^vol-[0-9a-f]+$ ]] || {
+  echo "first-boot: DATA_VOLUME_ID missing or malformed in ${BOX_ENV}" >&2
+  exit 1
+}
+
+# --- users and directories -------------------------------------------------------------------------
+getent group repohive >/dev/null || groupadd --system repohive
+getent passwd repohive >/dev/null ||
+  useradd --system --gid repohive --home-dir "${DATA_MOUNT}" --no-create-home --shell /sbin/nologin repohive
+getent group caddy >/dev/null || groupadd --system caddy
+getent passwd caddy >/dev/null ||
+  useradd --system --gid caddy --home-dir "${DATA_MOUNT}/caddy" --no-create-home --shell /sbin/nologin caddy
+
+install -d -m 0755 /opt/repohive /opt/repohive/releases /etc/repohive
+# The log directory is writable by Caddy (group caddy) for its own access log.
+install -d -o repohive -g caddy -m 2775 /var/log/repohive
+
+# --- the data volume: format only when it has no filesystem, mount by UUID -----------------------------
+# On Nitro instances the volume appears under its id, without the dash.
+device="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${data_volume_id/-/}"
+for _ in $(seq 1 60); do
+  [[ -e "${device}" ]] && break
+  sleep 2
+done
+[[ -e "${device}" ]] || {
+  echo "first-boot: ${device} did not appear" >&2
+  exit 1
+}
+if ! blkid "${device}" >/dev/null 2>&1; then
+  mkfs.xfs -L repohive-data "${device}"
+fi
+uuid="$(blkid -s UUID -o value "${device}")"
+install -d -m 0755 "${DATA_MOUNT}"
+if ! grep -q "UUID=${uuid}" /etc/fstab; then
+  printf 'UUID=%s %s xfs defaults,nofail 0 2\n' "${uuid}" "${DATA_MOUNT}" >>/etc/fstab
+fi
+mountpoint -q "${DATA_MOUNT}" || mount "${DATA_MOUNT}"
+install -d -o repohive -g repohive -m 0750 "${DATA_MOUNT}/data"
+install -d -o caddy -g caddy -m 0750 "${DATA_MOUNT}/caddy" "${DATA_MOUNT}/caddy-config"
+
+# --- a 1 GiB swap file -------------------------------------------------------------------------------------
+if ! swapon --show=NAME --noheadings | grep -q '^/swapfile$'; then
+  if [[ ! -f /swapfile ]]; then
+    dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none
+    chmod 0600 /swapfile
+    mkswap /swapfile >/dev/null
+  fi
+  swapon /swapfile
+fi
+grep -q '^/swapfile ' /etc/fstab || printf '/swapfile none swap sw 0 0\n' >>/etc/fstab
+
+# --- units, logrotate, the CloudWatch agent -------------------------------------------------------------
+install -m 0644 "${BOOT_DIR}"/systemd/*.service /etc/systemd/system/
+install -m 0644 "${BOOT_DIR}/logrotate-repohive" /etc/logrotate.d/repohive
+systemctl daemon-reload
+# Enabled now, started by the first release activation: until then /opt/repohive/current does not exist.
+systemctl enable repohive-env.service caddy.service repohive-web.service repohive-worker.service
+
+if ! rpm -q amazon-cloudwatch-agent >/dev/null 2>&1; then
+  dnf install -y amazon-cloudwatch-agent
+fi
+install -d /opt/aws/amazon-cloudwatch-agent/etc
+install -m 0644 "${BOOT_DIR}/amazon-cloudwatch-agent.json" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+echo "first-boot: done"
