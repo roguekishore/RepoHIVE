@@ -24,10 +24,45 @@ persisted.** `graph.json` is the artifact.
 assessment → adaptive preserve-vs-reconstruct construction → hierarchy assembly → metadata.
 
 `index/` contents: `repository.json`, `hierarchy.json`, `nodes.json`, `edges.json`, `metadata.json`.
-The list is enforced in `packages/core/src/index-serializer.ts`.
+The list is enforced in `packages/core/src/index-serializer.ts`; the layout is below.
 
 `graph.json` and `index/` are **git-ignored generated artifacts**. Reverting code does not restore the
 artifacts that matched it; re-run the pipeline.
+
+## The index format
+
+Format **version 1**, the only one `parseIndex` reads. Constants and codes live in
+`packages/core/src/index-format.ts`; payloads are built in `index-serializer.ts` (`indexFilePayloads`) and
+read in `index-parser.ts`. Every file is **minified** JSON (keys sorted, no whitespace, one trailing newline)
+and carries `"formatVersion": 1`. A missing or different version is an `UNSUPPORTED_FORMAT_VERSION` error
+naming the file; there is no reader for the earlier pretty-printed layout (`compact-index-format-is-a-hard-cut`).
+
+Every node id is stored **once**, in `hierarchy.json`'s `ids`, in canonical order (byte-wise, strictly
+ascending). Everywhere else a node is its **position** in that array. `-1` (`ABSENT`) means "no value".
+
+| File | Fields |
+|------|--------|
+| `repository.json` | `formatVersion`, `repositoryId` (the one place the root id is repeated, so the summary reads alone), `hierarchyDepth`, `nodeCount`, `edgeCount` |
+| `hierarchy.json` | `formatVersion`, `root` (position of the repository node), `ids` (string[]), `nodes`: one row per id, `[kind, level, parent, children]` |
+| `nodes.json` | `formatVersion`, `strings` (each attribute string once, in first-use order), `nodes`: one row per id, `[regionId, ordinal, packagePath, directoryPath, definedInFile]` |
+| `edges.json` | `formatVersion`, `leaf`: rows `[source, target, importFrequency, methodCallFrequency, sharedTypeCount, strength]`, `cross`: rows `[source, target, level, weight]` |
+| `metadata.json` | `formatVersion` plus the `Metadata` fields unchanged, except `regionDecisions[].groupIds` are positions |
+
+Row details:
+
+- `kind` is a code into `NODE_KIND_CODES`: `0` repository, `1` group, `2` file, `3` class, `4` function.
+- `parent` is a position, `-1` on the root. `children` are positions, ascending (which is canonical id order).
+- In `nodes.json`, `regionId`, `packagePath` and `directoryPath` are positions into `strings`; `definedInFile` is
+  a node position; `ordinal` is the integer itself. Region provenance goes together: `regionId` and `ordinal`
+  are both `-1` or both set. The row for a node that has no attributes is all `-1`.
+- Leaf edges are in canonical edge order; cross-group edges in hierarchy order.
+- `parseIndex` rebuilds the same `Hierarchy` and `Metadata` as before, ids and all: nothing downstream of it
+  changed. Its checks (tree shape, ranges, counts across files) are the old ones, restated on positions.
+
+Bump `INDEX_FORMAT_VERSION` on any change to a layout above or to the meaning of a code. It feeds
+`engineVersion`, so a bump changes snapshot ids.
+
+Broadleaf (29,190 nodes): 37.7 MB pretty-printed, 6.0 MB compact (measurements register).
 
 ## The JSON contract (stable seam)
 
@@ -65,22 +100,26 @@ when the scope is empty so single-root ids are unchanged. This is what makes mul
 
 ```
 packages/
-  shared/       JSON-contract types (the stable seam)
+  shared/       JSON-contract types (the stable seam), chunked-output primitives
   types/        shared TS types for the viewer/API surface
   parser/       Tree-Sitter Java → graph.json
   core/         grouping algorithm + blast radius
+  engine/       parse then group in one call (`indexProject`), progress, snapshot-id inputs
   cli/          EMPTY (.gitkeep only), the packaged CLI is not built
   api-client/   framework-free client for the REST surface
   ui/           shared UI components
   web/          Next.js 15 viewer + its route handlers
 ```
 
-`shared` and `types` are leaf dependencies. `parser` and `core` depend only on `shared`. Nothing in
-`parser` or `core` may import from `web`, `ui`, `api-client`, or `cli`.
+`shared` and `types` are leaf dependencies. `parser` and `core` depend only on `shared`; `engine` depends on
+those three. Nothing in `shared`, `parser`, `core` or `engine` may import from `web`, `ui`, `api-client`,
+`cli`, `types` or `mcp`, and none holds AWS, network or compression code (`engine/src/boundary.test.ts`
+scans for it).
 
-**There is no pipeline-orchestration layer.** `parseProject` lives in `parser`, `groupGraphToIndex` in
-`core`, and neither imports the other. parse→group exists only as two root npm scripts. A one-shot
-`index <dir>` therefore has no home yet, and whichever surface is built first absorbs that logic.
+**Orchestration lives in `engine`.** `indexProject` runs `parseProject` then `groupGraphToIndexAsync`, writes
+both artifacts under one output root, and returns the grouping output in memory. The parser and core still
+do not import each other. `engineVersion` and `configDigest(options)` are what a snapshot id is built from.
+The root `parse` and `group` npm scripts remain for running one stage alone.
 
 ## Viewer surface
 
