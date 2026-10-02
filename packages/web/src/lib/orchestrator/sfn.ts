@@ -20,6 +20,10 @@ export function createSfnJobOrchestrator(options: SfnOrchestratorOptions): JobOr
       await client.send(
         new StartExecutionCommand({
           stateMachineArn: options.stateMachineArn,
+          // The execution is named after the job (hosting-4 Requirement 11.9): the state machine's
+          // EventBridge backstop finds the job's ledger record by this name. A repeated name fails
+          // the start rather than running the job twice.
+          name: input.jobId,
           input: JSON.stringify(input),
         }),
       );
