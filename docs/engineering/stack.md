@@ -115,6 +115,15 @@ Run by the owner, never by an agent against AWS (`context/specs/hosting-4-deploy
 | `hashicorp/aws` provider | 6.67.0 | MPL-2.0 |
 | `hashicorp/random` provider | 3.9.1 | MPL-2.0 |
 | `@aws-sdk/client-ssm` (`packages/indexer`) | 3.1144.0, the version of the other `@aws-sdk` clients there | Apache-2.0 |
+| Caddy | 2.11.6, built by xcaddy | Apache-2.0 |
+| `xcaddy` | v0.4.7 | Apache-2.0 |
+| `github.com/mholt/caddy-ratelimit` | v0.1.0 | Apache-2.0 |
+| `github.com/xcaddyplugins/caddy-trusted-cloudfront` | v0.0.0-20240604042247-0a0864e80f1c (commit 0a0864e, no tagged release) | MIT |
+| Node on the box and in the release build | 24.21.0, the binary of `node:24.21.0-bookworm-slim` | MIT |
+| Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.26-bookworm@sha256:a688600c…` (index digests read from Docker Hub) | Node MIT; Go BSD-3-Clause |
+| Box OS | Amazon Linux 2023 arm64, newest AMI from the public SSM parameter at first apply (`ami` is not tracked afterwards) | |
+
+The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by digest: the digests come only from an AWS endpoint the agent may not call.
 
 Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (Terraform is run from Windows). Running Terraform from another platform, such as WSL, needs `terraform providers lock
 -platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. Later phases add Caddy, `xcaddy`, the Node 24 binary
@@ -128,6 +137,9 @@ Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, nev
 | `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the short git SHA; refuses uncommitted changes under `packages/` |
 | `push-indexer-image.sh [tag]` | logs in to ECR, pushes, prints the digest for `indexer_image_digest` |
 | `run-indexer-image-locally.sh [cli\|lambda\|fargate\|all]` | runs the built image locally; no AWS |
+| `build-app-release.sh` | builds the release bundle in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS |
+| `deploy-app.sh <version>` | uploads the bundle to the ops bucket and activates it on the box through SSM Run Command |
+| `rollback-app.sh` | switches the box to the previous release |
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on `deploy/scripts/*`.
