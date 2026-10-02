@@ -31,6 +31,7 @@
 
 import type { GraphNode, NodeId } from "@repohive/shared";
 import { CLASS_ID_PREFIX, FUNCTION_ID_PREFIX } from "./ids.js";
+import { compareCanonical } from "@repohive/shared";
 import { compareNodes } from "./canonical.js";
 
 /** Separator between an enclosing-class FQN and a function name in a func id. */
@@ -70,6 +71,33 @@ export interface SymbolTable {
    * @returns a possibly-empty, canonically ordered list of {@link NodeId}s.
    */
   lookupAcrossScopes(fqn: string): readonly NodeId[];
+}
+
+/**
+ * One keyed declaration: the unit a worker computes for its own files and the
+ * main thread merges. `class` and `function` nodes are keyed; `file` nodes are
+ * not.
+ */
+export interface SymbolEntry {
+  /** The declaring node's id. */
+  id: NodeId;
+  /** The FQN key: `fqn` for a class, `enclosingFqn.simpleName` for a function. */
+  key: string;
+  /** The source-root scope encoded in the id, or `""` for the repository root. */
+  scope: string;
+  /** What the node is. */
+  kind: "class" | "function";
+}
+
+/**
+ * A {@link SymbolTable} that also answers what kind of declaration an id is.
+ * The stitcher needs that for a resolved target (a function target maps up to
+ * its enclosing class, and that class must exist) when it no longer holds the
+ * whole node set, which is the case in a worker that stitches only its own files.
+ */
+export interface IndexedSymbolTable extends SymbolTable {
+  /** `"class"` or `"function"` for a keyed declaration; `undefined` for any other id. */
+  kindOf(id: NodeId): "class" | "function" | undefined;
 }
 
 /** Builds a {@link SymbolTable} from a fully extracted node set (design: R4). */
@@ -174,6 +202,38 @@ function scopeOf(node: GraphNode): string {
 const SCOPE_KEY_SEPARATOR = "\u0000";
 
 /**
+ * The {@link SymbolEntry} for a node, or `null` when the node is not keyed. Pure,
+ * so a worker can compute it for its own files and ship the result.
+ */
+export function symbolEntryOf(node: GraphNode): SymbolEntry | null {
+  if (node.kind !== "class" && node.kind !== "function") {
+    return null;
+  }
+  const key = keyFor(node);
+  if (key === null) {
+    return null;
+  }
+  return { id: node.id, key, scope: scopeOf(node), kind: node.kind };
+}
+
+/**
+ * Merge partial entry lists (one per file or per worker) into the canonical
+ * order {@link buildSymbolTableFromEntries} needs: ascending by node id,
+ * byte-wise over UTF-8. The sort is stable, so give the partials in canonical
+ * file order and equal ids (a duplicate declaration, which fails the run later
+ * in any case) resolve identically every time.
+ */
+export function mergeSymbolEntries(partials: Iterable<readonly SymbolEntry[]>): SymbolEntry[] {
+  const merged: SymbolEntry[] = [];
+  for (const partial of partials) {
+    for (const entry of partial) {
+      merged.push(entry);
+    }
+  }
+  return merged.sort((a, b) => compareCanonical(a.id, b.id));
+}
+
+/**
  * Create a {@link SymbolTableBuilder}.
  *
  * The builder is stateless; each {@link SymbolTableBuilder.build} call produces
@@ -196,34 +256,53 @@ export function createSymbolTableBuilder(): SymbolTableBuilder {
  * order (R4.6). Only `class` and `function` nodes are keyed.
  */
 export function buildSymbolTable(nodes: GraphNode[]): SymbolTable {
+  // Iterate in canonical id order (byte-wise UTF-8) so that "first insert wins"
+  // deterministically retains the canonical-first node on collision, and the
+  // per-fqn lists are in canonical order (R4.5, R4.6).
+  const entries: SymbolEntry[] = [];
+  for (const node of [...nodes].sort(compareNodes)) {
+    const entry = symbolEntryOf(node);
+    if (entry !== null) {
+      entries.push(entry);
+    }
+  }
+  return buildSymbolTableFromEntries(entries);
+}
+
+/**
+ * Build the table from entries already in canonical id order (see
+ * {@link mergeSymbolEntries}); {@link buildSymbolTable} is this over a node set
+ * it sorted itself. Returns the {@link IndexedSymbolTable}, which also answers
+ * {@link IndexedSymbolTable.kindOf}.
+ */
+export function buildSymbolTableFromEntries(entries: readonly SymbolEntry[]): IndexedSymbolTable {
   // Per-(scope, fqn) index for classpath-local resolution (canonical-first on
   // collision within a scope), and a per-fqn index listing every defining node
   // across all scopes in canonical order for the cross-scope fallback.
   const byScopeFqn = new Map<string, NodeId>();
   const byFqn = new Map<string, NodeId[]>();
+  const kinds = new Map<NodeId, "class" | "function">();
 
-  // Iterate in canonical id order (byte-wise UTF-8) so that "first insert wins"
-  // deterministically retains the canonical-first node on collision, and the
-  // per-fqn lists are in canonical order (R4.5, R4.6).
-  const ordered = [...nodes].sort(compareNodes);
-  for (const node of ordered) {
-    const key = keyFor(node);
-    if (key === null) {
-      continue;
-    }
-    const scopeKey = scopeOf(node) + SCOPE_KEY_SEPARATOR + key;
+  for (const entry of entries) {
+    const scopeKey = entry.scope + SCOPE_KEY_SEPARATOR + entry.key;
     if (!byScopeFqn.has(scopeKey)) {
-      byScopeFqn.set(scopeKey, node.id);
+      byScopeFqn.set(scopeKey, entry.id);
     }
-    const list = byFqn.get(key);
+    const list = byFqn.get(entry.key);
     if (list === undefined) {
-      byFqn.set(key, [node.id]);
+      byFqn.set(entry.key, [entry.id]);
     } else {
-      list.push(node.id);
+      list.push(entry.id);
+    }
+    if (!kinds.has(entry.id)) {
+      kinds.set(entry.id, entry.kind);
     }
   }
 
   return {
+    kindOf(id: NodeId): "class" | "function" | undefined {
+      return kinds.get(id);
+    },
     lookup(fqn: string): NodeId | null {
       const list = byFqn.get(fqn);
       // Canonical-first across all scopes (byFqn is built in canonical order).
