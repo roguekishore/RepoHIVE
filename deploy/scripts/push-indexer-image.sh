@@ -36,6 +36,10 @@ digest="$(aws_cli ecr describe-images \
   --output text)"
 [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || die "ECR returned an unexpected digest: ${digest}"
 
+# deploy.sh passes this to the infra stage (the file is git-ignored with the rest of deploy/out/).
+mkdir -p "${DEPLOY_DIR}/out"
+printf '%s\n' "${digest}" >"${DEPLOY_DIR}/out/indexer-image.digest"
+
 printf 'Pushed %s\n' "${remote}"
 printf 'indexer_image_digest = "%s"\n' "${digest}"
 printf 'Image reference: %s/%s@%s\n' "${registry}" "${REPOSITORY}" "${digest}"
