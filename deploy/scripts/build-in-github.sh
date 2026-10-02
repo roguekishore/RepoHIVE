@@ -42,12 +42,14 @@ fi
 
 run_id=""
 for _ in $(seq 1 30); do
-  run_id="$(gh run list --repo "${repo}" --workflow build.yml --branch "${tag}" --limit 1 \
-    --json databaseId --jq '.[0].databaseId // empty')"
+  # Not --workflow build.yml: gh resolves that name on the default branch, where the workflow does not exist.
+  run_id="$(gh run list --repo "${repo}" --branch "${tag}" --event push --limit 5 \
+    --json databaseId,workflowName --jq '[.[] | select(.workflowName == "build")][0].databaseId // empty')"
   [[ -n "${run_id}" ]] && break
   sleep 5
 done
-[[ -n "${run_id}" ]] || die "no run of build.yml appeared for ${tag}; check the Actions tab of ${repo}"
+[[ -n "${run_id}" ]] ||
+  die "no run of build.yml appeared for ${tag}; GitHub can drop the event of a tag pushed right after a large branch push: delete the tag (git push origin :refs/tags/${tag}; git tag -d ${tag}) and run this again"
 
 printf 'following run %s: https://github.com/%s/actions/runs/%s\n' "${run_id}" "${repo}" "${run_id}"
 gh run watch "${run_id}" --repo "${repo}" --interval 30 --exit-status >/dev/null ||
