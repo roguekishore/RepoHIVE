@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The offline checks (hosting-4 Requirements 18.7 and 20), and nothing that reaches AWS: terraform fmt -check,
-# terraform validate on each root after init -backend=false, and shellcheck on every script under deploy/. Terraform
-# runs with the AWS credential variables removed and the config files hidden. A tool that is not installed is
-# reported as "not run", never as passed.
+# terraform validate and the offline plan test (tests/plan.tftest.hcl) on each root after init -backend=false,
+# and a shellcheck run on every script under deploy/. Terraform runs with the AWS credential variables removed and
+# the config files hidden. A tool that is not installed is reported as "not run", never as passed.
 #
 #   deploy/scripts/check.sh
 #
@@ -44,6 +44,12 @@ if command -v terraform >/dev/null 2>&1; then
       fail "terraform init -backend=false (${root}); on a platform other than the lock file's, run: terraform -chdir=${dir} providers lock -platform=<os_arch>"
     elif tf -chdir="${dir}" validate; then
       pass "terraform validate (${root})"
+      # The offline plan in tests/: the real provider with placeholder credentials and fixed data sources.
+      if tf -chdir="${dir}" test; then
+        pass "terraform test, offline plan (${root})"
+      else
+        fail "terraform test, offline plan (${root})"
+      fi
     else
       fail "terraform validate (${root})"
     fi
