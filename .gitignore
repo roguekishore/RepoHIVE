@@ -66,3 +66,14 @@ context/
 
 # Local-mode app data: SQLite, artifact store, ledger (hosting-3)
 .repohive-local/
+
+# Deploy tree (hosting-4): Terraform state and variables, build output, local deploy settings
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+deploy/out/
+deploy/deploy.env
+deploy/terraform/main/backend.hcl
