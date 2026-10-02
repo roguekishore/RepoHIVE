@@ -87,6 +87,41 @@ require_docker() {
   esac
 }
 
+# The id of the running box, found by its Name tag (Terraform tags it repohive-box).
+box_instance_id() {
+  local id
+  id="$(aws_cli ec2 describe-instances \
+    --filters "Name=tag:Name,Values=repohive-box" "Name=instance-state-name,Values=running" \
+    --query 'Reservations[].Instances[].InstanceId' --output text)" ||
+    die "could not look up the box"
+  [[ "${id}" =~ ^i-[0-9a-f]+$ ]] || die "expected exactly one running box tagged repohive-box, found: ${id:-none}"
+  printf '%s' "${id}"
+}
+
+# Runs one command on the box through SSM Run Command, prints its output, and returns its exit status.
+# The command must hold no secret and no comma (version, checksum and flags only).
+run_on_box() {
+  local command="$1" instance command_id status="" waited=0
+  instance="$(box_instance_id)"
+  command_id="$(aws_cli ssm send-command --instance-ids "${instance}" --document-name AWS-RunShellScript \
+    --parameters "commands=${command}" --comment "repohive deploy" \
+    --query Command.CommandId --output text)" || die "ssm send-command failed"
+  printf 'running on %s (command %s)\n' "${instance}" "${command_id}"
+  while ((waited < 600)); do
+    status="$(aws_cli ssm get-command-invocation --command-id "${command_id}" --instance-id "${instance}" \
+      --query Status --output text 2>/dev/null || true)"
+    case "${status}" in
+      Success | Failed | Cancelled | TimedOut | Cancelling) break ;;
+      *) sleep 5 && waited=$((waited + 5)) ;;
+    esac
+  done
+  aws_cli ssm get-command-invocation --command-id "${command_id}" --instance-id "${instance}" \
+    --query StandardOutputContent --output text || true
+  aws_cli ssm get-command-invocation --command-id "${command_id}" --instance-id "${instance}" \
+    --query StandardErrorContent --output text >&2 || true
+  [[ "${status}" == "Success" ]] || die "the command on the box ended with status ${status:-unknown}"
+}
+
 # The short git SHA of HEAD, the image tag (Requirement 7.2).
 image_tag() {
   git -C "${REPO_ROOT}" rev-parse --short HEAD
