@@ -1,0 +1,113 @@
+# Builds the hosted indexer image and the app release bundle natively on linux/arm64 from the tagged commit, tests the
+# bundle against the image (deploy/scripts/verify-release.sh), and for an account tag pushes both into that account.
+# Only these tags start it; deploy/scripts/build-in-github.sh pushes them:
+#
+#   build-<account>-<sha>   build, test, then push the image to the account's ECR and the bundle to its ops bucket.
+#                           Runs in the GitHub environment <account> (variables AWS_ACCOUNT_ID, SITE_DOMAIN), whose
+#                           OIDC subject is the only one the account's role repohive-github-build trusts.
+#   verify-<anything>       build and test only; no environment, no AWS.
+name: build
+
+on:
+  push:
+    tags:
+      - "build-*"
+      - "verify-*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  target:
+    name: Read the tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      environment: ${{ steps.parse.outputs.environment }}
+    steps:
+      - id: parse
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "${TAG}" =~ ^build-([a-z][a-z0-9]{0,19})-[0-9a-f]{7,40}$ ]]; then
+            echo "environment=${BASH_REMATCH[1]}" >>"${GITHUB_OUTPUT}"
+          elif [[ "${TAG}" =~ ^verify-[A-Za-z0-9._-]+$ ]]; then
+            echo "environment=" >>"${GITHUB_OUTPUT}"
+          else
+            echo "::error::tag ${TAG} is neither build-<account>-<sha> nor verify-<name>"
+            exit 1
+          fi
+
+  build:
+    name: Build, test and publish
+    needs: target
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    # Empty for a verify tag: the job then runs in no environment and can assume no role.
+    environment: ${{ needs.target.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REPOHIVE_ACCOUNT: ${{ needs.target.outputs.environment }}
+      PUBLISH: ${{ needs.target.outputs.environment != '' }}
+    steps:
+      - name: Check and mask the account id
+        if: env.PUBLISH == 'true'
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          SITE_DOMAIN: ${{ vars.SITE_DOMAIN }}
+        run: |
+          [[ "${AWS_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || { echo "::error::environment ${REPOHIVE_ACCOUNT} has no AWS_ACCOUNT_ID variable (run deploy/scripts/github-environment.sh)"; exit 1; }
+          [[ -n "${SITE_DOMAIN}" ]] || { echo "::error::environment ${REPOHIVE_ACCOUNT} has no SITE_DOMAIN variable"; exit 1; }
+          echo "::add-mask::${AWS_ACCOUNT_ID}"
+
+      - name: Check out the tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the indexer image
+        run: deploy/scripts/build-indexer-image.sh
+
+      - name: Build the release bundle
+        run: deploy/scripts/build-app-release.sh
+
+      - name: Test the bundle against the image
+        run: deploy/scripts/verify-release.sh
+
+      - name: Assume the account's build role
+        if: env.PUBLISH == 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/repohive-github-build
+          role-session-name: repohive-build-${{ github.run_id }}
+          aws-region: ap-south-1
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+
+      - name: Push the image and upload the bundle
+        if: env.PUBLISH == 'true'
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          SITE_DOMAIN: ${{ vars.SITE_DOMAIN }}
+        run: |
+          mkdir -p "deploy/accounts/${REPOHIVE_ACCOUNT}"
+          printf 'AWS_ACCOUNT_ID=%s\nSITE_DOMAIN=%s\n' "${AWS_ACCOUNT_ID}" "${SITE_DOMAIN}" \
+            >"deploy/accounts/${REPOHIVE_ACCOUNT}/deploy.env"
+          deploy/scripts/push-indexer-image.sh
+          deploy/scripts/upload-app-release.sh
+          version="$(git rev-parse --short=12 HEAD)"
+          digest="$(cat "deploy/accounts/${REPOHIVE_ACCOUNT}/out/indexer-image.digest")"
+          {
+            echo "### ${REPOHIVE_ACCOUNT}: version ${version}"
+            echo ""
+            echo "- indexer image: \`${digest}\`"
+            echo "- release: \`releases/repohive-${version}.tar.gz\`"
+            echo ""
+            echo "Next: \`REPOHIVE_ACCOUNT=${REPOHIVE_ACCOUNT} deploy/scripts/deploy.sh infra --plan-only\`"
+          } >>"${GITHUB_STEP_SUMMARY}"
