@@ -555,6 +555,69 @@ test("only workers that were handed a file take part: a pool wider than the work
   assert.equal(watch.created.length, 2, "never more threads than files");
 });
 
+test("progress reports 0 then settled counts that never decrease, ending at the total", async () => {
+  const files = sampleProject();
+  const seen: Array<[number, number]> = [];
+  const result = await createWorkerPoolPipeline().run({
+    files: collected(files),
+    source: memorySource(files),
+    workers: 3,
+    readConcurrency: 4,
+    onProgress: (completed, total) => seen.push([completed, total]),
+  });
+  assert.ok(result.ok);
+  assert.deepEqual(seen[0], [0, files.length]);
+  assert.deepEqual(seen[seen.length - 1], [files.length, files.length]);
+  assert.equal(seen.length, files.length + 1, "one event per file, plus the opening zero");
+  for (let i = 1; i < seen.length; i += 1) {
+    assert.ok((seen[i] as [number, number])[0] >= (seen[i - 1] as [number, number])[0], "completed never decreases");
+    assert.equal((seen[i] as [number, number])[1], files.length);
+  }
+});
+
+test("work a progress callback schedules runs before the pool finishes", async () => {
+  const files = sampleProject();
+  let ranDuringRun = false;
+  let finished = false;
+  const result = await createWorkerPoolPipeline().run({
+    files: collected(files),
+    source: memorySource(files),
+    workers: 2,
+    readConcurrency: 2,
+    onProgress: (completed) => {
+      if (completed === 1) {
+        setImmediate(() => {
+          ranDuringRun = !finished;
+        });
+      }
+    },
+  });
+  finished = true;
+  assert.ok(result.ok);
+  assert.equal(ranDuringRun, true);
+});
+
+test("a throwing progress callback fails the run, tears the pool down and surfaces its message", async () => {
+  const watch = watchWorkers();
+  const files = sampleProject();
+  await assert.rejects(
+    () =>
+      createWorkerPoolPipeline({ onWorker: watch.onWorker }).run({
+        files: collected(files),
+        source: memorySource(files),
+        workers: 2,
+        readConcurrency: 2,
+        onProgress: (completed) => {
+          if (completed === 2) {
+            throw new Error("callback exploded");
+          }
+        },
+      }),
+    /callback exploded/,
+  );
+  assert.equal(watch.exited.size, watch.created.length, "no worker is left running");
+});
+
 test("node and entry strides match the record layout the codecs write", () => {
   assert.equal(NODE_STRIDE, 5);
   assert.equal(ENTRY_STRIDE, 4);
