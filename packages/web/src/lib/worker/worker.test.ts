@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   VIEW_FILES,
+  compressBrotli,
   createMemoryArtifactStore,
   createMemoryJobLedger,
   headersForKey,
@@ -77,10 +78,11 @@ describe("background worker reconciliation", () => {
     const store = createMemoryArtifactStore();
     await ledger.claim(sampleInput(accountId));
     await ledger.finish("job-worker-1", { state: "succeeded" });
+    const hierarchyScaleKey = viewKey("0123456789abcdef0123456789abcdef", VIEW_FILES.hierarchyScale);
     await store.put(
-      viewKey("0123456789abcdef0123456789abcdef", VIEW_FILES.hierarchyScale),
-      jsonBytes({ totalNodes: 42 }),
-      headersForKey(viewKey("0123456789abcdef0123456789abcdef", VIEW_FILES.hierarchyScale)),
+      hierarchyScaleKey,
+      await compressBrotli(jsonBytes({ totalNodes: 42 })),
+      headersForKey(hierarchyScaleKey),
     );
 
     const first = await processEndedJobsSinceCheckpoint(db, ledger, store);
