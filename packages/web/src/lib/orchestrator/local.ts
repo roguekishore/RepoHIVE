@@ -2,26 +2,23 @@
  * Local orchestrator: detached child process running `runJob` (Requirement 8.6).
  */
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import type { JobInput } from "@repohive/indexer";
 import type { JobOrchestrator } from "./types";
 
-const scriptPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "scripts",
-  "run-local-job.mjs",
-);
+const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "scripts");
+const scriptPath = path.join(scriptsDir, "run-local-job.mjs");
+// `--import` requires a `file://` URL for an absolute path on Windows (a bare
+// drive letter like `D:\...` is read as an unsupported URL scheme).
+const aliasLoaderPath = pathToFileURL(path.join(scriptsDir, "register-aliases.mjs")).href;
 
 export function createLocalJobOrchestrator(): JobOrchestrator {
   return {
     async start(input: JobInput): Promise<void> {
       const child = spawn(
         process.execPath,
-        [scriptPath],
+        ["--import", aliasLoaderPath, scriptPath],
         {
           detached: true,
           stdio: "ignore",
