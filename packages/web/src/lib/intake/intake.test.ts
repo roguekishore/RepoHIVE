@@ -271,6 +271,8 @@ describe("Step Functions orchestrator", () => {
     expect(sent[0]).toBeInstanceOf(StartExecutionCommand);
     const params = (sent[0] as StartExecutionCommand).input;
     expect(params.stateMachineArn).toContain("stateMachine:test");
+    // Named after the job, so the state machine's backstop can find the job's ledger record.
+    expect(params.name).toBe("job-1");
     expect(JSON.parse(params.input ?? "")).toEqual(input);
   });
 });
