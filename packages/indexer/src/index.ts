@@ -76,7 +76,14 @@ export {
 } from "./compression.js";
 export type { PreparedObject } from "./compression.js";
 // Tier caps, the archive reader and its two fetchers, the pre-check (Requirements 2 and 4).
-export { MAX_JAVA_BYTES, TIER_MAX_FILES, TIER_ORDER, smallestTierFor, smallestTierForCount } from "./tiers.js";
+export {
+  MAX_JAVA_BYTES,
+  TIER_MAX_FILES,
+  TIER_ORDER,
+  TIER_TIMEOUT_MS,
+  smallestTierFor,
+  smallestTierForCount,
+} from "./tiers.js";
 export { DEFAULT_FETCH_CAPS, readTarGz } from "./tarball.js";
 export { createLocalSourceFetcher } from "./source-fetcher-local.js";
 export { createGithubSourceFetcher } from "./source-fetcher-github.js";
@@ -94,9 +101,11 @@ export { runJob, ABORT_MARGIN_MS, SLOT_LEASE_MARGIN_MS } from "./run-job.js";
 export type { RunJobDeps } from "./run-job.js";
 export type { JobCounts, JobDurations, JobResult } from "./job-result.js";
 export { parseJobInput } from "./job-input.js";
-export { ConfigError, createLedger, createStore, loadConfig } from "./config.js";
+export { ConfigError, createLedger, createStore, loadConfig, parseLedgerConfig } from "./config.js";
 export type { IndexerConfig, LedgerConfig, StoreConfig } from "./config.js";
 export { executeJob } from "./entry.js";
+export { CONTROL_SLOT_MARGIN_MS, createControl, parseControlEvent } from "./control.js";
+export type { ControlDeps, ControlEvent, ControlResult } from "./control.js";
 export { LEDGER_TABLE_LAYOUT } from "./ledger-table.js";
 export type { LedgerTableLayout } from "./ledger-table.js";
 export { resolveGithubToken } from "./github-token.js";

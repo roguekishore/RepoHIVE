@@ -15,6 +15,14 @@ export const TIER_MAX_FILES: Readonly<Record<Tier, number>> = {
   XL: 30_000,
 };
 
+/** The time limit each tier runs under, in milliseconds (hosting-4 "Tier timeouts"; hosting-2 Requirement 3.6). */
+export const TIER_TIMEOUT_MS: Readonly<Record<Tier, number>> = {
+  S: 300_000,
+  M: 300_000,
+  L: 600_000,
+  XL: 900_000,
+};
+
 /** Most selected Java bytes any run takes: the XL cap. */
 export const MAX_JAVA_BYTES = 250 * 1024 * 1024;
 
