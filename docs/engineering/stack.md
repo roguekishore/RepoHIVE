@@ -107,7 +107,7 @@ AGPL-3.0-or-later remains a hard rule.
 
 ## Deploy tree (`deploy/`)
 
-Run by the owner, never by an agent against AWS (`context/specs/hosting-4-deploy`). Exact pins:
+Run against an AWS account with that account's credentials in the profile `repohive` (see the scripts below). Exact pins:
 
 | Tool | Pin | Licence note |
 |------|-----|--------------|
@@ -123,27 +123,41 @@ Run by the owner, never by an agent against AWS (`context/specs/hosting-4-deploy
 | Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.26-bookworm@sha256:a688600c…` (index digests read from Docker Hub) | Node MIT; Go BSD-3-Clause |
 | Box OS | Amazon Linux 2023 arm64, newest AMI from the public SSM parameter at first apply (`ami` is not tracked afterwards) | |
 
-The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by digest: the digests come only from an AWS endpoint the agent may not call.
+The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by digest yet.
 
 Each root commits `.terraform.lock.hcl`, locked for `windows_amd64` only (Terraform is run from Windows). Running Terraform from another platform, such as WSL, needs `terraform providers lock
 -platform=<os_arch>` first, or `init` fails on a checksum. No other provider and no registry module. The table above is every pinned tool of the deploy
 tree. `deploy/RUNBOOK.md` is the owner's step-by-step.
 
-Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, never by an agent). Every script that calls AWS loads `deploy/deploy.env` and stops unless `aws sts get-caller-identity` matches its account id (`lib.sh`):
+Deploy scripts (bash, `deploy/scripts/`; Git Bash, WSL or Linux). Run them against an account once its credentials are
+in the AWS CLI profile `repohive`; every apply still waits for the owner's go on a printed plan. Each script works on one
+account folder, `deploy/accounts/<name>/` (git-ignored), named by `REPOHIVE_ACCOUNT=<name>`; every script that calls AWS
+loads its `deploy.env` and stops unless `aws sts get-caller-identity` matches its account id (`lib.sh`):
 
 | Script | Effect |
 |--------|--------|
-| `put-github-token.sh` | stores `/repohive/github-token` (token read from stdin, hidden) |
-| `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the short git SHA; refuses uncommitted changes under `packages/` |
-| `push-indexer-image.sh [tag]` | logs in to ECR, pushes, prints the digest for `indexer_image_digest` |
+| `put-github-token.sh` | stores `/repohive/github-token` (token from a hidden prompt or a piped file) |
+| `build-in-github.sh [--verify-only]` | pushes the tag `build-<account>-<sha>` (or `verify-<sha>`) and follows the `build.yml` run; creates the account's GitHub environment first |
+| `github-environment.sh` | creates or updates the GitHub environment `<account>`: tags `build-<account>-*` only, variables `AWS_ACCOUNT_ID`, `SITE_DOMAIN` |
+| `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the 12-character git SHA; refuses uncommitted changes under `packages/` |
+| `push-indexer-image.sh [tag]` | logs in to ECR, pushes (or keeps an existing tag), prints the digest |
 | `run-indexer-image-locally.sh [cli\|lambda\|fargate\|all]` | runs the built image locally; no AWS |
 | `build-app-release.sh` | builds the release bundle in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS |
-| `deploy-app.sh <version>` | uploads the bundle to the ops bucket and activates it on the box through SSM Run Command |
+| `verify-release.sh [version]` | on Linux arm64: the bundle and the image compute the same snapshot inputs, the web server answers `/healthz`, the worker runs, Caddy validates; no AWS |
+| `upload-app-release.sh [version]` | uploads the bundle and its SHA-256 to the ops bucket |
+| `deploy-app.sh [version]` | activates a release on the box through SSM Run Command (uploads it first if it was built here) |
 | `rollback-app.sh` | switches the box to the previous release |
-| `apply.sh <bootstrap\|main> [plan args]` | `init`, `plan -out`, then `apply` of that file after the owner types `apply` |
-| `deploy.sh [all\|indexer\|infra\|app\|smoke]` | the one deploy command; each stage runs alone |
+| `apply.sh <bootstrap\|main> [--plan-only\|--apply-saved\|--destroy-plan] [plan args]` | `init` and `plan -out` with every `-var` from `deploy.env`; prints and stops, applies the saved plan, or (no mode) asks for `apply` |
+| `deploy.sh <build\|image\|infra [mode]\|app\|smoke\|all>` | the one deploy command; each stage runs alone; `infra` reads the image digest from ECR |
+| `tf-output.sh <root> [name]` | prints a root's outputs from the account's state |
 | `smoke.sh [repo]` | checks the live site through the site domain (healthz, view headers, closed prefixes, origin refusal); no AWS calls |
-| `check.sh` | the offline checks: `terraform fmt -check`, `validate` and the offline plan test per root, `shellcheck`, `bash -n`; the only script an agent may run |
+| `teardown.sh --confirm <account id>` | removes everything from an account whose `deploy.env` says `PROTECT=false` |
+| `check.sh` | the offline checks: `terraform fmt -check`, `validate` and the offline plan test per root, `shellcheck`, `bash -n` |
+
+The build runs in GitHub Actions (`.github/workflows/build.yml`) on `ubuntu-24.04-arm`, started only by those tags.
+Actions are pinned by commit: `actions/checkout` v7.0.1 (`3d3c42e5…`), `aws-actions/configure-aws-credentials` v6.3.0
+(`e1253824…`). It assumes `repohive-github-build` (bootstrap root) through GitHub's OIDC provider; the role trusts only
+`repo:<owner>/<repo>:environment:<account>` and can only push to `repohive/indexer` and put under `releases/`.
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false`, then `validate`, then `test`; `shellcheck` on every script under
