@@ -46,6 +46,21 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value.trim();
 }
 
+/** Reads `REPOHIVE_LEDGER` alone: the control handler needs the ledger and nothing else. */
+export function parseLedgerConfig(env: NodeJS.ProcessEnv): LedgerConfig {
+  const ledgerText = required(env, "REPOHIVE_LEDGER");
+  if (ledgerText === "memory") {
+    return { kind: "memory" };
+  }
+  if (ledgerText.startsWith("file:") && ledgerText.length > "file:".length) {
+    return { kind: "file", path: ledgerText.slice("file:".length) };
+  }
+  if (ledgerText.startsWith("dynamodb:") && ledgerText.length > "dynamodb:".length) {
+    return { kind: "dynamodb", table: ledgerText.slice("dynamodb:".length) };
+  }
+  throw new ConfigError("REPOHIVE_LEDGER must be memory, file:<path> or dynamodb:<table>");
+}
+
 /** Reads and validates the configuration; throws a `ConfigError` naming the variable, never echoing a secret. */
 export function loadConfig(env: NodeJS.ProcessEnv): IndexerConfig {
   const runtime = required(env, "REPOHIVE_RUNTIME");
@@ -63,17 +78,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): IndexerConfig {
     throw new ConfigError("REPOHIVE_STORE must be local:<dir> or s3:<bucket>");
   }
 
-  const ledgerText = required(env, "REPOHIVE_LEDGER");
-  let ledger: LedgerConfig;
-  if (ledgerText === "memory") {
-    ledger = { kind: "memory" };
-  } else if (ledgerText.startsWith("file:") && ledgerText.length > "file:".length) {
-    ledger = { kind: "file", path: ledgerText.slice("file:".length) };
-  } else if (ledgerText.startsWith("dynamodb:") && ledgerText.length > "dynamodb:".length) {
-    ledger = { kind: "dynamodb", table: ledgerText.slice("dynamodb:".length) };
-  } else {
-    throw new ConfigError("REPOHIVE_LEDGER must be memory, file:<path> or dynamodb:<table>");
-  }
+  const ledger = parseLedgerConfig(env);
 
   const githubToken = env.REPOHIVE_GITHUB_TOKEN?.trim() || undefined;
   const githubTokenParameter = env.REPOHIVE_GITHUB_TOKEN_PARAMETER?.trim() || undefined;
@@ -95,7 +100,7 @@ export function createStore(config: IndexerConfig): ArtifactStore {
     : createLocalArtifactStore(config.store.directory);
 }
 
-export function createLedger(config: IndexerConfig): JobLedger {
+export function createLedger(config: Pick<IndexerConfig, "ledger">): JobLedger {
   switch (config.ledger.kind) {
     case "memory":
       return createMemoryJobLedger();
