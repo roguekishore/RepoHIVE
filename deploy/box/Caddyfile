@@ -1,0 +1,69 @@
+# The box's only web server (hosting-4 Requirement 14). It answers CloudFront, never visitors directly.
+# Values come from /run/repohive/caddy.env, rendered by repohive-env from /etc/repohive/box.env and SSM:
+#   ORIGIN_DOMAIN, SITE_DOMAIN, ORIGIN_SECRET, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_API_POST_PER_MINUTE
+
+{
+	# Admin API on localhost only (14.8).
+	admin localhost:2019
+
+	servers {
+		# CloudFront's address list, refreshed by the module. With strict mode and X-Forwarded-For,
+		# {client_ip} is the right-most address CloudFront appended, not one a visitor sent (14.3).
+		trusted_proxies cloudfront
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+# One site: the origin domain only. Caddy gets its certificate by HTTP-01 on port 80 and redirects the rest of
+# port 80 to HTTPS (14.2).
+{$ORIGIN_DOMAIN} {
+	# JSON lines in a file the CloudWatch agent ships. They hold visitor IPs (16.4); Caddy rolls the file itself.
+	log {
+		output file /var/log/repohive/caddy-access.log {
+			roll_size 50MiB
+			roll_keep 3
+			roll_keep_for 72h
+		}
+		format json
+	}
+
+	# A route keeps the written order: the secret check comes before any other handling (14.4).
+	route {
+		@no_origin_secret not header X-RepoHIVE-Origin-Secret {$ORIGIN_SECRET}
+		respond @no_origin_secret "forbidden" 403
+
+		# The coarse backstop under the app's quota (14.7), keyed on the client address.
+		rate_limit {
+			zone overall {
+				key {client_ip}
+				events {$RATE_LIMIT_PER_MINUTE}
+				window 1m
+			}
+			zone api_post {
+				match {
+					method POST
+					path /api/*
+				}
+				key {client_ip}
+				events {$RATE_LIMIT_API_POST_PER_MINUTE}
+				window 1m
+			}
+		}
+
+		# Request bodies under /api/ stop at 64 KiB (14.6).
+		request_body /api/* {
+			max_size 64KB
+		}
+
+		# No encode directive: CloudFront compresses (14.6).
+		reverse_proxy 127.0.0.1:3000 {
+			# Setting a header replaces any value the visitor sent, so the app sees one trusted value (14.5).
+			# No separate delete: Caddy applies deletes after sets, which would remove the new value.
+			header_up X-RepoHIVE-Client-IP {client_ip}
+			header_up Host {$SITE_DOMAIN}
+			# Server-sent events must not be buffered (14.6).
+			flush_interval -1
+		}
+	}
+}
