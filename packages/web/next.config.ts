@@ -9,7 +9,13 @@ import { APP_SECURITY_HEADERS } from "./src/lib/auth/security-headers";
  * packages, so they resolve outside node_modules and Next.js bundles them
  * anyway. A webpack external of type `import` leaves a plain dynamic import.
  */
-const SERVER_RUNTIME_PACKAGES = new Set(["@repohive/indexer", "@repohive/engine"]);
+// `@repohive/views`' `getViewsVersion()` reads `dist/views-version.json` next
+// to its own compiled file via `import.meta.url`. Bundled into a webpack chunk,
+// that URL points at the chunk's virtual location instead of the real package
+// directory, so the file is never found at run time (only surfaces once a
+// route that calls it, e.g. `/api/index`, actually runs against a production
+// build — unit tests import `@repohive/views` unbundled and never hit this).
+const SERVER_RUNTIME_PACKAGES = new Set(["@repohive/indexer", "@repohive/engine", "@repohive/views"]);
 
 const nextConfig: NextConfig = {
   output: "standalone",
