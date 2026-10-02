@@ -106,6 +106,13 @@ export interface ParseOptions {
    */
   outputPath?: string;
   /**
+   * Whether to write `graph.json`. Defaults to `true`. With `false` nothing is
+   * written (no file, no temp file), `outputPath` is ignored and absent from the
+   * result, and the graph is returned in memory on `ParseSuccess.graph` - the
+   * same document, in the same order, that would have been written.
+   */
+  writeGraph?: boolean;
+  /**
    * Directory-name segments to exclude from collection (Fix 16 — Gap 19).
    * Omitted → the collector's default list; an empty set → include everything
    * (`--include-generated`).
@@ -401,7 +408,10 @@ async function parseProjectUnguarded(
   }
 
   // 7. Serialize atomically and return success (R7, R8, R9).
-  const outputPath = resolveOutputPath(validated, options.outputPath);
+  const outputPath =
+    options.writeGraph === false
+      ? undefined
+      : resolveOutputPath(validated, options.outputPath);
   const written = await deps.serializer.write(nodes, edges, outputPath);
   if (written.ok) {
     if (crossScopeAmbiguities > 0) {
