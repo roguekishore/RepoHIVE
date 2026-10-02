@@ -143,12 +143,42 @@ function stringifyEdge(
   return `${indent}{\n${lines.join(",\n")}\n${indent}}`;
 }
 
-/** Serialize an array of already-formatted element strings. */
-function stringifyArray(elements: string[], indent: string): string {
-  if (elements.length === 0) {
-    return "[]";
+/**
+ * The text of {@link stringifyGraph} as a lazy sequence of pieces whose
+ * concatenation equals it exactly, one piece per node or edge, so a writer can
+ * stream `graph.json` without ever holding it as one string (V8 caps a string at
+ * about 512 million characters, and a very large repository's graph exceeds it).
+ *
+ * The graph MUST already be in canonical order (see
+ * {@link sortGraphCanonically}); unlike {@link stringifyGraph} this does not
+ * sort, so the serializer can sort once and reuse the result.
+ */
+export function* stringifyGraphPieces(
+  graph: RawDependencyGraph,
+): Generator<string, void, undefined> {
+  const nodeIndent = "    ";
+  const nodeInner = "      ";
+  yield `{\n  ${quote("nodes")}: `;
+  yield* arrayPieces(graph.nodes, (node) => stringifyNode(node, nodeIndent, nodeInner));
+  yield `,\n  ${quote("edges")}: `;
+  yield* arrayPieces(graph.edges, (edge) => stringifyEdge(edge, nodeIndent, nodeInner));
+  yield "\n}\n";
+}
+
+/** The pieces of one JSON array, one per element, in the file's two-space layout. */
+function* arrayPieces<T>(
+  items: readonly T[],
+  render: (item: T) => string,
+): Generator<string, void, undefined> {
+  if (items.length === 0) {
+    yield "[]";
+    return;
   }
-  return `[\n${elements.join(",\n")}\n${indent}]`;
+  yield "[\n";
+  for (let i = 0; i < items.length; i += 1) {
+    yield `${i === 0 ? "" : ",\n"}${render(items[i] as T)}`;
+  }
+  yield "\n  ]";
 }
 
 /**
@@ -162,24 +192,5 @@ function stringifyArray(elements: string[], indent: string): string {
  * returns byte-identical text (R9.6).
  */
 export function stringifyGraph(graph: RawDependencyGraph): string {
-  const sorted = sortGraphCanonically(graph);
-
-  const nodeIndent = "    ";
-  const nodeInner = "      ";
-  const nodeStrings = sorted.nodes.map((node) =>
-    stringifyNode(node, nodeIndent, nodeInner),
-  );
-  const edgeStrings = sorted.edges.map((edge) =>
-    stringifyEdge(edge, nodeIndent, nodeInner),
-  );
-
-  const nodesBlock = stringifyArray(nodeStrings, "  ");
-  const edgesBlock = stringifyArray(edgeStrings, "  ");
-
-  return (
-    "{\n" +
-    `  ${quote("nodes")}: ${nodesBlock},\n` +
-    `  ${quote("edges")}: ${edgesBlock}\n` +
-    "}\n"
-  );
+  return [...stringifyGraphPieces(sortGraphCanonically(graph))].join("");
 }
