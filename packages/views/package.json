@@ -10,13 +10,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./views-version": {
+      "types": "./dist/views-version-const.d.ts",
+      "default": "./dist/views-version-const.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/write-views-version.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
