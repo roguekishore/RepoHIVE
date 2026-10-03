@@ -17,7 +17,7 @@ export function RepoBreadcrumb({
   docsMode?: DocsMode;
 }) {
   const pathname = usePathname();
-  const match = pathname.match(/^\/repos\/([^/]+)(.*)/);
+  const match = pathname.match(/^\/repos\/([^/]+\/[^/]+)(.*)/);
   if (!match) {
     // The layout that renders this only wraps /repos/{id}. Reaching here means
     // the route moved out from under it and every page below lost its trail —

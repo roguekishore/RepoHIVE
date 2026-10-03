@@ -12,8 +12,6 @@
  * Coupling tabs fetched endpoints this app does not serve.
  */
 
-import { use } from "react";
-import useSWR from "swr";
 import { Boxes } from "lucide-react";
 import { parseAsInteger, useQueryState } from "nuqs";
 import { PageShell } from "@repohive/ui/shared/page-shell";
@@ -28,6 +26,7 @@ import {
   type FragmentedRegionView,
   type LevelFlowRowData,
 } from "@repohive/ui/repohive";
+import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 
 interface ArchitectureResponse {
   levels: LevelFlowRowData[];
@@ -54,26 +53,24 @@ interface ArchitectureResponse {
   availableLevels: Array<{ level: number; groupNodeCount: number }>;
 }
 
-async function fetchJson(url: string): Promise<ArchitectureResponse> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(body.detail ?? `Request failed (${res.status}).`);
-  }
-  return res.json() as Promise<ArchitectureResponse>;
-}
-
-export default function ArchitecturePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: repoId } = use(params);
+export default function ArchitecturePage() {
   const [level, setLevel] = useQueryState(
     "level",
     parseAsInteger.withOptions({ history: "replace", shallow: true }),
   );
-  const { data, error, isLoading } = useSWR<ArchitectureResponse>(
-    `/api/graph/${repoId}/architecture${level === null ? "" : `?level=${level}`}`,
-    fetchJson,
-    { revalidateOnFocus: false, revalidateOnReconnect: false },
+  // The default view carries the level list; a chosen level is the file at its
+  // position in that list (the snapshot publishes one view per level).
+  const base = useSnapshotJson<ArchitectureResponse>("views/architecture.json");
+  const position = level === null ? -1 : (base.data?.availableLevels.findIndex((row) => row.level === level) ?? -1);
+  const chosen = useSnapshotJson<ArchitectureResponse>(
+    position >= 0 ? `views/architecture/${position}.json` : null,
   );
+  // A `?level=` that is not one of the available levels shows the default view:
+  // the snapshot has no file for it (the removed route accepted any integer).
+  const useChosen = position >= 0;
+  const data = useChosen ? chosen.data : base.data;
+  const error = useChosen ? chosen.error : base.error;
+  const isLoading = useChosen ? chosen.isLoading : base.isLoading;
 
   return (
     <PageShell

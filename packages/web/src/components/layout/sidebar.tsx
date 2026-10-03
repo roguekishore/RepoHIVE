@@ -27,6 +27,8 @@ import { AddRepoDialog } from "@/components/repos/add-repo-dialog";
 import { VersionFooter } from "./version-footer";
 import { FeedbackButton } from "./feedback-button";
 import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import { withActiveRepo } from "@/lib/snapshot/active-repo";
+import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface SidebarProps {
   repos?: RepoResponse[];
@@ -34,14 +36,18 @@ interface SidebarProps {
   workspace?: WorkspaceResponse | null;
 }
 
-export function Sidebar({ repos = [], activeRepoId, workspace }: SidebarProps) {
+export function Sidebar({ repos: listedRepos = [], activeRepoId, workspace }: SidebarProps) {
   const isWorkspace = workspace?.is_workspace ?? false;
   const pathname = usePathname();
   const derivedActiveRepoId = React.useMemo(() => {
     if (activeRepoId) return activeRepoId;
-    const m = pathname?.match(/^\/repos\/([^/]+)/);
-    return m ? m[1] : undefined;
+    return repoIdFromPathname(pathname);
   }, [activeRepoId, pathname]);
+  // The repository in the URL is always shown, whether or not a list names it.
+  const repos = React.useMemo(
+    () => withActiveRepo(listedRepos, derivedActiveRepoId),
+    [listedRepos, derivedActiveRepoId],
+  );
   const [expandedRepos, setExpandedRepos] = React.useState<Set<string>>(
     derivedActiveRepoId ? new Set([derivedActiveRepoId]) : new Set(),
   );
@@ -301,7 +307,7 @@ export function Sidebar({ repos = [], activeRepoId, workspace }: SidebarProps) {
                       <Tooltip key={repo.id}>
                         <TooltipTrigger asChild>
                           <Link
-                            href={`/repos/${repo.id}/overview`}
+                            href={`/repos/${repo.id}/knowledge-graph`}
                             className="flex w-full items-center justify-center rounded-md p-2 text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-secondary)]"
                             aria-label={repo.name}
                           >

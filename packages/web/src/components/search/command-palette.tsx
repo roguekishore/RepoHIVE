@@ -12,6 +12,8 @@ import { getFilesIndex } from "@/lib/api/files";
 import { repoNavItems } from "@/components/layout/nav-items";
 import { pageHref } from "@/lib/utils/page-href";
 import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import { withActiveRepo } from "@/lib/snapshot/active-repo";
+import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface CommandPaletteProps {
   repos: RepoResponse[];
@@ -29,8 +31,8 @@ export function CommandPalette({ repos, workspace }: CommandPaletteProps) {
 
   // Active repo: from the URL when inside one, else the only repo.
   const activeRepo = useMemo(() => {
-    const m = pathname?.match(/^\/repos\/([^/]+)/);
-    const fromPath = m ? repos.find((r) => r.id === m[1]) : undefined;
+    const fromPathId = repoIdFromPathname(pathname);
+    const fromPath = fromPathId ? withActiveRepo(repos, fromPathId).find((r) => r.id === fromPathId) : undefined;
     return fromPath ?? (repos.length === 1 ? repos[0] : undefined);
   }, [pathname, repos]);
 
@@ -234,7 +236,7 @@ export function CommandPalette({ repos, workspace }: CommandPaletteProps) {
                 <Command.Item
                   key={repo.id}
                   value={`repo-${repo.name}`}
-                  onSelect={() => navigate(`/repos/${repo.id}/overview`)}
+                  onSelect={() => navigate(`/repos/${repo.id}/knowledge-graph`)}
                   className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)] cursor-pointer hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] data-[selected=true]:bg-[var(--color-bg-elevated)] data-[selected=true]:text-[var(--color-text-primary)]"
                 >
                   <BookOpen className="h-4 w-4" />

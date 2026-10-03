@@ -26,20 +26,22 @@ import {
   isNavItemActive,
 } from "./nav-items";
 import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import { withActiveRepo } from "@/lib/snapshot/active-repo";
+import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface MobileNavProps {
   repos?: RepoResponse[];
   workspace?: WorkspaceResponse | null;
 }
 
-export function MobileNav({ repos = [], workspace }: MobileNavProps) {
+export function MobileNav({ repos: listedRepos = [], workspace }: MobileNavProps) {
   const isWorkspace = workspace?.is_workspace ?? false;
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
   const activeRepoId = React.useMemo(() => {
-    const m = pathname?.match(/^\/repos\/([^/]+)/);
-    return m ? m[1] : undefined;
+    return repoIdFromPathname(pathname);
   }, [pathname]);
+  const repos = React.useMemo(() => withActiveRepo(listedRepos, activeRepoId), [listedRepos, activeRepoId]);
   const [expandedRepos, setExpandedRepos] = React.useState<Set<string>>(
     activeRepoId ? new Set([activeRepoId]) : new Set(),
   );

@@ -1,37 +1,30 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { needsLowercase } from "@/lib/snapshot/repo-name";
 
 /**
- * API proxy — OFF by default.
- *
- * The local RepoHIVE viewer serves `/api/*` itself through Next.js Route
- * Handlers that read the `index/` set from disk (no external backend, no
- * database). So this middleware passes requests straight through.
- *
- * It is kept as the "point at your backend" knob (protocol §3.1): set
- * `REPOWISE_PROXY_TARGET` to a backend origin (e.g. a future hosted API) to
- * rewrite `/api/*`, `/health` and `/metrics` there instead. It intentionally
- * does NOT key off `REPOWISE_API_URL` — that variable points the SSR fetch at
- * this same app, so proxying on it would rewrite our own handlers into a loop.
+ * `/repos/<owner>/<repo>/...` is canonical in
+ * lowercase, so a URL with uppercase letters in the owner or repository is
+ * redirected permanently to the lowercase one, keeping the rest of the path and
+ * the query. (This replaces the old `/api/*` proxy middleware.)
+ * Names GitHub would not allow are not touched here; the repository layout
+ * answers them with a 404.
  */
 export function middleware(request: NextRequest) {
-  const target = process.env.REPOWISE_PROXY_TARGET;
-  if (!target) {
-    return NextResponse.next();
+  const segments = request.nextUrl.pathname.split("/");
+  // ["", "repos", owner, repo, ...]
+  const owner = segments[2];
+  const repo = segments[3];
+  if (owner !== undefined && repo !== undefined && needsLowercase(owner, repo)) {
+    const target = request.nextUrl.clone();
+    segments[2] = owner.toLowerCase();
+    segments[3] = repo.toLowerCase();
+    target.pathname = segments.join("/");
+    return NextResponse.redirect(target, 308);
   }
-
-  const destination = new URL(
-    request.nextUrl.pathname + request.nextUrl.search,
-    target,
-  );
-
-  return NextResponse.rewrite(destination);
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/api/:path*',
-    '/health',
-    '/metrics'
-  ],
+  matcher: ["/repos/:owner/:repo", "/repos/:owner/:repo/:path*"],
 };
