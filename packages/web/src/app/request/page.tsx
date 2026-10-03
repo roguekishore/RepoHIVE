@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { RequestIndexForm } from "@/components/hosting/request-index-form";
+import { RequestIndexForm } from "@/features/account/request-index-form";
 
 export const metadata: Metadata = { title: "Request index" };
 

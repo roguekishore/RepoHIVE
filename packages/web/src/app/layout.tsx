@@ -4,16 +4,10 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Lora } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { TooltipProvider } from "@repohive/ui/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/theme-provider";
-import { ThemedToaster } from "@/components/layout/themed-toaster";
-import { Sidebar } from "@/components/layout/sidebar";
-import { MobileNav } from "@/components/layout/mobile-nav";
-import { CommandPalette } from "@/components/search/command-palette";
-import { ContextDrawerShell } from "@/components/layout/context-drawer-provider";
+import { MobileNav, Sidebar } from "@/components/layout/app-nav";
 import { SWRProvider } from "@/components/layout/swr-provider";
-import { UpgradeBanner } from "@/components/layout/upgrade-banner";
-import type { RepoResponse } from "@/lib/api/types";
 import "@/styles/globals.css";
 
 // Serif display face for the docs/wiki reading surfaces (--font-serif token).
@@ -28,15 +22,7 @@ export const metadata: Metadata = {
     "Hierarchical codebase indexing with recorded per-region preserve/reconstruct decisions",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // The navigation draws the repository named in the URL (see `withActiveRepo`);
-  // there is no server-side repository list to fetch. The repository list page arrives with the SQLite list.
-  const repos: RepoResponse[] = [];
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
@@ -45,49 +31,33 @@ export default function RootLayout({
     >
       <body className="bg-[var(--color-bg-root)] text-[var(--color-text-primary)] antialiased">
         <ThemeProvider>
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-[var(--color-bg-elevated)] focus:px-3 focus:py-2 focus:text-sm focus:text-[var(--color-text-primary)] focus:outline focus:outline-2 focus:outline-[var(--color-accent-primary)]"
-        >
-          Skip to content
-        </a>
-        <NuqsAdapter>
-        <SWRProvider>
-        <TooltipProvider delayDuration={300}>
-          <Suspense fallback={null}>
-            <ContextDrawerShell>
-              <div className="flex h-screen flex-col overflow-hidden">
-                <UpgradeBanner />
-                <div className="flex flex-1 overflow-hidden">
-                <Sidebar repos={repos} />
-                <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-                  <MobileNav repos={repos} />
-                  {/* A flex column, so anything a route layout stacks above
-                      the page (repo breadcrumb, reindex hint, active-job
-                      banner) is subtracted from the page's own height rather
-                      than added to it. `PageTransition` used to take `h-full`
-                      = 100% of this element, which ignored those bands: the
-                      page then overflowed by exactly their combined height and
-                      `main` scrolled. Invisible on a document page, but a
-                      full-bleed canvas pushed its bottom-anchored chrome — the
-                      graph legend, the zoom controls — below the fold, where
-                      it could not be clicked. */}
-                  <main
-                    id="main-content"
-                    className="flex flex-1 flex-col overflow-auto min-w-0"
-                  >
-                    {children}
-                  </main>
-                </div>
-                </div>
-              </div>
-              <CommandPalette repos={repos} />
-            </ContextDrawerShell>
-          </Suspense>
-        </TooltipProvider>
-        </SWRProvider>
-        </NuqsAdapter>
-        <ThemedToaster />
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-[var(--color-bg-elevated)] focus:px-3 focus:py-2 focus:text-sm focus:text-[var(--color-text-primary)] focus:outline focus:outline-2 focus:outline-[var(--color-accent-primary)]"
+          >
+            Skip to content
+          </a>
+          <NuqsAdapter>
+            <SWRProvider>
+              <TooltipProvider delayDuration={300}>
+                <Suspense fallback={null}>
+                  <div className="flex h-screen overflow-hidden">
+                    <Sidebar />
+                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                      <MobileNav />
+                      {/* A flex column, so anything a route layout stacks above the page
+                          (repo breadcrumb) is subtracted from the page's own height
+                          rather than added to it; a full-bleed canvas then keeps its
+                          bottom-anchored chrome inside the viewport. */}
+                      <main id="main-content" className="flex min-w-0 flex-1 flex-col overflow-auto">
+                        {children}
+                      </main>
+                    </div>
+                  </div>
+                </Suspense>
+              </TooltipProvider>
+            </SWRProvider>
+          </NuqsAdapter>
         </ThemeProvider>
       </body>
     </html>

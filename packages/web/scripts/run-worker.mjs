@@ -9,10 +9,10 @@ import {
 } from "@repohive/indexer";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
-import { parseAppConfig } from "../src/lib/hosting/config.ts";
-import { openAppDatabase } from "../src/lib/app-db/database.ts";
-import { APP_DB_FILENAME } from "../src/lib/app-db/schema.ts";
-import { runWorkerTick } from "../src/lib/worker/tick.ts";
+import { parseAppConfig } from "../src/server/hosting/config.ts";
+import { openAppDatabase } from "../src/server/app-db/database.ts";
+import { APP_DB_FILENAME } from "../src/server/app-db/schema.ts";
+import { runWorkerTick } from "../src/server/worker/tick.ts";
 import { join } from "node:path";
 
 const config = parseAppConfig(process.env);

@@ -12,10 +12,8 @@ The following packages in this repository are DERIVED FROM the repowise project
 and are redistributed here under the terms of the GNU Affero General Public
 License v3.0 or later. Copyright in the original work remains with its authors.
 
-    packages/types        derived from repowise packages/types
-    packages/ui           derived from repowise packages/ui
-    packages/api-client   derived from repowise packages/api-client
-    packages/web          derived from repowise packages/web
+    packages/web          derived from repowise packages/web, packages/ui and
+                          packages/types (merged into the one package)
 
     Upstream project : repowise
     Upstream URL     : https://github.com/repowise-dev/repowise
@@ -28,10 +26,12 @@ Modifications made by RepoHIVE:
     - Upstream package publication configuration removed
     - Data adapters added to consume RepoHIVE's index/*.json contract
     - Navigation restricted to the surfaces RepoHIVE's engine can populate
+    - The separate ui, types and api-client packages merged into packages/web,
+      and the surfaces RepoHIVE does not use removed
 
 All copyright notices and license headers present in the original source have
 been retained in the derived files. Where a derived file has been modified, the
 modification is confined to the change described above.
 
 RepoHIVE's own engine packages (packages/shared, packages/parser,
-packages/core, packages/cli) are original work.
+packages/core) are original work.

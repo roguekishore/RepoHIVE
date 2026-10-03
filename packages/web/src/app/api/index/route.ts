@@ -1,10 +1,10 @@
-import { resolveSession } from "@/lib/auth/accounts";
-import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/lib/auth/http";
-import { getArtifactStore, getJobLedger, getRepoLockReader } from "@/lib/hosting/clients";
-import { processIndexRequest } from "@/lib/intake/process-index-request";
-import { INTAKE_BUSY_RETRY_SECONDS } from "@/lib/intake/api-error";
-import { getJobOrchestrator } from "@/lib/orchestrator";
-import { recordIntakeMetrics } from "@/lib/telemetry/app-metrics";
+import { resolveSession } from "@/server/auth/accounts";
+import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/server/auth/http";
+import { getArtifactStore, getJobLedger, getRepoLockReader } from "@/server/hosting/clients";
+import { processIndexRequest } from "@/server/intake/process-index-request";
+import { INTAKE_BUSY_RETRY_SECONDS } from "@/server/intake/api-error";
+import { getJobOrchestrator } from "@/server/orchestrator/index";
+import { recordIntakeMetrics } from "@/server/telemetry/app-metrics";
 
 export const dynamic = "force-dynamic";
 

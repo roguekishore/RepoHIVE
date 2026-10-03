@@ -34,8 +34,8 @@ relationship from paths or package prefixes.
 
 ## Package boundaries
 
-Engine (`parser`, `core`, `shared`) must not import from ecosystem packages (`cli`, `web`, `ui`,
-`api-client`, `types`). Check this before adding an import.
+Engine (`parser`, `core`, `shared`) must not import from ecosystem packages (`web`, `views`,
+`indexer`). Check this before adding an import.
 
 The rule holds today. Engine source imports nothing from the ecosystem, and `parser` and `core` do not
 import each other.

@@ -1,0 +1,87 @@
+/**
+ * @repohive/ui/zoom: continuous-zoom knowledge-graph canvas.
+ *
+ * Public entry point. Host pages mount `<ZoomCanvas data={zoomMap} />` with the
+ * map fetched from `/api/graph/{repo_id}/zoom-map`. The renderer, camera and
+ * pure tree/fade/cull math are exported too so downstream surfaces (and tests)
+ * can reuse them. Everything except `ZoomCanvas` and `renderer`/`theme` is
+ * browser-free and unit-testable in isolation.
+ */
+
+export { ZoomCanvas } from "./ZoomCanvas";
+export type { ZoomCanvasHandle } from "./ZoomCanvas";
+
+export { ZoomRenderer } from "./renderer";
+export type { FrameStats, FlyOptions } from "./renderer";
+
+export { easeInOutCubic, flyDuration, interpolateCamera } from "./camera-anim";
+export { focusChain, focusId } from "./focus-path";
+
+export { buildScene, childNodes } from "./scene";
+export type { ZoomScene } from "./scene";
+
+export {
+  CO_CHANGES,
+  describeCap,
+  describeRelations,
+  indexRelationsByNode,
+  summarizeRelations,
+} from "./relation-summary";
+
+export { hasRole, healthBandLabel, nodeRoles } from "./node-signals";
+
+export { drawScene, pickNode } from "./draw-tree";
+export type { DrawStats } from "./draw-tree";
+
+export { resolveZoomPalette } from "./theme";
+export type { ZoomPalette } from "./theme";
+
+export {
+  type Camera,
+  type Viewport,
+  type Rect,
+  clampCamera,
+  clampScale,
+  fitRoot,
+  frameRect,
+  panByScreen,
+  screenToWorld,
+  worldRectToScreen,
+  worldToScreen,
+  zoomAbout,
+} from "./camera";
+
+export { composeRect, computeWorldRects, perimeterPoint, rectContains } from "./geometry";
+
+export { gridDimensions, packLayout } from "./layout";
+export type { LayoutChild, PackLayoutOptions } from "./layout";
+
+export {
+  controlPoints,
+  facingSide,
+  routeEdges,
+  slotAnchor,
+} from "./edges";
+export type {
+  EdgeInput,
+  EdgeRoute,
+} from "./edges";
+
+export {
+  expandThresholds,
+  fadeAlphas,
+  leafCapScale,
+  transitionT,
+} from "./zoom-transition";
+
+export { isOnScreen, selectChildren } from "./cull";
+
+export type {
+  ZoomKind,
+  ZoomMetrics,
+  ZoomNode,
+  ZoomRelation,
+  ZoomMap,
+} from "./types";
+export { ALERT_MAX, HEALTHY_MIN, HEALTH_BAND_LABEL, bandForScore, healthBandTextColor } from "./health-band";
+export type { HealthBand } from "./health-band";

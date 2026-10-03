@@ -101,22 +101,18 @@ when the scope is empty so single-root ids are unchanged. This is what makes mul
 ```
 packages/
   shared/       JSON-contract types (the stable seam), chunked-output primitives
-  types/        shared TS types for the viewer/API surface
   parser/       Tree-Sitter Java → graph.json
   core/         grouping algorithm + blast radius
   engine/       parse then group in one call (`indexProject`), progress, snapshot-id inputs
   views/        the viewer's response bodies as pure functions of a parsed index (ecosystem)
   indexer/      the hosted indexing job: pre-check, tarball fetch, run, views, publish (ecosystem)
-  cli/          EMPTY (.gitkeep only), the packaged CLI is not built
-  api-client/   framework-free client for the REST surface
-  ui/           shared UI components
-  web/          Next.js 15 viewer + its route handlers
+  web/          Next.js 15 app: the six repository views, accounts, index requests, the worker (ecosystem)
 ```
 
-`shared` and `types` are leaf dependencies. `parser` and `core` depend only on `shared`; `engine` depends on
-those three. Nothing in `shared`, `parser`, `core` or `engine` may import from `web`, `ui`, `api-client`,
-`cli`, `types` or `mcp`, and none holds AWS, network or compression code (`engine/src/boundary.test.ts`
-scans for it).
+`shared` is the leaf dependency. `parser` and `core` depend only on `shared`; `engine` depends on
+those three. Nothing in `shared`, `parser`, `core` or `engine` may import from `web`, `views`, `indexer`
+or any later ecosystem package (a CLI, an MCP server), and none holds AWS, network or compression code
+(`engine/src/boundary.test.ts` scans for it).
 
 **Orchestration lives in `engine`.** `indexProject` runs `parseProject` then `groupGraphToIndexAsync`, writes
 both artifacts under one output root, and returns the grouping output in memory. The parser and core still
@@ -136,35 +132,40 @@ Published objects have URL-shaped keys under `s/<snapshotId>/` (public, immutabl
 `engineVersion`, the views version and `configDigest`. The views version is a build-time hash of the `views`
 `dist/`, written by `packages/views/scripts/write-views-version.mjs` after `tsc -b`.
 
-## Viewer surface
+## Web app (`packages/web`)
 
-`packages/web` serves its own Next.js route handlers over the pre-computed `index/`:
+One Next.js 15 package holds the viewer, the account and index-request routes, and the background worker. The
+UI components and types that used to be separate packages live inside it.
 
 ```
-/api/workspace
-/api/repos
-/api/repos/[id]
-/api/adaptivity
-/api/graph/[id]
-/api/graph/[id]/architecture
-/api/graph/[id]/blast-radius
-/api/graph/[id]/hierarchy-scale
-/api/graph/[id]/region-decisions
-/api/graph/[id]/region-detail
-/api/graph/[id]/zoom-map
+src/
+  app/          routes only: pages and route handlers
+  components/   ui/ (Radix primitives), layout/ (navigation, theme), shared/ (page shell, loading state, table)
+  features/     one folder per surface; see below
+  lib/          small client helpers: cn, theme tokens, site origin
+  server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting (config, clients),
+                telemetry, health, repositories, views (adapter tests)
+  styles/       globals.css (design tokens) and the token drift test
 ```
 
-These are the only eleven route handlers under `packages/web/src/app/api`. The view logic they call lives in
-`packages/web/src/lib/repohive/` (adapters plus `index-loader.ts` over core's `parseIndex`), with some of it inline
-in the route files.
+`features/`: `structure-map` (the knowledge-graph page's canvas engine, panels and blast-radius worker),
+`hierarchy`, `decisions` (the shared decision model and marks, with the audit page's parts), `architecture`,
+`adaptivity`, `flat-baseline` (a purpose-built Sigma view of `views/graph.json`), `repository` (URL parsing, the
+snapshot session, breadcrumb, repository list) and `account` (sign-in and sign-up, index request, quota).
 
-These routes are **unauthenticated and intended for localhost only.** No route file contains an auth,
-session, or token check. They expose indexed source structure. Any change that binds them to a
-non-loopback interface, or any deployment beyond a developer's own machine, requires authentication
-first. Treat that as a blocking prerequisite, not a follow-up.
+Pages: `/`, `/request`, `/quota`, `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`, `/jobs/[jobId]`, and the six
+repository views under `/repos/[owner]/[repo]/`: `knowledge-graph` (the structure map), `hierarchy`,
+`decision-audit`, `architecture`, `flat-baseline`, `adaptivity`. The middleware redirects `/repos/[owner]/[repo]`
+to the structure map and lowercases the repository in the URL.
 
-Rendering is level-at-a-time semantic zoom plus a flat baseline view for comparison, served from
-`packages/web/src/app/repos/[id]/flat-baseline`. Layout is computed client-side.
+Route handlers: `/api/auth/{session,sign-in,sign-up,sign-out}`, `/api/index`, `/api/jobs/[jobId]` and
+`/api/jobs/[jobId]/events`, `/api/quota`, `/healthz`, and `/r/*` and `/s/*`, which serve published snapshot objects
+from the local store in local mode (CloudFront serves them from the artifact bucket when hosted).
+
+The repository views do not read `index/`. They resolve one snapshot per page session from
+`/r/github.com/<owner>/<repo>/latest.json` and then fetch `/s/<snapshotId>/views/*.json`, which `packages/views`
+built at index time. Snapshot objects under `s/` are public and immutable by design. Layout is computed
+client-side; the blast-radius traversal runs in a Web Worker over `views/blast-radius.json`.
 
 Two long-standing descriptions of the renderer are recorded here but **not confirmed against the
 current code**: that the per-level node budget is about 20, and that client-side layout is
@@ -174,12 +175,12 @@ relying on them.
 ## Engine / ecosystem boundary
 
 - **Engine:** `parser`, `core`, `shared` are the parse/group/blast-radius logic.
-- **Ecosystem:** `cli`, `web`, `ui`, `api-client`, `views`, `indexer`, and any future MCP server or editor extension.
+- **Ecosystem:** `web`, `views`, `indexer`, and any future CLI, MCP server or editor extension.
 
 Ecosystem code may depend on engine code. **Engine code may never depend on ecosystem code.** Every
 change belongs clearly on one side of this line.
 
-This rule currently holds. A grep for imports of `@repohive/web`, `ui`, `api-client`, `cli`, or `types`
+This rule currently holds. A grep for imports of `@repohive/web`, `views` or `indexer`
 across `packages/{parser,core,shared}/src` returns nothing, and neither `parser` nor `core` imports the
 other. The only cross-package imports in engine source are 51 references to `@repohive/shared`.
 
@@ -200,8 +201,8 @@ README.md
 .editorconfig
 ```
 
-Vendored upstream code is not a separate top-level directory. It is merged into `packages/types`,
-`packages/ui`, `packages/api-client`, and `packages/web`, with per-package attribution in `NOTICE`.
+Code derived from upstream (repowise) is not a separate top-level directory. It lives in `packages/web`, with
+attribution in `NOTICE`.
 
 Deliberately absent from the public repository, all git-ignored: `context/` (project state, decision
 history, and registers; see below), `tooling/`, `archive/`, `node_modules/`, `dist/`,
@@ -246,7 +247,7 @@ The ledger table is described twice and a test keeps the two equal: `deploy/terr
 
 The same image also holds the control handler (`packages/indexer/src/control.ts`, `dist/control.handler`), which the state machine calls for ledger operations (`acquireSlot`, `releaseSlot`, `inspect`, `failIfOpen`) so the definition never duplicates the table layout. It reads only `REPOHIVE_LEDGER`. Taking the large slot is re-entrant for the job that already holds it and renews its lease in every ledger implementation (shared contract test).
 
-The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) routes S and M to the Lambda function and L and XL to Fargate, takes the large slot through the control function, and decides every outcome from the ledger rather than from the runtime's exit status: after each run it calls `inspect`, re-routes a `retier` (twice at most), runs a job the runtime never started once more, and calls `failIfOpen` for anything not terminal. The app starts executions named after the job id (`packages/web/src/lib/orchestrator/sfn.ts`), and an EventBridge rule on executions ending FAILED, TIMED_OUT or ABORTED calls `failIfOpen` with that name. `packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
+The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) routes S and M to the Lambda function and L and XL to Fargate, takes the large slot through the control function, and decides every outcome from the ledger rather than from the runtime's exit status: after each run it calls `inspect`, re-routes a `retier` (twice at most), runs a job the runtime never started once more, and calls `failIfOpen` for anything not terminal. The app starts executions named after the job id (`packages/web/src/server/orchestrator/sfn.ts`), and an EventBridge rule on executions ending FAILED, TIMED_OUT or ABORTED calls `failIfOpen` with that name. `packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
 
 The app box (`deploy/terraform/main/box.tf`, `deploy/box/`) is a t4g.small running three systemd services behind CloudFront: Caddy (TLS for the origin domain by HTTP-01, 403 without the origin secret header, the right-most `X-Forwarded-For` address as `X-RepoHIVE-Client-IP`), the Next.js standalone server on `127.0.0.1:3000`, and the background worker. SQLite lives on a separate encrypted volume at `/var/lib/repohive`. Secrets never enter user data: `repohive-env` renders `/run/repohive/*.env` from `/etc/repohive/box.env` and the SSM parameters at start. A release is one tarball built in a linux/arm64 container (`Dockerfile.release`): the standalone server, the worker's `scripts/` and `src/`, production `node_modules` with the workspace packages the server loads at run time copied in as real directories (`next.config.ts` leaves them out of the bundle; `deploy/box/verify-app-tree.sh` checks this), the Node binary, Caddy built by `xcaddy`, and the units, agent configuration and scripts. `repohive-activate` unpacks it, switches `/opt/repohive/current`, restarts the units, polls `/healthz` and switches back if it does not answer. Cloud-init runs once; everything else ships with the next release.
 

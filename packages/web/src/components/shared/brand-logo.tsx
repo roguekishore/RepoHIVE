@@ -1,0 +1,40 @@
+import Image from "next/image";
+import { cn } from "@/lib/cn";
+
+/**
+ * Theme-aware brand mark. The canonical logo has light strokes (drawn for
+ * dark surfaces); light mode swaps in the plum-stroke variant so the owl
+ * stays visible on warm paper. Both render so the theme flip is instant —
+ * visibility is CSS-only via the `.dark` class.
+ */
+export function BrandLogo({
+  size = 28,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  const shared = cn(
+    "shrink-0 drop-shadow-[0_0_8px_rgba(245,149,32,0.3)]",
+    className,
+  );
+  return (
+    <>
+      <Image
+        src="/logo-on-light.png"
+        alt="RepoHIVE"
+        width={size}
+        height={size}
+        className={cn(shared, "dark:hidden")}
+      />
+      <Image
+        src="/logo-on-dark.png"
+        alt=""
+        aria-hidden
+        width={size}
+        height={size}
+        className={cn(shared, "hidden dark:block")}
+      />
+    </>
+  );
+}

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { getClientIp } from "@/lib/auth/client-ip";
-import { jsonResponse } from "@/lib/auth/http";
-import { getAppConfig } from "@/lib/hosting/config";
-import { getJobLedger } from "@/lib/hosting/clients";
-import { createJobEventsStream } from "@/lib/jobs/job-events-stream";
-import { tryRegisterJobEventStream } from "@/lib/jobs/stream-registry";
+import { getClientIp } from "@/server/auth/client-ip";
+import { jsonResponse } from "@/server/auth/http";
+import { getAppConfig } from "@/server/hosting/config";
+import { getJobLedger } from "@/server/hosting/clients";
+import { createJobEventsStream } from "@/server/jobs/job-events-stream";
+import { tryRegisterJobEventStream } from "@/server/jobs/stream-registry";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
-import { signOut } from "@/lib/auth/accounts";
-import { authContext, guardStateChanging, jsonResponse } from "@/lib/auth/http";
-import { buildSessionClearCookie } from "@/lib/auth/session-cookie";
+import { signOut } from "@/server/auth/accounts";
+import { authContext, guardStateChanging, jsonResponse } from "@/server/auth/http";
+import { buildSessionClearCookie } from "@/server/auth/session-cookie";
 
 export const dynamic = "force-dynamic";
 

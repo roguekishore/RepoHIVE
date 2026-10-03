@@ -10,14 +10,11 @@
  */
 
 import { Network } from "lucide-react";
-import { PageShell } from "@repohive/ui/shared/page-shell";
+import { PageShell } from "@/components/shared/page-shell";
 import { parseAsString, useQueryState } from "nuqs";
-import {
-  DecisionLegend,
-  HierarchySunburst,
-  type SunburstArc,
-} from "@repohive/ui/repohive";
-import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
+import { DecisionLegend } from "@/features/decisions/decision-mark";
+import { HierarchySunburst, type SunburstArc } from "@/features/hierarchy/hierarchy-sunburst";
+import { useSnapshotJson } from "@/features/repository/snapshot-context";
 
 interface HierarchyScaleResponse {
   arcs: SunburstArc[];

@@ -4,18 +4,18 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
 
 ## Runtime and language
 
-- **TypeScript 5.9.3** pinned in the root `devDependencies`. Workspaces range independently
-  (`^5.6.0` in `api-client`, `types`, `ui`; `^5.7` in `web`), so the root pin does not govern them.
+- **TypeScript 5.9.3** pinned in the root `devDependencies`. `web` ranges
+  independently (`^5.7`), so the root pin does not govern it.
 - **Node.js**, developed on Node 24 (`runtime-moves-to-node-24`). The root manifest declares `"engines": { "node": ">=20" }`
   and `.nvmrc` pins `24`. Both are advisory rather than enforcement: npm only warns on an engines
   mismatch (no `engine-strict` is set), and `.nvmrc` binds only tools that read it. `packages/web`
   additionally declares its own `engines` (`>=20.0.0`). The engine test script no longer depends on
   the Node version or the shell; see below.
-- ESM. `"type": "module"` is set in `shared`, `parser`, `core`, `types`, `api-client`, and `ui`. It is
+- ESM. `"type": "module"` is set in `shared`, `parser` and `core`. It is
   **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
 - Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. The upstream
-  UI code that remains in `packages/ui`, `packages/web`, `packages/types` and `packages/api-client` is AGPL.
+  UI code that remains in `packages/web` is AGPL.
   Upstream attribution in `NOTICE`. Any new dependency must be licence-compatible.
 
 ## Engine dependencies
@@ -59,26 +59,23 @@ Exact pins in `packages/indexer/package.json`.
 
 In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
 (hosted store, ledger and Step Functions orchestrator); `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
-(`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `framer-motion ^11.11.0`, `cmdk ^1.0.0`, `lucide-react`, `sonner ^2.0.7`, `next-themes ^0.4.6`, `geist ^1.3.0`.
-Tests: **Vitest** (`^4.1.5` across every workspace that tests with it).
-
-`packages/ui` carries its own, larger dependency set (Radix primitives, `elkjs`, `sigma`, `mermaid`,
-`d3-hierarchy`, and others). Several packages appear in both trees at **different majors**:
-`lucide-react` `^0.460.0` versus `^1.7.0`; `tailwind-merge` `^2.5.4` versus `^3.5.0`. `@types/node` is
-`20.19.9` at the root, `^22` in `web`, `^26.1.0` in `api-client`. Nothing reconciles these. Assume a
-component moved between packages may not behave identically.
+(`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `lucide-react ^1.7.0`, `next-themes ^0.4.6`, `geist ^1.3.0`,
+the Radix primitives the UI uses (`react-dialog`, `react-slot`, `react-tooltip`), `class-variance-authority`,
+`tailwind-merge ^3.5.0`, `@tanstack/react-virtual`, and for the flat baseline `sigma ^3.0.3`, `graphology ^0.26.0`
+and `graphology-layout-forceatlas2`.
+Tests: **Vitest** (`^4.1.5`, in two projects: `server` on Node for `src/server` and the middleware, `client` on jsdom
+for components, features, lib and styles) with Testing Library. `@types/node` is `20.19.9` at the root and `^22` in `web`.
 
 The root also carries `shadcn ^4.12.0` in `devDependencies` with a root `components.json`.
 
 ## Tool choices with history
 
-**Next.js stays for `packages/web`.** `packages/ui`, `packages/types` and `packages/api-client`
-contain **zero** `next/*` imports, and `ui` peer-depends on `next-themes`, not on `next`. Nothing in the
-shared packages forces Next.js, so treat the choice as one to revisit deliberately.
+**Next.js stays for `packages/web`.** Most of `components/` and `features/` import nothing from `next/*`, so the
+choice is not forced by the UI code; treat it as one to revisit deliberately.
 
 **MySQL is not used.** Removed as the wrong fit for graph data, and absent from every manifest today.
 
-**React Flow is not used.** `@xyflow/react` was removed from `packages/ui` together with the `c4` and
+**React Flow is not used.** `@xyflow/react` was removed together with the `c4` and
 `workspace` surfaces that were its only importers. The viewer's own canvas lays out deterministically and
 stays off React Flow.
 
@@ -86,7 +83,7 @@ stays off React Flow.
 `vite-plugin-singlefile` to inline all JS and CSS into one `.html`. This is an *addition* alongside
 Next.js, not a replacement: `packages/web` stays on Next.js. Recorded as a decision, **not yet as repo
 state**: neither `vite` nor `vite-plugin-singlefile` appears in any manifest. (`@vitejs/plugin-react
-^4.3.0` sits in `ui` devDependencies for Vitest, which is a different thing.) The plugin version and its
+^4.3.0` sits in `web` devDependencies for Vitest, which is a different thing.) The plugin version and its
 Vite compatibility range were not verifiable from this repository. An earlier blanket "do not
 reintroduce Vite" line here was aimed at protecting the viewer app and wrongly forbade this.
 
@@ -179,7 +176,7 @@ Run from the repo root.
 **The root `typecheck` script is not a no-emit check.** It is
 the same `tsc -b ...` followed by the same views-version script, byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per package, under two
 different names: `typecheck` (`tsc --noEmit`) in `shared`, `parser`, and `core`, but `type-check` in
-`api-client`, `types`, `ui`, and `web`. There is no root script that runs the second group.
+`web`. There is no root script that runs it.
 
 ### The engine test script runs an explicit launcher
 
@@ -203,8 +200,7 @@ measured-versus-reasoned status per Node version.
 
 `npm run parse` resolves relative paths against `INIT_CWD` (`packages/parser/src/parse-cli.ts:59`),
 because npm's `--workspace` indirection changes the working directory. It is a convenience wrapper
-around the parser's CLI entry point, not the packaged CLI, which does not exist:
-`packages/cli` contains only a `.gitkeep`.
+around the parser's CLI entry point, not the packaged CLI, which does not exist.
 
 ## Storage
 

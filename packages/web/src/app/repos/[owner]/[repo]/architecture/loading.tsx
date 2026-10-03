@@ -1,5 +1,5 @@
-import { OwlLoader } from "@repohive/ui/shared/owl-loader";
+import { PageLoading } from "@/components/shared/page-loading";
 
 export default function Loading() {
-  return <OwlLoader label="Loading architecture…" />;
+  return <PageLoading label="Loading architecture…" />;
 }
