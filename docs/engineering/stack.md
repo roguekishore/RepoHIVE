@@ -14,8 +14,9 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
 - ESM. `"type": "module"` is set in `shared`, `parser`, `core`, `types`, `api-client`, and `ui`. It is
   **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
-- Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. The vendored upstream
-  UI packages are AGPL. Upstream attribution in `NOTICE`. Any new dependency must be licence-compatible.
+- Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. The upstream
+  UI code that remains in `packages/ui`, `packages/web`, `packages/types` and `packages/api-client` is AGPL.
+  Upstream attribution in `NOTICE`. Any new dependency must be licence-compatible.
 
 ## Engine dependencies
 
@@ -58,13 +59,11 @@ Exact pins in `packages/indexer/package.json`.
 
 In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
 (hosted store, ledger and Step Functions orchestrator); `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
-(`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `framer-motion ^11.11.0`, `recharts`,
-`shiki`, `cmdk ^1.0.0`, `lucide-react`, `sonner ^2.0.7`, `next-themes ^0.4.6`, `geist ^1.3.0`.
+(`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `framer-motion ^11.11.0`, `cmdk ^1.0.0`, `lucide-react`, `sonner ^2.0.7`, `next-themes ^0.4.6`, `geist ^1.3.0`.
 Tests: **Vitest** (`^4.1.5` across every workspace that tests with it).
 
 `packages/ui` carries its own, larger dependency set (Radix primitives, `elkjs`, `sigma`, `mermaid`,
-`d3-*`, `zustand`, and others). Several packages appear in both trees at **different majors**:
-`recharts` `^2.13.0` in `web` versus `^3.8.1` in `ui`; `shiki` `^1.22.0` versus `^4.0.0`;
+`d3-hierarchy`, and others). Several packages appear in both trees at **different majors**:
 `lucide-react` `^0.460.0` versus `^1.7.0`; `tailwind-merge` `^2.5.4` versus `^3.5.0`. `@types/node` is
 `20.19.9` at the root, `^22` in `web`, `^26.1.0` in `api-client`. Nothing reconciles these. Assume a
 component moved between packages may not behave identically.
@@ -73,21 +72,15 @@ The root also carries `shadcn ^4.12.0` in `devDependencies` with a root `compone
 
 ## Tool choices with history
 
-**Next.js stays for `packages/web`.** An earlier version of this file justified that by saying the
-vendored packages depend on Next.js. That reason does not hold: `packages/ui`, `packages/types`, and
-`packages/api-client` contain **zero** `next/*` imports, and `ui` peer-depends on `next-themes`, not on
-`next`. The decision itself may still be right, but treat it as a choice to revisit deliberately rather
-than as a constraint imposed by the vendored code.
+**Next.js stays for `packages/web`.** `packages/ui`, `packages/types` and `packages/api-client`
+contain **zero** `next/*` imports, and `ui` peer-depends on `next-themes`, not on `next`. Nothing in the
+shared packages forces Next.js, so treat the choice as one to revisit deliberately.
 
 **MySQL is not used.** Removed as the wrong fit for graph data, and absent from every manifest today.
 
-**React Flow is a live dependency, narrowly scoped.** `@xyflow/react ^12.10.2` is a real dependency of
-`packages/ui`, imported by 28 files under `packages/ui/src/c4/`. It is **not** used by the graph canvas
-(`packages/ui/src/graph` has zero `@xyflow/react` imports) and **not** used by `packages/web` (zero
-imports there; the C4 surface is reached through the `@repohive/ui/c4` entry point). The original intent
-of listing React Flow as "do not reintroduce" was to protect the viewer's own canvas, which lays out
-deterministically. That protection still stands for the graph canvas. Repo-wide, React Flow is present
-and in use.
+**React Flow is not used.** `@xyflow/react` was removed from `packages/ui` together with the `c4` and
+`workspace` surfaces that were its only importers. The viewer's own canvas lays out deterministically and
+stays off React Flow.
 
 **Vite is approved for the CLI's single-file viewer artifact** (owner ruling, 2026-08-23), using
 `vite-plugin-singlefile` to inline all JS and CSS into one `.html`. This is an *addition* alongside
