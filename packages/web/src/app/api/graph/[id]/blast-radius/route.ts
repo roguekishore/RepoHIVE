@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRegistryRepo, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex, describeError } from "@/lib/repohive/index-loader";
-import type { Hierarchy } from "@/lib/repohive/index-loader";
+import { computeBlastRadius } from "@repohive/views";
 
 /**
  * `GET /api/graph/{id}/blast-radius?node=<id>` — the impacted set for the E6
@@ -17,25 +17,6 @@ import type { Hierarchy } from "@/lib/repohive/index-loader";
  * rather than empty. Blast radius is static reachability and may under-count
  * dynamic dependencies (reflection, DI) — an honest, documented caveat.
  */
-
-/** Descendant graph-leaf ids (file/class/function) under `startId`, inclusive. */
-function subtreeLeafSeeds(hierarchy: Hierarchy, startId: string): string[] {
-  const seeds: string[] = [];
-  const stack = [startId];
-  const seen = new Set<string>();
-  while (stack.length > 0) {
-    const id = stack.pop()!;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const node = hierarchy.nodes.get(id);
-    if (!node) continue;
-    if (node.kind === "file" || node.kind === "class" || node.kind === "function") {
-      seeds.push(id);
-    }
-    for (const childId of node.childIds) stack.push(childId);
-  }
-  return seeds;
-}
 
 export async function GET(
   request: Request,
@@ -75,43 +56,5 @@ export async function GET(
     );
   }
 
-  // Reverse adjacency (target -> its dependents), built once.
-  const dependentsOf = new Map<string, string[]>();
-  for (const edge of hierarchy.leafEdges) {
-    const list = dependentsOf.get(edge.target);
-    if (list) list.push(edge.source);
-    else dependentsOf.set(edge.target, [edge.source]);
-  }
-
-  // Multi-source reverse BFS from the selected subtree's graph leaves.
-  const seeds = subtreeLeafSeeds(hierarchy, nodeId);
-  const impacted = new Set<string>(seeds);
-  const queue = [...seeds];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const dependent of dependentsOf.get(current) ?? []) {
-      if (!impacted.has(dependent)) {
-        impacted.add(dependent);
-        queue.push(dependent);
-      }
-    }
-  }
-
-  // Roll each impacted graph node up to its map-visible ancestors (the file it
-  // lives in and every enclosing group), so a card lights up at any zoom level.
-  const highlight = new Set<string>();
-  for (const impactedId of impacted) {
-    let node = hierarchy.nodes.get(impactedId);
-    while (node) {
-      if (node.kind === "file" || node.kind === "group") highlight.add(node.id);
-      if (node.parentId === null) break;
-      node = hierarchy.nodes.get(node.parentId);
-    }
-  }
-
-  return NextResponse.json({
-    node: nodeId,
-    count: highlight.size,
-    ids: [...highlight].sort(),
-  });
+  return NextResponse.json(computeBlastRadius(hierarchy, nodeId));
 }

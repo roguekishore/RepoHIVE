@@ -13,8 +13,8 @@
  */
 
 import type { Hierarchy, HierarchyNode, Metadata, RegionDecision } from "@repohive/core";
-import type { MorphCell, MorphEdge, MorphFile } from "@repohive/ui/repohive";
-import { fileSimpleName } from "./zoom-labels";
+import type { MorphCell, MorphEdge, MorphFile } from "./ui-types.js";
+import { fileSimpleName } from "./zoom-labels.js";
 
 /** Drop a Region identifier's scheme prefix (`pkg:com.example` → `com.example`). */
 export function stripRegionScheme(regionId: string): string {

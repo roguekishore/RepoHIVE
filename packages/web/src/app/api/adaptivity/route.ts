@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { indexPresent, listRegistryRepos, resolveIndexDir } from "@/lib/repohive/repo-registry";
 import { loadIndex } from "@/lib/repohive/index-loader";
-import { adaptAdaptivity, type AdaptivityInput } from "@/lib/repohive/adaptivity-adapter";
+import { buildAdaptivityView, countFiles, type AdaptivityInput } from "@repohive/views";
 
 /**
  * `GET /api/adaptivity` — the cross-repository comparison.
@@ -25,18 +25,13 @@ export async function GET() {
       skipped.push(entry.id);
       continue;
     }
-    let files = 0;
-    for (const node of result.value.hierarchy.nodes.values()) {
-      if (node.kind === "file") files += 1;
-    }
     inputs.push({
       id: entry.id,
       name: entry.name,
       metadata: result.value.metadata,
-      files,
+      files: countFiles(result.value.hierarchy),
     });
   }
 
-  const comparison = adaptAdaptivity(inputs);
-  return NextResponse.json({ ...comparison, skipped: skipped.sort() });
+  return NextResponse.json(buildAdaptivityView(inputs, skipped));
 }

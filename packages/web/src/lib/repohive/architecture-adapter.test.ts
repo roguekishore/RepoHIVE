@@ -6,7 +6,7 @@ import {
   adaptGroupDsm,
   adaptLevelFlow,
   chooseDsmLevel,
-} from "./architecture-adapter";
+} from "@repohive/views";
 
 /**
  * Two regions, each split into two groups at level 2, plus a region-less
