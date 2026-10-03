@@ -48,10 +48,11 @@ WASM artifacts are resolved from `node_modules` at runtime by `resolveGrammarPat
 |---------|---------|------|
 | `@aws-sdk/client-dynamodb` | `3.1144.0` | DynamoDB `JobLedger` (low-level client, hand-written attribute maps) |
 | `tar-stream` | `3.2.1` | MIT; streams the repository archive (`tarball.ts`); ships its own types, so `@types/tar-stream` is not used |
-| `aws-sdk-client-mock` | `4.1.0` | dev only; reserved for SDK client tests in later phases |
+| `@aws-sdk/client-s3` | `3.1144.0` | S3 `ArtifactStore` (`artifact-store-s3.ts`) |
+| `@types/aws-lambda` | `8.10.164` | dev only; Lambda handler types |
+| `aws-sdk-client-mock` | `4.1.0` | dev only; mocks the S3 client in `artifact-store.test.ts` (the DynamoDB ledger uses a hand-written fake) |
 
-Exact pins in `packages/indexer/package.json`. More indexer dependencies (S3, handler types) land in later
-indexer phases.
+Exact pins in `packages/indexer/package.json`.
 
 ## Viewer dependencies
 
