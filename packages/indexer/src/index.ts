@@ -75,3 +75,17 @@ export {
   prepareObjects,
 } from "./compression.js";
 export type { PreparedObject } from "./compression.js";
+// Tier caps, the archive reader and its two fetchers, the pre-check.
+export { MAX_JAVA_BYTES, TIER_MAX_FILES, TIER_ORDER, smallestTierFor, smallestTierForCount } from "./tiers.js";
+export { DEFAULT_FETCH_CAPS, readTarGz } from "./tarball.js";
+export { createLocalSourceFetcher } from "./source-fetcher-local.js";
+export { createGithubSourceFetcher } from "./source-fetcher-github.js";
+export type { GithubSourceFetcherOptions } from "./source-fetcher-github.js";
+export { githubHeaders, isCommitSha, repoApiUrl, tarballUrl } from "./github.js";
+export type { FetchFunction } from "./github.js";
+export { hostedConfigDigest, hostedEngineOptions } from "./hosted-options.js";
+export { parseRepositoryReference, precheck } from "./precheck.js";
+export type { PrecheckAccepted, PrecheckDeps, PrecheckReason, PrecheckRejection, PrecheckResult } from "./precheck.js";
+// Local artifact stores.
+export { createMemoryArtifactStore } from "./artifact-store-memory.js";
+export { createLocalArtifactStore } from "./artifact-store-local.js";
