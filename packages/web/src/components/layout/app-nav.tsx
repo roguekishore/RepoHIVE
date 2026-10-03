@@ -10,6 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/cn";
 import { repoIdFromPathname } from "@/features/repository/repo-name";
 import { BrandLogo } from "@/components/shared/brand-logo";
+import { AccountPanel } from "@/features/account/account-panel";
 import { GLOBAL_NAV, isNavItemActive, repoNavItems, type NavItem } from "./nav-items";
 
 function NavLink({ item, pathname, small }: { item: NavItem; pathname: string; small?: boolean }) {
@@ -21,11 +22,17 @@ function NavLink({ item, pathname, small }: { item: NavItem; pathname: string; s
         "flex items-center gap-2.5 rounded-lg px-2 transition-colors",
         small ? "py-1.5 text-[13px]" : "py-2 text-sm",
         isNavItemActive(item, pathname)
-          ? "bg-[var(--color-accent-muted)] text-[var(--color-accent-primary)]"
+          ? "bg-[var(--color-bg-elevated)] font-medium text-[var(--color-text-primary)]"
           : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)]",
       )}
     >
-      <Icon className={cn("shrink-0", small ? "h-4 w-4" : "h-[18px] w-[18px]")} />
+      <Icon
+        className={cn(
+          "shrink-0",
+          small ? "h-4 w-4" : "h-[18px] w-[18px]",
+          isNavItemActive(item, pathname) && "text-[var(--color-accent-primary)]",
+        )}
+      />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -43,14 +50,28 @@ function NavList({ pathname }: { pathname: string }) {
       </nav>
       {repoId !== undefined && (
         <nav aria-label={repoId} className="space-y-0.5 border-t border-[var(--color-border-default)] pt-4">
-          <p className="mb-2 truncate px-2 text-xs font-medium tracking-wider text-[var(--color-text-tertiary)]">
-            {repoId}
+          <p className="px-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            Repository
+          </p>
+          <p className="mb-2 flex items-center gap-2 truncate px-2 text-sm font-medium text-[var(--color-text-primary)]">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent-fill)]" />
+            <span className="truncate">{repoId}</span>
           </p>
           {repoNavItems(repoId).map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} small />
           ))}
         </nav>
       )}
+    </div>
+  );
+}
+
+/** Theme toggle, then the account block beneath it. */
+function SidebarFooter() {
+  return (
+    <div className="space-y-3 border-t border-[var(--color-border-default)] px-4 py-3">
+      <ThemeToggle className="w-full justify-between" />
+      <AccountPanel />
     </div>
   );
 }
@@ -66,9 +87,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto">
         <NavList pathname={pathname} />
       </div>
-      <div className="border-t border-[var(--color-border-default)] px-4 py-3">
-        <ThemeToggle className="w-full justify-between" />
-      </div>
+      <SidebarFooter />
     </aside>
   );
 }
@@ -98,9 +117,7 @@ export function MobileNav() {
           <div className="flex-1 overflow-y-auto">
             <NavList pathname={pathname} />
           </div>
-          <div className="border-t border-[var(--color-border-default)] px-4 py-3">
-            <ThemeToggle className="w-full justify-between" />
-          </div>
+          <SidebarFooter />
         </SheetContent>
       </Sheet>
     </div>

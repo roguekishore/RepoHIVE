@@ -31,7 +31,7 @@ src/
                 adaptivity     preserve/reconstruct comparison
                 flat-baseline  the whole repository as one unstructured graph
                 repository     URL parsing, snapshot session, breadcrumb, repository list
-                account        sign-in and sign-up, index request, quota
+                account        sign-in and sign-up, sidebar account panel, index request, quota dialog
   lib/          cn, theme tokens, site origin
   server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting, telemetry, health
   styles/       globals.css
@@ -46,9 +46,9 @@ middleware, and `client` (jsdom) for everything else.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Indexed repositories |
-| `/request`, `/jobs/[jobId]`, `/quota` | Request an index, follow its job, see quota |
-| `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` | Accounts |
+| `/` | Dashboard: request an index, indexed repositories as cards |
+| `/jobs/[jobId]` | Follow an index job |
+| `/auth/sign-in`, `/auth/sign-up` | Standalone account pages (no sidebar); quota and sign-out live in the sidebar |
 | `/repos/[owner]/[repo]/knowledge-graph` | Structure map (the default view) |
 | `/repos/[owner]/[repo]/hierarchy`, `decision-audit`, `architecture` | The built hierarchy and its recorded decisions |
 | `/repos/[owner]/[repo]/flat-baseline`, `adaptivity` | The flat comparison and the preserve rate |

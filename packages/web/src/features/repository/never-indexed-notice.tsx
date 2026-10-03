@@ -1,34 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { RequestIndexForm } from "@/features/account/request-index-form";
-
-interface SessionResponse {
-  readonly signedIn: boolean;
-}
+import { useSession } from "@/features/account/use-session";
 
 export function NeverIndexedNotice({ repoId }: { repoId: string }) {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/auth/session")
-      .then(async (response) => {
-        const body = (await response.json()) as SessionResponse;
-        if (!cancelled) {
-          setSignedIn(body.signedIn);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSignedIn(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const signedIn = useSession()?.signedIn ?? null;
 
   return (
     <div role="status" className="mx-auto flex max-w-xl flex-col gap-4 px-6 py-16 text-center">

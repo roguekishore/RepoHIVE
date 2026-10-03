@@ -29,14 +29,13 @@ import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
 import { PageShell } from "@/components/shared/page-shell";
 import { ZoomCanvas } from "@/features/structure-map/canvas";
-import { CO_CHANGES, indexRelationsByNode } from "@/features/structure-map/canvas";
+import { indexRelationsByNode } from "@/features/structure-map/canvas";
 import type { ZoomCanvasHandle, ZoomMap, ZoomNode, ZoomRelation } from "@/features/structure-map/canvas";
 import { useBlastRadius } from "@/features/structure-map/blast-radius/use-blast-radius";
 import { useSnapshotJson } from "@/features/repository/snapshot-context";
 import { ZoomBreadcrumb } from "@/features/structure-map/zoom-breadcrumb";
 import { ZoomSearch } from "@/features/structure-map/zoom-search";
 import { ZoomDetailPanel } from "@/features/structure-map/zoom-detail-panel";
-import { ZoomMapKey } from "@/features/structure-map/zoom-map-key";
 import { ZoomHint } from "@/features/structure-map/zoom-hint";
 
 /** Stable identities, so an unselected / unloaded render does not churn props. */
@@ -69,7 +68,7 @@ export default function KnowledgeGraphPage() {
   );
   const [chain, setChain] = useState<ZoomNode[]>([]);
   const [selected, setSelected] = useState<ZoomNode | null>(null);
-  const [relationVerb, setRelationVerb] = useState<string | null>(null);
+  const relationVerb: string | null = null;
   // E6: the blast-radius highlight set for the current selection.
   const [highlightIds, setHighlightIds] = useState<Set<string> | null>(null);
 
@@ -96,10 +95,6 @@ export default function KnowledgeGraphPage() {
   // relations and both the rail and the hover card read them.
   const relationsByNode = useMemo(
     () => (zoomMap ? indexRelationsByNode(zoomMap) : NO_RELATIONS),
-    [zoomMap],
-  );
-  const coChangeCount = useMemo(
-    () => (zoomMap?.relations ?? []).filter((r) => r.label === CO_CHANGES).length,
     [zoomMap],
   );
   const showStats = process.env.NODE_ENV === "development";
@@ -216,27 +211,13 @@ export default function KnowledgeGraphPage() {
             )}
           </div>
 
-          <ZoomMapKey
-            verb={relationVerb}
-            onVerbChange={setRelationVerb}
-            coChangeCount={coChangeCount}
-          />
-
-          {/* Decision legend (spec R7.4): what a group card's Preserved /
-              Reconstructed note means. Each card's decision is now read from the
-              region the engine recorded on that node (Gap 12), so the former
-              caveat about approximate sub-cluster decisions no longer applies.
-              The distinction is carried as text, so it stays perceivable without
-              colour (R7.6). */}
-          <p className="mt-3 border-t border-[var(--color-border-default)] pt-3 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
-            Group cards say whether the algorithm{" "}
-            <span className="text-[var(--color-text-secondary)]">Preserved</span> a region — its package
-            kept as authored — or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
-            it — rebuilt by dependency clustering — with the structural-quality score behind that call.
-            Each card shows the decision recorded for its own region; a region rebuilt into several
-            clusters labels them <span className="text-[var(--color-text-secondary)]">1 of n</span>.
-            Select a group to read it. Selecting a file or group also lights up everything that depends
-            on it (its blast radius) in red across the map.
+          {/* Decision legend (spec R7.4): carried as text, so it stays
+              perceivable without colour (R7.6). */}
+          <p className="mt-3 text-[12px] leading-relaxed text-[var(--color-text-tertiary)]">
+            Each group card is{" "}
+            <span className="text-[var(--color-text-secondary)]">Preserved</span> (its package kept as
+            authored) or <span className="text-[var(--color-text-secondary)]">Reconstructed</span>{" "}
+            (rebuilt by dependency clustering).
           </p>
         </>
       )}
