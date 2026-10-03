@@ -18,11 +18,73 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-/** Read a single CSS custom property off <html>, resolved to its computed value. */
+/**
+ * Colour functions that `getComputedStyle` hands back unevaluated for a custom
+ * property. The design tokens derive most of their values from the brand seed
+ * with `color-mix()`, and a custom property keeps that text as written, so a
+ * renderer that cannot evaluate CSS (Sigma's WebGL colour parser) would receive
+ * a string it cannot read.
+ */
+const UNRESOLVED_COLOR = /^(color-mix|color|oklch|oklab|lch|lab|hwb|light-dark)\(/i;
+
+const concreteCache = new Map<string, string>();
+let probe: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * Evaluate a CSS colour to plain `rgb()` / `rgba()`. The canvas is the one
+ * evaluator that is guaranteed to understand whatever the stylesheet wrote;
+ * painting onto opaque black and onto opaque white recovers the alpha channel
+ * without the precision loss of reading a premultiplied pixel. Returns the input
+ * unchanged where no canvas is available (SSR, jsdom) or it is not a colour.
+ */
+function toConcreteColor(value: string): string {
+  if (!UNRESOLVED_COLOR.test(value)) return value;
+  const cached = concreteCache.get(value);
+  if (cached !== undefined) return cached;
+  let out = value;
+  try {
+    if (probe === undefined) {
+      probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    }
+    if (probe) {
+      const sample = (ground: string): Uint8ClampedArray => {
+        probe!.fillStyle = ground;
+        probe!.fillRect(0, 0, 1, 1);
+        probe!.fillStyle = value;
+        probe!.fillRect(0, 0, 1, 1);
+        return probe!.getImageData(0, 0, 1, 1).data;
+      };
+      const onBlack = sample("black");
+      const onWhite = sample("white");
+      // white - black = 255 * (1 - alpha), per channel; average the three.
+      const alpha =
+        1 -
+        ((onWhite[0]! - onBlack[0]!) + (onWhite[1]! - onBlack[1]!) + (onWhite[2]! - onBlack[2]!)) / (3 * 255);
+      if (alpha > 0.001) {
+        const [r, g, b] = [0, 1, 2].map((i) => Math.min(255, Math.round(onBlack[i]! / alpha)));
+        out =
+          alpha > 0.999
+            ? `rgb(${r}, ${g}, ${b})`
+            : `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 1000) / 1000})`;
+      } else {
+        out = "rgba(0, 0, 0, 0)";
+      }
+    }
+  } catch {
+    probe = null;
+  }
+  concreteCache.set(value, out);
+  return out;
+}
+
+/**
+ * Read a single CSS custom property off <html>, resolved to a concrete colour
+ * string a canvas or WebGL renderer can parse.
+ */
 export function resolveToken(name: string, fallback = ""): string {
   if (typeof window === "undefined") return fallback;
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value || fallback;
+  return value ? toConcreteColor(value) : fallback;
 }
 
 /** Resolve a `{ key: "--color-var" }` spec to `{ key: "#computed" }`. */
