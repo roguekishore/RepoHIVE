@@ -5,7 +5,7 @@
 
 import type { Paginated } from "./types/pagination";
 
-export interface FetchAllPaginatedOptions<T> {
+interface FetchAllPaginatedOptions<T> {
   /** Fetch one page starting at `offset` with the given `limit`. */
   fetchPage: (offset: number, limit: number) => Promise<Paginated<T>>;
   /** Page size passed to `fetchPage` on each request. Defaults to 100. */

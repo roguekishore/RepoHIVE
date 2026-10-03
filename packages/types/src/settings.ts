@@ -15,7 +15,7 @@ export type WikiStyle = "comprehensive" | "caveman" | "reference" | "tutorial";
 
 export const DEFAULT_WIKI_STYLE: WikiStyle = "comprehensive";
 
-export interface WikiStyleOption {
+interface WikiStyleOption {
   id: WikiStyle;
   label: string;
   description: string;

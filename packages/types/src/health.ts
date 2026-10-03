@@ -17,9 +17,6 @@
 
 import type { C4IoKind } from "./external-systems.js";
 
-/** Finding severity used across the health surface. */
-export type HealthSeverity = "low" | "medium" | "high" | "critical";
-
 /* ------------------------------------------------------------------ *
  * Health dimensions (the three-signal split)
  * ------------------------------------------------------------------ */
@@ -38,7 +35,7 @@ export type HealthSeverity = "low" | "medium" | "high" | "critical";
  * a parity test (`__tests__/health.test.ts` here,
  * `tests/unit/health/test_scoring_dimensions.py` in core).
  */
-export type HealthDimension = "defect" | "maintainability" | "performance";
+type HealthDimension = "defect" | "maintainability" | "performance";
 
 /** Canonical dimension order (parity-locked against core's `DIMENSIONS`). */
 export const HEALTH_DIMENSIONS: readonly HealthDimension[] = [
@@ -46,13 +43,6 @@ export const HEALTH_DIMENSIONS: readonly HealthDimension[] = [
   "maintainability",
   "performance",
 ] as const;
-
-/** Display labels for the dimensions surfaced today. */
-export const HEALTH_DIMENSION_LABEL: Record<HealthDimension, string> = {
-  defect: "Defect risk",
-  maintainability: "Maintainability",
-  performance: "Performance",
-};
 
 /**
  * Human-readable labels for the I/O-boundary kind a performance finding crosses
@@ -102,7 +92,7 @@ export function bandForScore(score: number): HealthBand {
   return "healthy";
 }
 
-export interface HealthBandShare {
+interface HealthBandShare {
   /** Number of files in this band. */
   files: number;
   /** Sum of NLOC across the files in this band. */
@@ -127,13 +117,13 @@ export interface HealthDistribution {
  * back into web. `packages/ui` re-exports these for component prop typing.
  * ------------------------------------------------------------------ */
 
-export interface DefectAccuracyFile {
+interface DefectAccuracyFile {
   file_path: string;
   score: number;
   recent_fixes: number;
 }
 
-export interface DefectAccuracyPoint {
+interface DefectAccuracyPoint {
   k: number;
   hits: number;
 }
@@ -151,221 +141,6 @@ export interface DefectAccuracy {
   concentration_defect_share: number;
   precision_table: DefectAccuracyPoint[];
   flagged_files: DefectAccuracyFile[];
-}
-
-/* ------------------------------------------------------------------ *
- * Core file/finding/module rows
- * ------------------------------------------------------------------ */
-
-export interface HealthFileMetric {
-  file_path: string;
-  score: number;
-  max_ccn: number;
-  max_nesting: number;
-  nloc: number;
-  has_test_file: boolean;
-  line_coverage_pct: number | null;
-  module: string | null;
-  duplication_pct?: number | null;
-  /**
-   * Per-dimension scores from the three-signal split. `score` stays the overall
-   * surfaced number (== `defect_score` until a deliberate blend decision).
-   * `maintainability_score` is the co-surfaced second signal;
-   * `performance_score` is computed but not yet surfaced as its own pillar
-   * (`null` on payloads that predate the performance detectors). All optional so
-   * older payloads parse unchanged.
-   */
-  defect_score?: number | null;
-  maintainability_score?: number | null;
-  performance_score?: number | null;
-  /**
-   * Open performance-risk findings on this file. The performance lens on the
-   * code-health map colors by this count (+ `performance_analyzed`), not by the
-   * [9,10]-compressed `performance_score`, so a file with 40 N+1s reads
-   * differently from one with 1. Absent on payloads predating the perf pass.
-   */
-  performance_findings?: number | null;
-  /**
-   * Whether a performance detector actually ran on this file (its language has a
-   * registered perf dialect). `false` = unsupported language, the perf pass never
-   * looked — a silent 10.0 — so the map greys the file as "not analyzed" instead
-   * of green. High-precision / low-recall: green means "a detector ran and
-   * surfaced nothing", never "verified fast". `null`/absent on older payloads.
-   */
-  performance_analyzed?: boolean | null;
-  /**
-   * Dominant-cause lead: the biomarker + reason of this file's worst finding, so
-   * a low file can headline "the one reason" instead of a wall of markers. Null
-   * when the row carries no findings or the payload predates this field.
-   */
-  primary_biomarker?: string | null;
-  primary_reason?: string | null;
-  /**
-   * Summed (pre-floor) `health_impact` across the file's findings — the score's
-   * deduction magnitude. Distinguishes two files that both clamp to `1.0` (a −25
-   * from a −9) so they can be ranked by depth. The calibrated `score` is
-   * unchanged; this is a display-only secondary distinguisher.
-   */
-  total_deduction?: number | null;
-}
-
-export interface HealthFinding {
-  id: string;
-  file_path: string;
-  biomarker_type: string;
-  severity: HealthSeverity;
-  function_name: string | null;
-  line_start: number | null;
-  line_end: number | null;
-  health_impact: number;
-  reason: string;
-  details: Record<string, unknown>;
-  status: string;
-  /** Matching symbol id when the finding names a function; links to the symbol page. */
-  symbol_id?: string | null;
-  /**
-   * The finding's "home" health dimension (`defect` / `maintainability` /
-   * `performance`), used to filter findings by pillar. Optional/`defect` when an
-   * older payload omits it.
-   */
-  dimension?: HealthDimension;
-}
-
-export interface HealthModuleRow {
-  module: string;
-  file_count: number;
-  nloc: number;
-  average_health: number;
-  worst_performer_path: string;
-  worst_performer_score: number;
-}
-
-export interface BiomarkerBreakdownRow {
-  biomarker_type: string;
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-  total: number;
-}
-
-/* ------------------------------------------------------------------ *
- * Overview
- * ------------------------------------------------------------------ */
-
-export interface HealthOverviewSummary {
-  file_count: number;
-  average_health: number;
-  hotspot_health?: number | null;
-  worst_performer_path: string | null;
-  worst_performer_score: number | null;
-  open_findings: number;
-  severity_breakdown?: { critical: number; high: number; medium: number; low: number };
-  /** Repo-level band derived from `average_health` (added in the band/distribution layer). */
-  band?: HealthBand;
-  /**
-   * NLOC-weighted repo headline for the maintainability pillar (the second
-   * surfaced signal). `null`/absent when no file carries a maintainability
-   * score. `maintainability_hotspot` is the same average restricted to hotspot
-   * files, when available.
-   */
-  maintainability_average?: number | null;
-  maintainability_hotspot?: number | null;
-  /**
-   * NLOC-weighted repo headline for the performance pillar (the third surfaced
-   * signal: static performance RISK, not measured runtime). `null`/absent when
-   * no file carries a performance score. `performance_hotspot` is the same
-   * average restricted to hotspot files, when available.
-   */
-  performance_average?: number | null;
-  performance_hotspot?: number | null;
-  /** Open findings homing under the maintainability / performance pillars — the
-   *  per-pillar actionable counts. Absent on payloads predating the split. */
-  maintainability_findings?: number;
-  performance_findings?: number;
-  /** Lowest-scoring file by performance risk, surfaced only when score < 10
-   *  (a clean repo returns `null` rather than a misleading "worst" at 10.0). */
-  worst_performance_path?: string | null;
-  worst_performance_score?: number | null;
-}
-
-export interface HealthOverviewResponse {
-  summary: HealthOverviewSummary;
-  /** NLOC-weighted file distribution across the 3 bands. */
-  distribution?: HealthDistribution | null;
-  defect_accuracy?: DefectAccuracy | null;
-  files: HealthFileMetric[];
-  top_findings: HealthFinding[];
-  modules?: HealthModuleRow[];
-  biomarkers?: BiomarkerBreakdownRow[];
-  meta?: {
-    last_indexed_at: string | null;
-    head_commit: string | null;
-    snapshot_count: number;
-  };
-}
-
-/* ------------------------------------------------------------------ *
- * Files list
- * ------------------------------------------------------------------ */
-
-export interface HealthFilesResponse {
-  total: number;
-  offset: number;
-  limit: number;
-  files: HealthFileMetric[];
-}
-
-export interface HealthFilesQuery {
-  limit?: number;
-  offset?: number;
-  sort?: string;
-  order?: "asc" | "desc";
-  search?: string;
-  module?: string;
-  only_hotspots?: boolean;
-  only_untested?: boolean;
-  only_failing?: boolean;
-}
-
-/* ------------------------------------------------------------------ *
- * File breakdown (score drill-down)
- * ------------------------------------------------------------------ */
-
-export interface FileBreakdownFinding {
-  id: string;
-  biomarker_type: string;
-  severity: HealthSeverity;
-  raw_impact: number;
-  applied_impact: number;
-  function_name: string | null;
-  reason: string;
-}
-
-export interface FileBreakdownCategory {
-  category: string;
-  cap: number;
-  raw_deduction: number;
-  applied_deduction: number;
-  capped: boolean;
-  finding_count: number;
-  findings: FileBreakdownFinding[];
-}
-
-export interface HealthFileBreakdownResponse {
-  file_path: string;
-  metric: HealthFileMetric | null;
-  breakdown: {
-    score: number;
-    total_deduction: number;
-    categories: FileBreakdownCategory[];
-  };
-  findings: HealthFinding[];
-  suggestions: Record<string, string>;
-  /** Per-file score trajectory (silent when history is thin). */
-  trend?: FileHealthTrend | null;
-  /** Process / people / topology signals (null fields read "no signal"). */
-  signals?: FileSignals | null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -412,7 +187,7 @@ export interface FileSignals {
  * ------------------------------------------------------------------ */
 
 /** One file's score at one snapshot. */
-export interface FileTrendPoint {
+interface FileTrendPoint {
   taken_at: string | null;
   score: number;
 }
@@ -436,127 +211,6 @@ export interface FileHealthTrend {
 }
 
 /* ------------------------------------------------------------------ *
- * Trend
- * ------------------------------------------------------------------ */
-
-export interface HealthTrendResponse {
-  history: Array<{
-    taken_at: string | null;
-    hotspot_health: number;
-    average_health: number;
-    worst_performer_path: string | null;
-    worst_performer_score: number | null;
-  }>;
-  summary: {
-    current_hotspot_health: number;
-    current_average_health: number;
-    previous_hotspot_health: number | null;
-    previous_average_health: number | null;
-    hotspot_delta: number | null;
-    average_delta: number | null;
-  };
-  alerts: Array<{
-    kind: string;
-    metric: string;
-    current: number;
-    baseline: number | null;
-    delta: number;
-    message: string;
-  }>;
-  file_deltas: Array<{ file_path: string; before: number; after: number; delta: number }>;
-  snapshot_count: number;
-}
-
-/* ------------------------------------------------------------------ *
- * Coverage
- * ------------------------------------------------------------------ */
-
-export interface CoverageFileRow {
-  file_path: string;
-  source_format: string;
-  line_coverage_pct: number;
-  branch_coverage_pct: number | null;
-  total_coverable_lines: number;
-  ingested_at: string | null;
-  ingested_commit_sha: string | null;
-  covered_lines?: number[];
-  health_score?: number;
-  nloc?: number;
-}
-
-export interface ModuleCoverageRow {
-  module: string;
-  files: number;
-  covered_lines: number;
-  total_lines: number;
-  line_coverage_pct: number;
-}
-
-export interface CoverageSummary {
-  file_count: number;
-  covered_lines: number;
-  total_lines: number;
-  line_coverage_pct: number | null;
-  branch_coverage_pct: number | null;
-  source_format: string | null;
-  ingested_at: string | null;
-  ingested_commit_sha: string | null;
-}
-
-export interface HealthCoverageResponse {
-  summary: CoverageSummary;
-  files: CoverageFileRow[];
-  modules: ModuleCoverageRow[];
-}
-
-/* ------------------------------------------------------------------ *
- * Refactoring targets
- * ------------------------------------------------------------------ */
-
-export interface RefactoringTarget {
-  file_path: string;
-  score: number;
-  nloc: number;
-  module?: string | null;
-  primary_biomarker: string;
-  primary_severity: HealthSeverity;
-  primary_reason: string;
-  primary_function: string | null;
-  primary_line_start: number | null;
-  primary_line_end: number | null;
-  primary_suggestion?: string;
-  primary_finding_id?: string;
-  total_impact: number;
-  finding_count: number;
-  biomarkers: string[];
-  effort_bucket: "S" | "M" | "L" | "XL";
-  impact_per_effort: number;
-  all_findings?: Array<{
-    id: string;
-    biomarker_type: string;
-    severity: HealthSeverity;
-    function_name: string | null;
-    health_impact: number;
-    reason: string;
-    status?: string;
-  }>;
-}
-
-export interface RefactoringTargetsResponse {
-  targets: RefactoringTarget[];
-  total: number;
-}
-
-export interface RefactoringQuery {
-  limit?: number;
-  module?: string;
-  biomarker?: string;
-  min_severity?: string;
-  max_effort?: string;
-  sort?: "impact_per_effort" | "total_impact" | "score" | "finding_count";
-}
-
-/* ------------------------------------------------------------------ *
  * Churn x complexity quadrant (the "hotspot anatomy" view)
  * ------------------------------------------------------------------ */
 
@@ -574,9 +228,4 @@ export interface ChurnComplexityPoint {
   nloc: number;
   score: number;
   churn_percentile: number;
-}
-
-export interface ChurnComplexityResponse {
-  points: ChurnComplexityPoint[];
-  total: number;
 }

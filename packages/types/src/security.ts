@@ -16,8 +16,3 @@ export interface SecurityFinding {
   snippet: string | null;
   detected_at: string;
 }
-
-export interface SecurityFindingList {
-  total: number;
-  findings: SecurityFinding[];
-}

@@ -1,10 +1,10 @@
-import type { GitMetadataResponse } from "./git";
+
 
 // ---------------------------------------------------------------------------
 // Graph
 // ---------------------------------------------------------------------------
 
-export interface GraphNodeResponse {
+interface GraphNodeResponse {
   node_id: string;
   node_type: string;
   language: string;
@@ -24,7 +24,7 @@ export interface GraphNodeResponse {
   primary_owner?: string | null;
 }
 
-export interface GraphEdgeResponse {
+interface GraphEdgeResponse {
   source: string;
   target: string;
   imported_names: string[];
@@ -35,7 +35,7 @@ export interface GraphEdgeResponse {
  * responses below differ only in their node type (and a few extra fields),
  * so they extend this generic rather than repeat `nodes`/`links`.
  */
-export interface GraphLike<N> {
+interface GraphLike<N> {
   nodes: N[];
   links: GraphEdgeResponse[];
 }
@@ -53,7 +53,7 @@ export interface GraphExportResponse extends GraphLike<GraphNodeResponse> {
 }
 
 // Community slice (Phase G4 — constellation blossom)
-export interface CommunitySliceNodeResponse extends GraphNodeResponse {
+interface CommunitySliceNodeResponse extends GraphNodeResponse {
   /** True for one-hop neighbor stubs outside the community. */
   is_boundary?: boolean;
 }
@@ -66,7 +66,7 @@ export interface CommunitySliceResponse
 }
 
 // Architecture super-node graph (Phase A)
-export interface ArchitectureNodeResponse {
+interface ArchitectureNodeResponse {
   community_id: number;
   label: string;
   cohesion: number;
@@ -80,7 +80,7 @@ export interface ArchitectureNodeResponse {
   languages: string[];
 }
 
-export interface ArchitectureEdgeResponse {
+interface ArchitectureEdgeResponse {
   source: number;
   target: number;
   edge_count: number;
@@ -98,39 +98,13 @@ export interface GraphPathResponse {
   visual_context?: unknown;
 }
 
-export interface ModuleNodeResponse {
-  module_id: string;
-  file_count: number;
-  symbol_count: number;
-  avg_pagerank: number;
-  doc_coverage_pct: number;
-}
-
-export interface ModuleEdgeResponse {
-  source: string;
-  target: string;
-  edge_count: number;
-}
-
-export interface ModuleGraphResponse {
-  nodes: ModuleNodeResponse[];
-  edges: ModuleEdgeResponse[];
-}
-
-export interface EgoGraphResponse extends GraphLike<GraphNodeResponse> {
-  center_node_id: string;
-  center_git_meta: GitMetadataResponse | null;
-  inbound_count: number;
-  outbound_count: number;
-}
-
 export interface NodeSearchResult {
   node_id: string;
   language: string;
   symbol_count: number;
 }
 
-export interface DeadCodeGraphNodeResponse {
+interface DeadCodeGraphNodeResponse {
   node_id: string;
   node_type: string;
   language: string;
@@ -146,7 +120,7 @@ export interface DeadCodeGraphNodeResponse {
 
 export type DeadCodeGraphResponse = GraphLike<DeadCodeGraphNodeResponse>;
 
-export interface HotFilesNodeResponse {
+interface HotFilesNodeResponse {
   node_id: string;
   node_type: string;
   language: string;
@@ -161,12 +135,3 @@ export interface HotFilesNodeResponse {
 }
 
 export type HotFilesGraphResponse = GraphLike<HotFilesNodeResponse>;
-
-export interface RepoStatsResponse {
-  file_count: number;
-  symbol_count: number;
-  entry_point_count: number;
-  doc_coverage_pct: number;
-  freshness_score: number;
-  dead_export_count: number;
-}

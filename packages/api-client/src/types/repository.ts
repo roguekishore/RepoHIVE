@@ -14,16 +14,6 @@ export interface RepoCreate {
   index?: boolean;
 }
 
-export interface RepoUpdate {
-  name?: string;
-  url?: string;
-  default_branch?: string;
-  settings?: {
-    exclude_patterns?: string[];
-    [key: string]: unknown;
-  };
-}
-
 export interface RepoResponse {
   id: string;
   name: string;
@@ -58,7 +48,7 @@ export interface RepoResponse {
 // Index preflight
 // ---------------------------------------------------------------------------
 
-export interface PreflightEstimate {
+interface PreflightEstimate {
   total_pages: number;
   estimated_cost_usd: number;
   cost_low_usd: number | null;
