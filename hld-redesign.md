@@ -6,6 +6,29 @@
 
 ---
 
+## Owner Rulings (2026-10-03)
+
+These override the sections below. The full run brief is `context/specs/redesign/requirements.md`.
+
+1. **Tiers are unchanged.** S (≤1,000 files) and M (≤5,000) run on Lambda; L (≤15,000) and XL (≤30,000) on Fargate,
+   as in `packages/indexer/src/tiers.ts`. The HLD's earlier 1,500-file split is void.
+2. **No SQS.** Step Functions stays as the per-job run orchestrator, reduced to routing and running. DynamoDB, the
+   ledger table and the `control` Lambda are removed; the server's `job_executions` table holds the job ledger,
+   one-in-flight-per-repository dedup and the L/XL concurrency-1 slot (§5, as rewritten).
+3. **Public keys are `artifacts/{owner}/{repo}/{snapshotId}/...`**, equal to the URL path. `index/`, `graph.json` and
+   history stay private under a separate repo-centric prefix that CloudFront cannot reach.
+4. **Endpoint paths follow §4.4; behaviour follows today's code** (cookie, scrypt, lockout and quota numbers, error
+   and SSE shapes). Where §4.3 differs from the code, the code wins.
+5. **SQLite only** for now; PostgreSQL is not built.
+
+**Correction to §1.1.4 and §3.2:** the current system already serves views from immutable `s/<id>/` paths with
+one-year `immutable` caching, gives `latest.json` a 30 s TTL, pins one snapshot id per session
+(`snapshot-context.tsx`), and issues no CloudFront invalidations. Cross-file version skew and invalidation cost are
+therefore not present today. The real gains are the pointer moving into the database (rollback by one statement)
+and the readable layout.
+
+---
+
 ## 1. Executive Summary & Motivation
 
 RepoHIVE visualizes large-scale Java codebases through hierarchical dependency clustering (Louvain community detection, Newman modularity, and adaptive preserve-vs-reconstruct graph algorithms). While the core analysis engine and AST extraction pipeline are robust and deterministic, the surrounding application architecture accumulated significant accidental complexity.
@@ -27,7 +50,7 @@ RepoHIVE visualizes large-scale Java codebases through hierarchical dependency c
    - **SQLite:** Application database storing user accounts, passwords, sessions, and daily quotas.
    - **DynamoDB:** Used strictly as a cloud job ledger, distributed mutex (preventing duplicate concurrent indexing of the same repo), and a concurrency semaphore for Large/XL AWS Fargate tasks.
    
-   This required deploying a dedicated control Lambda (`control.ts`), managing heartbeat lease timers, handling DynamoDB SDK serialization, and executing a 10-state AWS Step Functions state machine (`state-machine.asl.json`).
+   This required deploying a dedicated control Lambda (`control.ts`), managing heartbeat lease timers, handling DynamoDB SDK serialization, and executing a roughly 30-state AWS Step Functions state machine (`state-machine.asl.json`).
 
 4. **Multi-File Version Skew Risks:**
    Serving mutable pointer files or `/latest` paths over edge CDNs introduces the risk of **version skew**: during edge cache invalidation windows, a client can load `knowledge-graph.json` from a new snapshot while loading `hierarchy.json` from an older snapshot still lingering at an edge location.
@@ -36,9 +59,9 @@ RepoHIVE visualizes large-scale Java codebases through hierarchical dependency c
 
 - **Decoupled Architecture:** Clean physical separation between the client UI (React SPA) and backend application logic (Spring Boot 3.x REST API).
 - **Core Engine Preservation:** Preserve the battle-tested, deterministic TypeScript pipeline (`@repohive/parser`, `@repohive/core`, `@repohive/engine`, `@repohive/indexer`) without regression.
-- **Human-Readable Storage Hierarchy:** Organize S3 artifacts by GitHub repository coordinates: `repohive-artifacts/{owner}/{repo}/{snapshotId}/views/...`.
+- **Human-Readable Storage Hierarchy:** Organize S3 artifacts by GitHub repository coordinates: `artifacts/{owner}/{repo}/{snapshotId}/views/...`.
 - **Production-Grade Edge Serving (Approach 2):** Immutable S3 snapshots with database-managed active pointers. Guarantees 0% version skew, $0.00 CloudFront invalidation costs, infinite edge caching, and sub-millisecond global rollbacks.
-- **Zero DynamoDB:** Eliminate DynamoDB, the helper `control.ts` Lambda, and complex lease timers by utilizing native AWS SQS FIFO queues for Fargate task concurrency.
+- **Zero DynamoDB:** Eliminate DynamoDB, the helper `control.ts` Lambda, and lease timers. The server database holds the ledger, dedup and the L/XL slot; Step Functions only routes and runs.
 - **Single Source of Truth:** Centralize all application state, user quotas, and active repository snapshot IDs in a single relational database (SQLite/PostgreSQL) managed by Spring Boot.
 
 ---
@@ -64,16 +87,16 @@ The redesigned system separates concerns into four distinct functional planes:
 │  Spring Boot 3.x (Port 8080)         │   │  AWS CloudFront + S3 Bucket │
 │  • Spring Security (Auth & Sessions) │   │  • Edge Cache (1-year TTL)  │
 │  • User Quota & Rate Limiting        │   │  • Immutable JSON Views     │
-│  • Job Dispatcher (Lambda / SQS FIFO)│   │  • Origin Access Control    │
+│  • Job Dispatcher (Step Functions)   │   │  • Origin Access Control    │
 │  • SQLite / PostgreSQL Database      │   │  • Zero-Load on Web Server  │
 └──────────────────┬───────────────────┘   └──────────────▲──────────────┘
                    │                                      │
-                   │ Dispatch (Lambda or SQS)             │ Upload Views
+                   │ StartExecution (Step Functions)      │ Upload Views
                    ▼                                      │
 ┌─────────────────────────────────────────────────────────┴──────────────┐
 │                          4. WORKER FLEET                               │
-│  • Small / Medium Repos (≤1,500 files): AWS Lambda (10 GB RAM)         │
-│  • Large / XL Repos (>1,500 files): AWS Fargate Container (32 GB RAM)  │
+│  • S / M Repos (≤5,000 files): AWS Lambda (3,008 MB)                   │
+│  • L / XL Repos (≤30,000 files): AWS Fargate (8 vCPU / 16 GB)          │
 │  • Pipeline: Tree-Sitter AST → Louvain Cohesion → Views Precomputation │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -181,7 +204,7 @@ repohive-server/
     │   │   ├── RepohiveApplication.java
     │   │   ├── config/
     │   │   │   ├── SecurityConfig.java         # Spring Security, cookies, CORS
-    │   │   │   ├── AwsConfig.java              # S3, Lambda, SQS client beans
+    │   │   │   ├── AwsConfig.java              # S3, Step Functions, SSM client beans
     │   │   │   ├── DatabaseConfig.java         # DataSource & HikariCP pool
     │   │   │   └── AppProperties.java          # Quota, rate limits, timeouts
     │   │   ├── controller/
@@ -195,7 +218,7 @@ repohive-server/
     │   │   ├── service/
     │   │   │   ├── AuthService.java            # Account & session management
     │   │   │   ├── IntakeService.java          # GitHub HEAD check, repo validation
-    │   │   │   ├── DispatchService.java        # Lambda invoke & SQS FIFO dispatch
+    │   │   │   ├── DispatchService.java        # Step Functions StartExecution; local child process
     │   │   │   ├── QuotaService.java           # Quotas & IP rate limiter
     │   │   │   ├── JobReconciliationService.java # Worker monitoring & refunds
     │   │   │   └── BackupService.java          # Scheduled SQLite vacuum backups
@@ -335,50 +358,42 @@ In the existing implementation, DynamoDB handled:
 2. Large/XL Fargate concurrency limiting (enforcing max 1 Fargate container at a time).
 3. State persistence between the Step Function and the web box.
 
-This added significant maintenance overhead: AWS SDK DynamoDB dependencies, lock lease timers, state machine polling, and the `control.ts` helper Lambda.
+It existed because workers outside a VPC could not reach SQLite on the box. In the redesign, workers call the
+server's internal API over HTTPS through the public hostname instead, so the server's database can own all three.
 
-### 5.2 SQS FIFO Concurrency Architecture
-
-We replace DynamoDB and the Step Function concurrency slot lock with an **AWS SQS FIFO Queue**:
+### 5.2 Database-Owned Ledger, Step Functions Runner (Owner Ruling: No SQS)
 
 ```
-                  ┌──────────────────────────────────────────────┐
-                  │          USER SUBMITS REPO (/api/index)      │
-                  └──────────────────────┬───────────────────────┘
-                                         │
-                         Check file count / repo size
-                                         │
-                     ┌───────────────────┴───────────────────┐
-                     ▼                                       ▼
-           Small / Medium (≤1,500 files)            Large / XL (>1,500 files)
-                     │                                       │
-                     ▼                                       ▼
-         Direct Lambda Invocation                 Push to AWS SQS FIFO
-         Type: Event (Asynchronous)               Queue: repohive-jobs.fifo
-                     │                            MessageGroupId: "fargate-worker"
-                     │                                       │
-                     │                                       ▼
-                     │                            Fargate Worker Container
-                     │                            • Polls SQS (MaxConcurrency: 1)
-                     │                            • Processes job strictly 1-at-a-time
-                     │                            • Deletes message upon success
-                     │                                       │
-                     └───────────────────┬───────────────────┘
-                                         ▼
-                           Worker Uploads to S3:
-                           repohive-artifacts/{owner}/{repo}/{snapshotId}/...
-                                         │
-                                         ▼
-                           Notify Server Webhook:
-                           POST /api/internal/jobs/complete
-                           (Updates SQLite & marks SUCCEEDED)
+POST /api/index  ──►  IntakeService: pre-check, tier, quota charge
+                          │
+                          ▼
+              INSERT job_executions (status QUEUED)
+              • partial unique index on repo WHERE status IN ('QUEUED','RUNNING')
+                → one in-flight job per repository
+                          │
+                          ▼
+              DispatchService
+              • S / M: StartExecution now
+              • L / XL: StartExecution only when no L/XL job is RUNNING;
+                otherwise stays QUEUED, started in created_at order when the slot frees
+                          │
+                          ▼
+              Step Functions (route by tier → lambda:invoke | ecs:runTask.sync,
+                              tier timeouts and retries; no ledger calls, no slot wait)
+                          │
+                          ▼
+              Worker uploads artifacts/{owner}/{repo}/{snapshotId}/...
+              Worker POSTs progress and the outcome to /api/internal/jobs/**
+              (bearer secret; outcome RETIER sends the job back through DispatchService)
+                          │
+                          ▼
+              Server marks SUCCEEDED and updates indexed_repositories.snapshot_id
+
+JobReconciliationService: polls DescribeExecution for RUNNING jobs; any execution that ended
+without a completion call is marked FAILED and refunded. QUEUED jobs past the slot timeout expire.
 ```
 
-#### Why SQS FIFO Guarantees Zero Distributed Lock Code
-- **Native Message Deduplication:** `MessageDeduplicationId = "{owner}_{repo}_{commitSha}"`. If a user clicks index twice, SQS automatically ignores the duplicate.
-- **Strict 1-at-a-Time Execution:** By assigning `MessageGroupId = "fargate-worker"`, AWS SQS guarantees that messages in that group are delivered strictly in order and **only one consumer receives a message at any given moment**.
-- Next jobs stay safely queued in SQS until the running Fargate container completes and acknowledges the message.
-- Zero database locks. Zero lease timers. Zero custom control Lambdas.
+Locally, `DispatchService` spawns the indexer's local run as a child process instead of calling Step Functions.
 
 ---
 
@@ -443,10 +458,10 @@ To ensure a flawless transition with zero downtime and verified behavioral equiv
   - Forward headers: Clean origin request policy with OAC.
   - Cache policy: `Managed-CachingOptimized` (1-year TTL, Brotli/Gzip enabled).
 
-### Phase 4: SQS FIFO Integration & DynamoDB Decommissioning
-- Provision SQS FIFO queue `repohive-jobs.fifo` in Terraform.
-- Configure Fargate task definition to consume from SQS.
-- Decommission DynamoDB table `repohive-ledger-*`, `control.ts` Lambda, and Step Functions ASL definitions.
+### Phase 4: DynamoDB Decommissioning & State Machine Simplification
+- Rewrite the Step Functions ASL to route and run only (no ledger calls, no slot wait).
+- Decommission the DynamoDB ledger table, the `control.ts` Lambda and their IAM.
+- Give the box role `states:StartExecution` and `states:DescribeExecution`; add the internal-API secret to SSM.
 
 ### Phase 5: Frontend Migration & Cleanup
 - Update React view fetch hooks in `packages/web` to use `/artifacts/{owner}/{repo}/{snapshotId}/views/...`.
@@ -465,11 +480,11 @@ To ensure a flawless transition with zero downtime and verified behavioral equiv
 | **Relational Database** | `better-sqlite3` embedded in web app | SQLite / PostgreSQL via Spring Data JPA |
 | **Job Ledger / State** | AWS DynamoDB (distributed lock table) | Unified Relational DB (`job_executions`) |
 | **Total Databases** | 2 (SQLite + DynamoDB) | 1 (Single relational database) |
-| **S3 Storage Paths** | Cryptic `/s/{hash}/` and `/r/.../latest.json` | Clean `/{owner}/{repo}/{snapshotId}/` |
+| **S3 Storage Paths** | Cryptic `/s/{hash}/` and `/r/.../latest.json` | Clean `artifacts/{owner}/{repo}/{snapshotId}/` |
 | **Latest Pointer Strategy** | Mutable file in S3 (`latest.json`) | Indexed DB column (`snapshot_id`) |
-| **Edge Version Skew Risk** | Present during CDN invalidation windows | 0% (Mathematically impossible) |
-| **CloudFront Invalidation Cost** | $0.005/path after 1,000 runs/month | $0.00 (Zero invalidations required) |
-| **Rollback Capability** | Re-upload files to S3 /latest/ | Instant (1 SQL statement in DB) |
-| **Fargate Concurrency Lock** | Custom DynamoDB leases & helper Lambda | Native AWS SQS FIFO (`MessageGroupId`) |
+| **Edge Version Skew Risk** | None (immutable `s/<id>/`, snapshot pinned per session) | None (unchanged) |
+| **CloudFront Invalidation Cost** | $0.00 (no invalidations; `latest.json` has a 30 s TTL) | $0.00 (unchanged) |
+| **Rollback Capability** | Rewrite `latest.json` (up to 30 s to propagate) | Instant (1 SQL statement in DB) |
+| **Fargate Concurrency Lock** | Custom DynamoDB leases & helper Lambda | `job_executions` slot check in the dispatcher |
 | **Local Dev Mock Routes** | `app/r/` and `app/s/` inside Next.js | Standard static file proxy (Caddy / Vite) |
-| **Orchestration Complexity** | 10-state ASL Step Function + Lambda | SQS FIFO + Direct Worker Webhook |
+| **Orchestration Complexity** | ~30-state ASL Step Function + control Lambda | Route-and-run Step Function + worker webhook |
