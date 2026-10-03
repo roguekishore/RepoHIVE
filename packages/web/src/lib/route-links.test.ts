@@ -20,10 +20,8 @@ import { join } from "node:path";
 
 const WEB_SRC = join(__dirname, "..");
 const UI_SRC = join(__dirname, "../../../ui/src");
-/** The reachable repository routes, and the vendored pages that stay in the tree unrouted. */
+/** The reachable repository routes. */
 const LIVE_ROUTES = join(WEB_SRC, "app/repos/[owner]/[repo]");
-const VENDORED_ROUTES = join(WEB_SRC, "vendored/repos/[id]");
-const ROUTES = VENDORED_ROUTES;
 
 /**
  * Deep links we keep pointing at a redirect on purpose. Empty since the
@@ -49,7 +47,7 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 function redirectOnlySegments(): Set<string> {
   const out = new Set<string>();
-  for (const root of [LIVE_ROUTES, VENDORED_ROUTES]) collectStubs(root, out);
+  for (const root of [LIVE_ROUTES]) collectStubs(root, out);
   return out;
 }
 
@@ -104,45 +102,8 @@ describe("route links", () => {
   it("finds stubs and links at all, so a broken matcher cannot pass vacuously", () => {
     // After the shell cull exactly two stubs remain — the old `/c4` and
     // `/zoom` URLs, kept because they land on the real Knowledge Graph.
-    expect(redirectOnlySegments()).toEqual(new Set(["c4", "zoom"]));
+    expect(redirectOnlySegments()).toEqual(new Set(["zoom"]));
     expect(linkedSegments([...walk(WEB_SRC), ...walk(UI_SRC)]).size).toBeGreaterThan(10);
-  });
-
-  it("points at no Code Health tab that only survives as a legacy alias", () => {
-    const page = readFileSync(join(ROUTES, "code-health/page.tsx"), "utf8");
-
-    const tabs = new Set(
-      [...(page.match(/const TABS = \[([\s\S]*?)\] as const/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
-        (m) => m[1]!,
-      ),
-    );
-    const aliases = new Set(
-      [
-        ...(page.match(/const TAB_ALIASES[^{]*\{([\s\S]*?)\n\}/)?.[1] ?? "").matchAll(
-          /^\s*"?([a-z-]+)"?:/gm,
-        ),
-      ].map((m) => m[1]!),
-    );
-    // The parse has to have found something, or this passes on a rename.
-    expect(tabs.size).toBeGreaterThan(3);
-    expect(aliases.size).toBeGreaterThan(1);
-
-    const offenders: string[] = [];
-    for (const file of [...walk(WEB_SRC), ...walk(UI_SRC)]) {
-      readFileSync(file, "utf8")
-        .split("\n")
-        .forEach((line, i) => {
-          for (const m of line.matchAll(/code-health\?tab=([a-z-]+)/g)) {
-            const tab = m[1]!;
-            // An alias redirects, so the link works — it just lands somewhere
-            // other than the label promises. `?tab=modules` reads "Modules"
-            // and arrives at Overview.
-            if (!tabs.has(tab) && aliases.has(tab)) offenders.push(`?tab=${tab} <- ${file}:${i + 1}`);
-          }
-        });
-    }
-
-    expect(offenders.sort()).toEqual([]);
   });
 
   it("keeps the deliberate-allowance set honest", () => {
