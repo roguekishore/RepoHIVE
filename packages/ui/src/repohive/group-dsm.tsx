@@ -12,7 +12,7 @@
  * of the artifact.
  *
  * What this deliberately does not show: rule violations and dependency cycles.
- * The vendored `DsmMatrixView` renders both, and we compute neither, so feeding
+ * The upstream `DsmMatrixView` rendered both, and we compute neither, so feeding
  * it would have implied a check that never ran. It also defaults a null edge
  * kind to an HTTP transport, which our structural edges are not.
  *
@@ -25,7 +25,7 @@ import { DECISION_TOKEN } from "./decision-mark";
 import { middleElide } from "./format";
 import type { DecisionState } from "./types";
 
-export type DsmGroupState = DecisionState | "none";
+type DsmGroupState = DecisionState | "none";
 
 export interface DsmGroupView {
   id: string;
@@ -44,7 +44,7 @@ export interface DsmEntryView {
   weight: number;
 }
 
-export interface GroupDsmProps {
+interface GroupDsmProps {
   groups: readonly DsmGroupView[];
   entries: readonly DsmEntryView[];
   blocks?: ReadonlyArray<{ regionId: string; label: string; start: number; size: number }>;

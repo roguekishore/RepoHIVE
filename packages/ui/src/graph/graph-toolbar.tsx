@@ -57,10 +57,10 @@ export type GraphTheme = "light" | "dark";
  * drill-down state and expand-on-double-click, and gained a control that
  * partitions the repo instead of pretending to.
  */
-export type Scope = "architecture" | "full";
-export type Overlay = "dead" | "hot";
+type Scope = "architecture" | "full";
+type Overlay = "dead" | "hot";
 
-export function scopeOverlaysToViewMode(scope: Scope, overlays: ReadonlySet<Overlay>): ViewMode {
+function scopeOverlaysToViewMode(scope: Scope, overlays: ReadonlySet<Overlay>): ViewMode {
   const hasDead = overlays.has("dead");
   const hasHot = overlays.has("hot");
   if (hasDead && hasHot) return "unified";
@@ -69,7 +69,7 @@ export function scopeOverlaysToViewMode(scope: Scope, overlays: ReadonlySet<Over
   return scope; // "architecture" | "full"
 }
 
-export function viewModeToScopeOverlays(view: ViewMode): { scope: Scope; overlays: Set<Overlay> } {
+function viewModeToScopeOverlays(view: ViewMode): { scope: Scope; overlays: Set<Overlay> } {
   switch (view) {
     case "architecture":
       return { scope: "architecture", overlays: new Set() };

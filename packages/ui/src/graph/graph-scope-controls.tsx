@@ -15,7 +15,7 @@ import type { ModuleGroup } from "./use-module-filter";
  * the scope, and it follows the `MapLensSwitcher` precedent on Code Health:
  * labelled, in the section header, not floating over the diagram.
  */
-export type GraphScope = "communities" | "files";
+type GraphScope = "communities" | "files";
 
 const SCOPES: { id: GraphScope; label: string; hint: string }[] = [
   {

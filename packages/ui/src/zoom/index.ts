@@ -9,10 +9,10 @@
  */
 
 export { ZoomCanvas } from "./ZoomCanvas";
-export type { ZoomCanvasProps, ZoomCanvasHandle } from "./ZoomCanvas";
+export type { ZoomCanvasHandle } from "./ZoomCanvas";
 
 export { ZoomRenderer } from "./renderer";
-export type { ZoomRendererOptions, FrameStats, FlyOptions } from "./renderer";
+export type { FrameStats, FlyOptions } from "./renderer";
 
 export { easeInOutCubic, flyDuration, interpolateCamera } from "./camera-anim";
 export { focusChain, focusId } from "./focus-path";
@@ -27,12 +27,11 @@ export {
   indexRelationsByNode,
   summarizeRelations,
 } from "./relation-summary";
-export type { RelationSummary, VerbCount } from "./relation-summary";
 
 export { hasRole, healthBandLabel, nodeRoles } from "./node-signals";
 
 export { drawScene, pickNode } from "./draw-tree";
-export type { DrawOptions, DrawStats, PickEntry } from "./draw-tree";
+export type { DrawStats } from "./draw-tree";
 
 export { resolveZoomPalette } from "./theme";
 export type { ZoomPalette } from "./theme";
@@ -41,8 +40,6 @@ export {
   type Camera,
   type Viewport,
   type Rect,
-  type ScreenPoint,
-  type WorldPoint,
   clampCamera,
   clampScale,
   fitRoot,
@@ -68,15 +65,9 @@ export {
 export type {
   EdgeInput,
   EdgeRoute,
-  Point,
-  RoutedEdge,
-  RouteOptions,
-  Side,
 } from "./edges";
 
 export {
-  type FadeThresholds,
-  type FadeAlphas,
   expandThresholds,
   fadeAlphas,
   leafCapScale,
@@ -87,7 +78,6 @@ export { isOnScreen, selectChildren } from "./cull";
 
 export type {
   ZoomKind,
-  ZoomRect,
   ZoomMetrics,
   ZoomNode,
   ZoomRelation,

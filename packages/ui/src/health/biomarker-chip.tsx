@@ -9,7 +9,7 @@ import {
   DIMENSION_LABEL,
 } from "./biomarker-glossary";
 
-export interface BiomarkerChipProps {
+interface BiomarkerChipProps {
   type: string;
   showInfo?: boolean;
   className?: string;

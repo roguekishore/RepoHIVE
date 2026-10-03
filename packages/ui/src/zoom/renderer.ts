@@ -37,7 +37,7 @@ export interface FlyOptions {
   fill?: number;
 }
 
-export interface ZoomRendererOptions {
+interface ZoomRendererOptions {
   canvas: HTMLCanvasElement;
   palette: ZoomPalette;
   onStats?: ((stats: FrameStats) => void) | undefined;

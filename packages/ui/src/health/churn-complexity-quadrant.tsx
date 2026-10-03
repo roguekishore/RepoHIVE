@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { bandForScore } from "@repohive/types";
 import type { ChurnComplexityPoint, HealthBand } from "@repohive/types/health";
 
-export interface ChurnComplexityQuadrantProps {
+interface ChurnComplexityQuadrantProps {
   points: ChurnComplexityPoint[];
   onSelect?: (point: ChurnComplexityPoint) => void;
   height?: number;

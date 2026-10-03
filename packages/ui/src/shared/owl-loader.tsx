@@ -5,7 +5,7 @@ import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { cn } from "../lib/cn";
 import { BrandMark } from "./brand-mark";
 
-export interface OwlLoaderProps {
+interface OwlLoaderProps {
   /** Path to the owl Lottie asset, served from the consuming app's public/. */
   src?: string;
   /** Fallback brand-mark assets, shown if the animation fails to load. */

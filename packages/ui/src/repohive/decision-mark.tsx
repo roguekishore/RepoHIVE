@@ -13,7 +13,6 @@
  * greyscale printing (paper figures) at once.
  */
 
-import * as React from "react";
 import type { DecisionState } from "./types";
 
 export const DECISION_TOKEN: Record<DecisionState, string> = {
@@ -22,14 +21,14 @@ export const DECISION_TOKEN: Record<DecisionState, string> = {
   degenerate: "var(--color-decision-degenerate)",
 };
 
-export const DECISION_LABEL: Record<DecisionState, string> = {
+const DECISION_LABEL: Record<DecisionState, string> = {
   preserve: "Preserved",
   reconstruct: "Reconstructed",
   degenerate: "Not assessed",
 };
 
 /** One line explaining what the state means, for legends and tooltips. */
-export const DECISION_GLOSS: Record<DecisionState, string> = {
+const DECISION_GLOSS: Record<DecisionState, string> = {
   preserve: "measured at or above the boundary — the authored package boundary held",
   reconstruct: "measured below the boundary — rebuilt from the dependency structure",
   degenerate: "below the measurable threshold — scored 0 by rule, never assessed",

@@ -49,7 +49,7 @@ function computeEdgeCurvature(edgeKey: string): number {
   return 0.12 + (Math.abs(hash) % 80) / 1000;
 }
 
-export interface ConstellationOptions {
+interface ConstellationOptions {
   /** Repo name for the core label. Falls back to "REPO". */
   repoName?: string;
   /** Add faint hub→core spokes. Off by default (can read as noise). */
@@ -182,7 +182,7 @@ export function satelliteSizeFromPagerank(pagerank: number): number {
 
 /** Result of merging a slice into the constellation: the (mutated) graph plus
  *  the satellite node ids that were added, for camera framing + collapse. */
-export interface SliceMergeResult {
+interface SliceMergeResult {
   satelliteIds: string[];
 }
 

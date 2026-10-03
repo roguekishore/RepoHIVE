@@ -10,7 +10,7 @@
 
 import type { Camera } from "./camera";
 
-export function clamp01(t: number): number {
+function clamp01(t: number): number {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 

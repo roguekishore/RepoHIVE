@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { useDebounce } from "../hooks/use-debounce";
 import type { GraphPath, NodeSearchResult } from "@repohive/types/graph";
 
-export interface PathFinderPanelProps {
+interface PathFinderPanelProps {
   /** Inject the autocomplete searcher. Returns the top-N nodes for a query. */
   searchNodes: (query: string, limit: number) => Promise<NodeSearchResult[]>;
   /** Inject the path finder. Returns the engine's `GraphPath` payload. */

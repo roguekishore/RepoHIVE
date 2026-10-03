@@ -10,8 +10,6 @@
  * sentence next to every figure — a number with no frame is not information.
  */
 
-export { OverviewSection, SectionLink } from "./section";
-export type { OverviewSectionProps } from "./section";
+export { OverviewSection } from "./section";
 
-export { HealthLede, healthBand } from "./health-lede";
-export type { HealthLedeProps } from "./health-lede";
+export { healthBand } from "./health-lede";

@@ -24,17 +24,13 @@ export {
   squashCohesion,
   tallyViews,
 } from "./decision-model";
-export type { BoundaryTally } from "./decision-model";
 export {
-  DISPLAY_DECIMALS,
   displayNumber,
   displayPercent,
   elidePackage,
   middleElide,
 } from "./format";
 export {
-  DECISION_GLOSS,
-  DECISION_LABEL,
   DECISION_TOKEN,
   DecisionGlyph,
   DecisionLegend,
@@ -42,22 +38,19 @@ export {
   DecisionPill,
 } from "./decision-mark";
 export { DecisionScatter } from "./decision-scatter";
-export type { DecisionScatterProps } from "./decision-scatter";
 export { BoundaryStrip } from "./boundary-strip";
-export type { BoundaryStripProps } from "./boundary-strip";
 export { ProvenanceCard } from "./provenance-card";
-export type { ProvenanceCardProps, ProvenanceGroupLink } from "./provenance-card";
-export { AdaptivityComparison, ScoreSpread } from "./adaptivity-comparison";
-export type { AdaptivityComparisonProps, AdaptivityRepoView } from "./adaptivity-comparison";
+export { AdaptivityComparison } from "./adaptivity-comparison";
+export type { AdaptivityRepoView } from "./adaptivity-comparison";
 export { Fragmentation } from "./fragmentation";
-export type { FragmentationProps, FragmentedRegionView } from "./fragmentation";
+export type { FragmentedRegionView } from "./fragmentation";
 export { LevelFlow } from "./level-flow";
 export type { LevelFlowRowData } from "./level-flow";
 export { GroupDsm } from "./group-dsm";
-export type { DsmEntryView, DsmGroupState, DsmGroupView, GroupDsmProps } from "./group-dsm";
+export type { DsmEntryView, DsmGroupView } from "./group-dsm";
 export { DeterminismPanel } from "./determinism-panel";
-export type { DeterminismPanelProps, DeterminismSample } from "./determinism-panel";
+export type { DeterminismPanelProps } from "./determinism-panel";
 export { HierarchySunburst } from "./hierarchy-sunburst";
-export type { ArcState, HierarchySunburstProps, SunburstArc } from "./hierarchy-sunburst";
+export type { SunburstArc } from "./hierarchy-sunburst";
 export { RegionMorph } from "./region-morph";
-export type { MorphCell, MorphEdge, MorphFile, RegionMorphProps } from "./region-morph";
+export type { MorphCell, MorphEdge, MorphFile } from "./region-morph";

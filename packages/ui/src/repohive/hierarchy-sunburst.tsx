@@ -15,12 +15,11 @@
  * picture, which is what makes it usable as a paper figure.
  */
 
-import * as React from "react";
 import { DECISION_TOKEN } from "./decision-mark";
 import { middleElide } from "./format";
 import type { DecisionState } from "./types";
 
-export type ArcState = DecisionState | "none";
+type ArcState = DecisionState | "none";
 
 export interface SunburstArc {
   id: string;
@@ -35,7 +34,7 @@ export interface SunburstArc {
   wrapper?: boolean;
 }
 
-export interface HierarchySunburstProps {
+interface HierarchySunburstProps {
   arcs: readonly SunburstArc[];
   maxLevel: number;
   totalFiles: number;

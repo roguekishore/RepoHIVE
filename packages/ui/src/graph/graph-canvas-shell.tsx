@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "../lib/cn";
 
-export interface GraphCanvasShellProps {
+interface GraphCanvasShellProps {
   /** Optional one-line title rendered above the canvas (no second header band). */
   title?: string;
   /** Optional one-line description under the title. */

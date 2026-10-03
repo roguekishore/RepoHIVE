@@ -2,13 +2,13 @@ import { useMemo } from "react";
 import type Graph from "graphology";
 import type { SigmaNodeAttributes, SigmaEdgeAttributes } from "./types";
 
-export interface UseEgoFilterOptions {
+interface UseEgoFilterOptions {
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;
   selectedNodeId: string | null;
   depth: number;
 }
 
-export interface UseEgoFilterReturn {
+interface UseEgoFilterReturn {
   egoNodes: Set<string>;
   hiddenNodes: Set<string>;
   isActive: boolean;

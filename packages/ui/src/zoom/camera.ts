@@ -30,12 +30,12 @@ export interface Viewport {
   h: number;
 }
 
-export interface ScreenPoint {
+interface ScreenPoint {
   sx: number;
   sy: number;
 }
 
-export interface WorldPoint {
+interface WorldPoint {
   wx: number;
   wy: number;
 }

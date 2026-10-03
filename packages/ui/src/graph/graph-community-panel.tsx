@@ -7,7 +7,7 @@ import { Skeleton } from "../ui/skeleton";
 import { truncatePath } from "../lib/format";
 import type { CommunityDetail } from "@repohive/types/graph";
 
-export interface GraphCommunityPanelProps {
+interface GraphCommunityPanelProps {
   /** Community id surfaced in the empty/loading title fallback. */
   communityId: number;
   /** Pre-fetched community detail; `null`/`undefined` while loading. */

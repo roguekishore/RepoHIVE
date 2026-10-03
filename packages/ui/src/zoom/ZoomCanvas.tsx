@@ -34,7 +34,7 @@ export interface ZoomCanvasHandle {
   reset: (opts?: FlyOptions) => void;
 }
 
-export interface ZoomCanvasProps {
+interface ZoomCanvasProps {
   data: ZoomMap;
   className?: string;
   onSelect?: (node: ZoomNode | null) => void;

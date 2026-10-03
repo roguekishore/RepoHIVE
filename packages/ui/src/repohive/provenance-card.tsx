@@ -15,13 +15,13 @@ import { DecisionPill } from "./decision-mark";
 import { displayNumber } from "./format";
 import type { DecisionWeights, RegionView } from "./types";
 
-export interface ProvenanceGroupLink {
+interface ProvenanceGroupLink {
   id: string;
   label: string;
   href: string;
 }
 
-export interface ProvenanceCardProps {
+interface ProvenanceCardProps {
   region: RegionView;
   weights: DecisionWeights;
   squashK: number;

@@ -35,7 +35,7 @@ import {
   transitionT,
 } from "./zoom-transition";
 
-export interface DrawOptions {
+interface DrawOptions {
   selectedId: string | null;
   hoveredId: string | null;
   lowDetail: boolean;
@@ -111,7 +111,7 @@ function drawGrid(
   pass(true); // major lines on top
 }
 
-export interface PickEntry {
+interface PickEntry {
   id: string;
   rect: Rect;
   depth: number;

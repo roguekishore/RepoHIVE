@@ -2,7 +2,7 @@
  * RepoHIVE-owned view-model types for the decision surfaces.
  *
  * This namespace (`ui/src/repohive/`) holds components built for RepoHIVE
- * itself, kept apart from the vendored repowise folders so the NOTICE
+ * itself, kept apart from the upstream-derived folders so the NOTICE
  * attribution stays accurate (viewer handoff §9).
  *
  * Everything here is presentational: recorded engine values arrive via props,

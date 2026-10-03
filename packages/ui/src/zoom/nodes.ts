@@ -170,7 +170,7 @@ function drawPaperTexture(
   ctx.fillStyle = paper;
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   // RepoHIVE fix: wash toward the card's OWN fill colour, not a hardcoded white.
-  // The vendored wash was fixed white, which erased the warm container tint on
+  // The upstream wash was fixed white, which erased the warm container tint on
   // large/high-importance cards (they turned white) while small cards kept the
   // tint — a size-driven colour split that read as a bug. Washing toward `fill`
   // keeps every card its intended colour at any size; the strength constant
@@ -218,7 +218,7 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxW: number): str
   return lo > 0 ? text.slice(0, lo) + ell : "";
 }
 
-export interface CardState {
+interface CardState {
   selected: boolean;
   hovered: boolean;
   /** During a pan we skip the (costlier) shadow so dragging stays smooth. */

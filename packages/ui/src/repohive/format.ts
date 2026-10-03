@@ -9,7 +9,7 @@
  */
 
 /** How many decimals tables and axis labels show. */
-export const DISPLAY_DECIMALS = 3;
+const DISPLAY_DECIMALS = 3;
 
 /**
  * A recorded number rounded for display, with trailing zeros trimmed.

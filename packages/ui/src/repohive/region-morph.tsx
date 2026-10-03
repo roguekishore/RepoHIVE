@@ -40,7 +40,7 @@ export interface MorphEdge {
   strength: number;
 }
 
-export interface RegionMorphProps {
+interface RegionMorphProps {
   regionLabel: string;
   action: DecisionAction;
   files: readonly MorphFile[];

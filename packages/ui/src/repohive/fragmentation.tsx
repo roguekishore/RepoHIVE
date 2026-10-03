@@ -15,7 +15,6 @@
  * Pure presentation, zero chart dependencies. Rows arrive ordered.
  */
 
-import * as React from "react";
 import { DECISION_TOKEN } from "./decision-mark";
 import { displayNumber, middleElide } from "./format";
 
@@ -29,7 +28,7 @@ export interface FragmentedRegionView {
   score: number;
 }
 
-export interface FragmentationProps {
+interface FragmentationProps {
   regions: readonly FragmentedRegionView[];
   totalReconstructed: number;
   omittedRegions?: number;
