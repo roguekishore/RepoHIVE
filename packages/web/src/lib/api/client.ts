@@ -16,12 +16,10 @@
 
 import { configureApiClient } from "@repohive/api-client";
 
-// Client-side: empty string → relative requests proxied via Next.js rewrites.
-// Server-side: use REPOWISE_API_URL (the backend) since server `fetch` bypasses rewrites.
-const BASE_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_REPOWISE_API_URL ?? "")
-    : (process.env.REPOWISE_API_URL || process.env.NEXT_PUBLIC_REPOWISE_API_URL || "http://localhost:7337");
+// Empty string means same-origin requests. The app no longer serves or proxies
+// `/api/*` for repository data, and no server-side code fetches from itself
+//: `REPOWISE_API_URL` is gone.
+const BASE_URL = process.env.NEXT_PUBLIC_REPOWISE_API_URL ?? "";
 
 function getApiKey(): string | null {
   // In browser: check localStorage (set by settings page)
