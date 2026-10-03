@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: repohive-server
+  config:
+    # Local development settings; ignored when the file is absent (hosted mode uses real environment variables).
+    import: optional:file:./config/local.env[.properties]
+
+# server.port defaults to 8080; the SERVER_PORT environment variable overrides it.
+
+repohive:
+  backup:
+    enabled: true
+    interval-ms: 3600000
