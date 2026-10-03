@@ -57,6 +57,7 @@ export default function HierarchyPage() {
 
       {data && !isLoading && (
         <>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-[var(--color-text-secondary)]">
             <span>
               <strong className="font-semibold tabular-nums text-[var(--color-text-primary)]">
@@ -83,8 +84,8 @@ export default function HierarchyPage() {
               arcs drawn
             </span>
           </div>
-
           <DecisionLegend />
+          </div>
 
           <HierarchySunburst
             arcs={data.arcs}

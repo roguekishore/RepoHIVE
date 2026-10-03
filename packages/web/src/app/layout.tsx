@@ -6,7 +6,7 @@ import { Lora } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/theme-provider";
-import { MobileNav, Sidebar } from "@/components/layout/app-nav";
+import { AppShell } from "@/components/layout/app-shell";
 import { SWRProvider } from "@/components/layout/swr-provider";
 import "@/styles/globals.css";
 
@@ -41,19 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SWRProvider>
               <TooltipProvider delayDuration={300}>
                 <Suspense fallback={null}>
-                  <div className="flex h-screen overflow-hidden">
-                    <Sidebar />
-                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                      <MobileNav />
-                      {/* A flex column, so anything a route layout stacks above the page
-                          (repo breadcrumb) is subtracted from the page's own height
-                          rather than added to it; a full-bleed canvas then keeps its
-                          bottom-anchored chrome inside the viewport. */}
-                      <main id="main-content" className="flex min-w-0 flex-1 flex-col overflow-auto">
-                        {children}
-                      </main>
-                    </div>
-                  </div>
+                  <AppShell>{children}</AppShell>
                 </Suspense>
               </TooltipProvider>
             </SWRProvider>
