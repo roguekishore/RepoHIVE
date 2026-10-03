@@ -105,6 +105,8 @@ packages/
   parser/       Tree-Sitter Java → graph.json
   core/         grouping algorithm + blast radius
   engine/       parse then group in one call (`indexProject`), progress, snapshot-id inputs
+  views/        the viewer's response bodies as pure functions of a parsed index (ecosystem)
+  indexer/      the hosted indexing job: pre-check, tarball fetch, run, views, publish (ecosystem)
   cli/          EMPTY (.gitkeep only), the packaged CLI is not built
   api-client/   framework-free client for the REST surface
   ui/           shared UI components
@@ -120,6 +122,19 @@ scans for it).
 both artifacts under one output root, and returns the grouping output in memory. The parser and core still
 do not import each other. `engineVersion` and `configDigest(options)` are what a snapshot id is built from.
 The root `parse` and `group` npm scripts remain for running one stage alone.
+
+**Views and the hosted job are ecosystem code.** `views` depends on `core` only (no Next.js, no React) and holds
+the adapters and route logic that used to live in `web`; each route handler now parses its request and calls a
+`views` function. Its `buildSnapshotViews(groupingOutput, entry)` builds every response a snapshot publishes at
+index time, and `fromGroupingOutput` makes the in-memory output equal what `parseIndex` returns. `indexer`
+depends on `engine`, `core` and `views`. It defines `ArtifactStore`, `JobLedger` and `SourceFetcher`, each with
+a local implementation (directory or memory, memory or file, tarball file) and an AWS or network one (S3,
+DynamoDB, GitHub tarball), so the whole job runs offline. `runJob` is the one function both the Lambda handler and
+the Fargate entry point call; the container image and its start commands are in `packages/indexer/DEPLOY.md`.
+Published objects have URL-shaped keys under `s/<snapshotId>/` (public, immutable), `r/github.com/<owner>/<repo>/`
+(the `latest.json` pointer) and non-public `idx/` and `meta/`; the snapshot id hashes the repository, commit,
+`engineVersion`, the views version and `configDigest`. The views version is a build-time hash of the `views`
+`dist/`, written by `packages/views/scripts/write-views-version.mjs` after `tsc -b`.
 
 ## Viewer surface
 
@@ -159,7 +174,7 @@ relying on them.
 ## Engine / ecosystem boundary
 
 - **Engine:** `parser`, `core`, `shared` are the parse/group/blast-radius logic.
-- **Ecosystem:** `cli`, `web`, `ui`, `api-client`, and any future MCP server or editor extension.
+- **Ecosystem:** `cli`, `web`, `ui`, `api-client`, `views`, `indexer`, and any future MCP server or editor extension.
 
 Ecosystem code may depend on engine code. **Engine code may never depend on ecosystem code.** Every
 change belongs clearly on one side of this line.
