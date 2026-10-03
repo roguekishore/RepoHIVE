@@ -17,7 +17,7 @@ export interface BlastRadiusResult {
 }
 
 /** A built lookup over one snapshot's data: reverse edges and id positions, built once. */
-export interface BlastRadiusIndex {
+interface BlastRadiusIndex {
   data: BlastRadiusData;
   position: Map<string, number>;
   /** Dependents (edge sources) per target position. */

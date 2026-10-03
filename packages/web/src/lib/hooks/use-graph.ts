@@ -6,25 +6,21 @@ import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 import {
   getArchitecture,
   getArchitectureGraph,
-  getCallersCallees,
   getCommunities,
   getCommunityDetail,
   getCommunitySlice,
   getDeadCodeGraph,
   getExecutionFlows,
-  getGraphMetrics,
   getHotFilesGraph,
 } from "@/lib/api/graph";
 import type {
   ArchitectureGraphResponse,
-  CallersCalleesResponse,
   CommunityDetailResponse,
   CommunitySliceResponse,
   CommunitySummaryItem,
   DeadCodeGraphResponse,
   ExecutionFlowsResponse,
   GraphExportResponse,
-  GraphMetricsResponse,
   HotFilesGraphResponse,
 } from "@/lib/api/types";
 
@@ -140,31 +136,6 @@ export function useCommunitySlices(
     SWR_OPTS,
   );
   return { slices: data, error, isLoading };
-}
-
-export function useGraphMetrics(repoId: string | null, nodeId: string | null) {
-  const { data, error, isLoading } = useSWR<GraphMetricsResponse>(
-    repoId && nodeId ? `metrics:${repoId}:${nodeId}` : null,
-    () => getGraphMetrics(repoId!, nodeId!),
-    SWR_OPTS,
-  );
-  return { metrics: data, error, isLoading };
-}
-
-export function useCallersCallees(
-  repoId: string | null,
-  symbolId: string | null,
-  params?: { direction?: string; edge_types?: string; limit?: number },
-) {
-  const key = repoId && symbolId
-    ? `callers:${repoId}:${symbolId}:${params?.edge_types ?? "calls"}`
-    : null;
-  const { data, error, isLoading } = useSWR<CallersCalleesResponse>(
-    key,
-    () => getCallersCallees(repoId!, symbolId!, params),
-    SWR_OPTS,
-  );
-  return { data, error, isLoading };
 }
 
 export function useExecutionFlows(

@@ -30,7 +30,7 @@ import type {
 
 type ViewMode = "full" | "architecture" | "dead" | "hotfiles" | "unified";
 
-export interface GraphFlowProps {
+interface GraphFlowProps {
   repoId: string;
   repoName?: string;
   initialViewMode?: ViewMode;

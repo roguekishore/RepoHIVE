@@ -8,7 +8,7 @@ import {
 } from "@repohive/ui/ui/dialog";
 import { useChangelog } from "@/lib/hooks/use-meta-version";
 
-export interface WhatsNewModalProps {
+interface WhatsNewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
