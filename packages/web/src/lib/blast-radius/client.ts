@@ -17,7 +17,7 @@ export interface BlastRadiusWorker {
   terminate(): void;
 }
 
-export interface BlastRadiusSessionOptions {
+interface BlastRadiusSessionOptions {
   snapshotId: string;
   fetchData?: (url: string) => Promise<BlastRadiusData>;
   createWorker?: () => BlastRadiusWorker;

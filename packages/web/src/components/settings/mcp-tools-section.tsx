@@ -67,7 +67,6 @@ export function McpToolsSection() {
     listRepos()
       .then((rows) => {
         const opts = rows
-          .filter((r) => !r.id.startsWith("ws:"))
           .map((r) => ({ id: r.id, name: r.name }));
         setRepos(opts);
         setRepoId((cur) => cur ?? opts[0]?.id ?? null);

@@ -10,7 +10,7 @@
  * improvement. It is RepoHIVE's own dependency graph drawn flat, not a
  * deficiency of any other tool (R10.6).
  *
- * It reuses the vendored `files`-scope graph canvas, locked to that scope (the
+ * It reuses the `files`-scope graph canvas, locked to that scope (the
  * community scope RepoHIVE does not feed is hidden). Data comes from
  * `GET /api/graph/{id}`.
  */

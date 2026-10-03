@@ -7,7 +7,7 @@ import type { AppDatabase } from "@/lib/app-db/database";
 import type { AppConfig } from "@/lib/hosting/config";
 import { getJobLedger } from "@/lib/hosting/clients";
 
-export interface HealthReport {
+interface HealthReport {
   readonly status: "ok" | "degraded";
   readonly version: string;
   readonly ledgerReachable: boolean;
