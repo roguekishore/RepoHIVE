@@ -40,10 +40,10 @@ interface View {
 
 function readPalette(): Palette {
   return {
-    fade: resolveToken("--color-border-default", "#888888"),
-    accent: resolveToken("--color-accent-primary", "#f59520"),
-    text: resolveToken("--color-text-secondary", "#888888"),
-    edge: resolveToken("--color-border-default", "#888888"),
+    fade: resolveToken("--color-border-default", "gray"),
+    accent: resolveToken("--color-accent-primary", "mediumpurple"),
+    text: resolveToken("--color-text-secondary", "gray"),
+    edge: resolveToken("--color-border-default", "gray"),
   };
 }
 
