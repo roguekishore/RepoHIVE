@@ -113,12 +113,16 @@ run, and as the list a new failure has to be checked against.
 | `@repohive/parser` | 180 / 181, one platform-dependent failure (Windows) |
 | `@repohive/api-client` | 50 / 50 pass |
 | `@repohive/web` | 20 / 20 pass |
-| `@repohive/types` | 2 suites fail, pre-existing, vendored |
+| `@repohive/types` | 2 suites fail, pre-existing (missing fixture) |
 | `@repohive/ui` | 1041 / 1042, one flaky failure, identity varies per run |
 
 What *is* verifiable in this repository is the number of test **files**, which matches the earlier
 workspace exactly: `core` 17, `parser` 11, `api-client` 5, `types` 3, `ui` 143, `web` 5, `shared` 0.
 That is consistency of test *surface*, not of results.
+
+Re-measured 2026-10-03 on `server-java`, after the unused UI was pruned: `ui` 342 / 342 in 49 files, `web` 142 / 142
+in 25 files, `api-client` 12 / 12 in 2 files. The file counts in the previous paragraph no longer apply to
+those three.
 
 ### Known failures. Confirm these are the only ones
 
@@ -127,12 +131,11 @@ That is consistency of test *surface*, not of results.
    **skipped on Windows** with a stated reason (it used to fail there) and still runs elsewhere, so a
    Windows parser run reports one skipped test, not a failure.
 2. **`types` → `__tests__/node-ids.test.ts`** imports `../../../tests/fixtures/node_ids.json` at line
-   15. **Confirmed: that file does not exist anywhere in this repository.** Vendored test
-   infrastructure whose fixture was never vendored with it. This one is a real, locatable defect rather
+   15. **Confirmed: that file does not exist anywhere in this repository.** The fixture
+   was never brought over with the test. This one is a real, locatable defect rather
    than an environmental quirk.
-3. **`ui` render-budget tests**, `__tests__/token-drift.test.ts` and
-   `__tests__/workspace/dsm-matrix.test.tsx`, fail intermittently and not always the same one.
-   Timing-sensitive; vendored. Both files confirmed present.
+3. **`ui` render-budget tests** were intermittent. `dsm-matrix.test.tsx` was removed with the
+   `/workspace` code it covered; `__tests__/token-drift.test.ts` remains and reads source from disk.
 
 A change is clean if it does not add to this list. A new failure outside it is yours.
 
