@@ -5,7 +5,7 @@
 
 import { apiGet } from "./client";
 
-export interface MetaVersion {
+interface MetaVersion {
   server_version: string;
   latest_version: string | null;
   /** null when PyPI could not be reached (distinct from "up to date"). */
@@ -17,18 +17,18 @@ export interface MetaVersion {
   reindex_command: string | null;
 }
 
-export interface ChangelogSection {
+interface ChangelogSection {
   name: string;
   items: string[];
 }
 
-export interface ChangelogEntry {
+interface ChangelogEntry {
   version: string;
   label: string | null;
   sections: ChangelogSection[];
 }
 
-export interface ChangelogData {
+interface ChangelogData {
   entries: ChangelogEntry[];
 }
 

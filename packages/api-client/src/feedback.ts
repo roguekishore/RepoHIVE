@@ -8,7 +8,7 @@ import { apiPost } from "./client";
 /** Feedback categories. Mirrors the server-side `_CATEGORIES` set. */
 export type FeedbackCategory = "ui_ux" | "bug" | "feature_request" | "other";
 
-export interface FeedbackInput {
+interface FeedbackInput {
   category: FeedbackCategory;
   message: string;
   /** Optional reply-to address, so the maintainers can follow up. */

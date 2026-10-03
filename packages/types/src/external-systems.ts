@@ -37,13 +37,3 @@ export interface ExternalSystemEntry {
   declared_in: string;
   is_dev_dep: boolean;
 }
-
-/** The full dependency registry for a repository. */
-export interface ExternalSystemsRegistry {
-  items: ExternalSystemEntry[];
-  total: number;
-  prod_count: number;
-  dev_count: number;
-  ecosystems: string[];
-  manifests: string[];
-}

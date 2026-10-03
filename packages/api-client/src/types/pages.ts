@@ -55,27 +55,6 @@ export interface PageResponse extends PageSummary {
   metadata: Record<string, unknown>;
 }
 
-export interface PageVersionResponse {
-  id: string;
-  page_id: string;
-  version: number;
-  page_type: string;
-  title: string;
-  content: string;
-  source_hash: string;
-  model_name: string;
-  provider_name: string;
-  input_tokens: number;
-  output_tokens: number;
-  confidence: number;
-  archived_at: string;
-}
-
-export interface PageListResponse {
-  pages: PageResponse[];
-  total: number;
-}
-
 // ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
@@ -128,13 +107,4 @@ export interface JobProgressEvent {
   actual_cost_usd?: number | null;
   error_message?: string | null;
   error?: string;
-}
-
-/** An `event: message` frame on the job SSE stream: one pipeline log line. */
-export interface JobMessageEvent {
-  seq: number;
-  ts: number;
-  level: string;
-  text: string;
-  phase: string;
 }

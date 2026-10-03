@@ -17,7 +17,7 @@ export type FreshnessStatus = "fresh" | "stale" | "outdated" | (string & {});
  * tree, breadcrumbs, the command palette, the path index — reads either one.
  * Anything that shows a page's body takes `DocPage` instead and fetches it.
  */
-export interface DocPageSummary {
+interface DocPageSummary {
   id: string;
   repository_id: string;
   page_type: string;
@@ -85,34 +85,4 @@ export interface DocPageSummary {
 export interface DocPage extends DocPageSummary {
   content: string;
   metadata: Record<string, unknown>;
-}
-
-export interface DocPageVersion {
-  id: string;
-  page_id: string;
-  version: number;
-  page_type: string;
-  title: string;
-  content: string;
-  source_hash: string;
-  model_name: string;
-  provider_name: string;
-  input_tokens: number;
-  output_tokens: number;
-  confidence: number;
-  archived_at: string;
-}
-
-export interface DocPageList {
-  pages: DocPage[];
-  total: number;
-}
-
-export interface CoverageRollup {
-  available: boolean;
-  total_pages: number;
-  fresh: number;
-  stale: number;
-  outdated: number;
-  pages: DocPage[];
 }
