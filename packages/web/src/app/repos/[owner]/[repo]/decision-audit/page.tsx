@@ -24,27 +24,22 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { parseAsFloat, parseAsString, useQueryState } from "nuqs";
 import { ClipboardList } from "lucide-react";
-import { PageShell } from "@repohive/ui/shared/page-shell";
-import { ResponsiveTable, type ResponsiveColumn } from "@repohive/ui/shared/responsive-table";
-import {
-  BoundaryStrip,
-  DecisionPill,
-  DecisionScatter,
-  ProvenanceCard,
-  RegionMorph,
-  deriveRegionViews,
-  displayNumber,
-  middleElide,
-  tallyViews,
-  type RegionPoint,
-  type RegionView,
-} from "@repohive/ui/repohive";
+import { PageShell } from "@/components/shared/page-shell";
+import { ResponsiveTable, type ResponsiveColumn } from "@/components/shared/responsive-table";
+import { BoundaryStrip } from "@/features/decisions/boundary-strip";
+import { DecisionPill } from "@/features/decisions/decision-mark";
+import { DecisionScatter } from "@/features/decisions/decision-scatter";
+import { ProvenanceCard } from "@/features/decisions/provenance-card";
+import { RegionMorph } from "@/features/decisions/region-morph";
+import { deriveRegionViews, tallyViews } from "@/features/decisions/decision-model";
+import { displayNumber, middleElide } from "@/features/decisions/format";
+import { type RegionPoint, type RegionView } from "@/features/decisions/types";
 import {
   useRegionDecisions,
   useRegionDetail,
   type RegionDecisionsResponse,
-} from "@/lib/hooks/use-decisions";
-import { useSnapshot } from "@/lib/snapshot/snapshot-context";
+} from "@/features/decisions/use-decisions";
+import { useSnapshot } from "@/features/repository/snapshot-context";
 
 /** A recorded number, rounded for display with the exact value one hover away. */
 function Num({ value }: { value: number }) {

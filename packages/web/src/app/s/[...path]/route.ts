@@ -1,5 +1,5 @@
-import { serveLocalSnapshotPath } from "@/lib/hosting/local-snapshots";
-import { snapshotObjectKey } from "@/lib/hosting/snapshot-objects";
+import { serveLocalSnapshotPath } from "@/server/hosting/local-snapshots";
+import { snapshotObjectKey } from "@/server/hosting/snapshot-objects";
 
 /**
  * `GET /s/<snapshotId>/...`: a published snapshot object, served from the

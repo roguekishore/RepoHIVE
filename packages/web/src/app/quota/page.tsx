@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { QuotaPanel } from "@/components/hosting/quota-panel";
+import { QuotaPanel } from "@/features/account/quota-panel";
 
 export const metadata: Metadata = { title: "Quota" };
 

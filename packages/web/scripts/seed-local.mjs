@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createFileJobLedger, createLocalArtifactStore, runLocal } from "@repohive/indexer";
-import { parseAppConfig } from "../src/lib/hosting/config.ts";
+import { parseAppConfig } from "../src/server/hosting/config.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const FIXTURES = ["sample-java-project", "jsoup", "vantage", "BroadleafCommerce"];

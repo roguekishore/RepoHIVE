@@ -1,6 +1,6 @@
-import { getAppDatabase } from "@/lib/app-db/database";
-import { getAppConfig } from "@/lib/hosting/config";
-import { checkHealth } from "@/lib/health/check-health";
+import { getAppDatabase } from "@/server/app-db/database";
+import { getAppConfig } from "@/server/hosting/config";
+import { checkHealth } from "@/server/health/check-health";
 
 export const dynamic = "force-dynamic";
 

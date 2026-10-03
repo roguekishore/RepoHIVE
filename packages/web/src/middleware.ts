@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { needsLowercase, parseRepoParams } from "@/lib/snapshot/repo-name";
+import { needsLowercase, parseRepoParams } from "@/features/repository/repo-name";
 
 /**
  * Repository URL rules that must be answered before any page renders, so the

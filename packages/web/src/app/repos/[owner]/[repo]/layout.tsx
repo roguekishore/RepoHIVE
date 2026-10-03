@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/layout/page-transition";
-import { RepoBreadcrumb } from "@/components/layout/repo-breadcrumb";
-import { SnapshotGate } from "@/components/layout/snapshot-gate";
-import { parseRepoParams } from "@/lib/snapshot/repo-name";
-import { SnapshotProvider } from "@/lib/snapshot/snapshot-context";
+import { RepoBreadcrumb } from "@/features/repository/repo-breadcrumb";
+import { SnapshotGate } from "@/features/repository/snapshot-gate";
+import { parseRepoParams } from "@/features/repository/repo-name";
+import { SnapshotProvider } from "@/features/repository/snapshot-context";
 
 interface RepoLayoutProps {
   children: React.ReactNode;
@@ -23,7 +23,7 @@ export default async function RepoLayout({ children, params }: RepoLayoutProps) 
   if (parsed.kind === "invalid") notFound();
   return (
     <SnapshotProvider key={parsed.repoId} repoId={parsed.repoId}>
-      <RepoBreadcrumb repoName={parsed.repoId} />
+      <RepoBreadcrumb repoId={parsed.repoId} />
       <PageTransition>
         <SnapshotGate>{children}</SnapshotGate>
       </PageTransition>

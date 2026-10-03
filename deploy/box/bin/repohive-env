@@ -37,7 +37,7 @@ origin_secret="$(read_parameter /repohive/origin-secret)"
 
 mkdir -p "${OUT_DIR}"
 
-# The settings hosting-3's configuration validates (packages/web/src/lib/hosting/config.ts).
+# The settings hosting-3's configuration validates (packages/web/src/server/hosting/config.ts).
 app_settings() {
   printf '%s\n' \
     "REPOHIVE_MODE=hosted" \

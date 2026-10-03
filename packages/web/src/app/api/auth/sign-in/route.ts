@@ -1,6 +1,6 @@
-import { signIn } from "@/lib/auth/accounts";
-import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/lib/auth/http";
-import { buildSessionSetCookie } from "@/lib/auth/session-cookie";
+import { signIn } from "@/server/auth/accounts";
+import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/server/auth/http";
+import { buildSessionSetCookie } from "@/server/auth/session-cookie";
 
 export const dynamic = "force-dynamic";
 

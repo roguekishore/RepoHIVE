@@ -36,7 +36,7 @@ diagnostics.
 
 Note that the root `npm run typecheck` is **byte-identical to `build`** and emits `dist/`. It is not a
 no-emit check. The per-package no-emit checks are `typecheck` in `shared`, `parser`, and `core`, but
-`type-check` in `api-client`, `types`, `ui`, and `web`. No root script runs the second group.
+`type-check` in `web`. No root script runs it.
 
 ## Gate 2: tests
 
@@ -46,14 +46,12 @@ npm test
 
 Runs `npm run test --workspaces --if-present`.
 
-### Root `npm test` does not give you a usable pass/fail signal
+### Root `npm test`
 
-It is expected to exit non-zero, because of known pre-existing failures listed below. One of those,
-the missing `node_ids.json` fixture, is confirmed present in this repository as a defect: the import
-target does not exist anywhere in the tree, so that workspace cannot pass. The overall non-zero exit is
-therefore a sound inference. The exact exit code was **not measured against this repository.**
-
-Treat `npm test` as a change detector, not a gate: compare its failures against the known list.
+Measured 2026-10-03 on `slim` (Windows, Node v24.21.0, after `npm run build` and `next build` in `packages/web`): exit 0,
+about 51 s warm. The earlier non-zero exit came from the `types` workspace (a missing fixture), which no longer exists.
+The `web` suite includes an end-to-end test that starts the built server, so it fails without `next build`, and the
+views version without the root build. A failure from either is a missing precondition, not a regression.
 
 ### How the engine test script works, and the trap it replaced
 
@@ -112,18 +110,16 @@ run, and as the list a new failure has to be checked against.
 |-----------|------------------------------------------------|
 | `@repohive/core` | 153 / 153 pass |
 | `@repohive/parser` | 180 / 181, one platform-dependent failure (Windows) |
-| `@repohive/api-client` | 50 / 50 pass |
 | `@repohive/web` | 20 / 20 pass |
-| `@repohive/types` | 2 suites fail, pre-existing (missing fixture) |
-| `@repohive/ui` | 1041 / 1042, one flaky failure, identity varies per run |
 
 What *is* verifiable in this repository is the number of test **files**, which matches the private
-workspace exactly: `core` 17, `parser` 11, `api-client` 5, `types` 3, `ui` 143, `web` 5, `shared` 0.
+workspace exactly: `core` 17, `parser` 11, `web` 5, `shared` 0.
 That is consistency of test *surface*, not of results.
 
-Re-measured 2026-10-03 on `slim`, after the unused UI was pruned: `ui` 342 / 342 in 49 files, `web` 142 / 142
-in 25 files, `api-client` 12 / 12 in 2 files. The file counts in the previous paragraph no longer apply to
-those three.
+The `ui`, `types` and `api-client` packages are gone; their surviving code and tests are in `web`. Re-measured
+2026-10-03 on `slim`, Windows, Node v24.21.0, after that merge: `web` 283 / 283 in 41 files, `core` 176 / 176,
+`parser` 235 pass and 1 skipped (236), `engine` 76 / 76, `indexer` 192 / 192. The numbers in the two paragraphs above
+no longer apply to `web`.
 
 ### Known failures. Confirm these are the only ones
 
@@ -131,12 +127,6 @@ those three.
    the walk continues".** Asserts POSIX semantics where `\` is a legal filename character. It is
    **skipped on Windows** with a stated reason (it used to fail there) and still runs elsewhere, so a
    Windows parser run reports one skipped test, not a failure.
-2. **`types` → `__tests__/node-ids.test.ts`** imports `../../../tests/fixtures/node_ids.json` at line
-   15. **Confirmed: that file does not exist anywhere in this repository.** The fixture
-   was never brought over with the test. This one is a real, locatable defect rather
-   than an environmental quirk.
-3. **`ui` render-budget tests** were intermittent. `dsm-matrix.test.tsx` was removed with the
-   `/workspace` code it covered; `__tests__/token-drift.test.ts` remains and reads source from disk.
 
 A change is clean if it does not add to this list. A new failure outside it is yours.
 

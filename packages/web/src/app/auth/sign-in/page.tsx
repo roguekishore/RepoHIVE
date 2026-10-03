@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AuthForm } from "@/components/hosting/auth-form";
+import { AuthForm } from "@/features/account/auth-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 

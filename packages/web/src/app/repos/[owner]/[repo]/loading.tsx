@@ -1,5 +1,5 @@
-import { OwlLoader } from "@repohive/ui/shared/owl-loader";
+import { PageLoading } from "@/components/shared/page-loading";
 
 export default function RepoLoading() {
-  return <OwlLoader />;
+  return <PageLoading />;
 }

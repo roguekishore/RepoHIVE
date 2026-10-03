@@ -1,5 +1,5 @@
-import { serveLocalSnapshotPath } from "@/lib/hosting/local-snapshots";
-import { latestPointerKey } from "@/lib/hosting/snapshot-objects";
+import { serveLocalSnapshotPath } from "@/server/hosting/local-snapshots";
+import { latestPointerKey } from "@/server/hosting/snapshot-objects";
 
 /**
  * `GET /r/github.com/<owner>/<repo>/latest.json`: a repository's latest

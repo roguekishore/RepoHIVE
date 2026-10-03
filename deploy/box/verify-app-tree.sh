@@ -19,7 +19,7 @@ fail() {
 [ -d "${tree}/app/packages/web/.next/static" ] || fail "app/packages/web/.next/static is missing"
 [ -f "${tree}/app/packages/web/scripts/run-worker.mjs" ] || fail "the worker script is missing"
 [ -f "${tree}/app/packages/web/scripts/register-aliases.mjs" ] || fail "the alias loader is missing"
-[ -f "${tree}/app/packages/web/src/lib/hosting/config.ts" ] || fail "packages/web/src is missing"
+[ -f "${tree}/app/packages/web/src/server/hosting/config.ts" ] || fail "packages/web/src is missing"
 
 # The two packages next.config.ts loads at run time, plus what they import: shared, parser, core, views.
 for p in indexer engine shared parser core views; do

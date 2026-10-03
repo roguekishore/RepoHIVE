@@ -14,19 +14,12 @@
 
 import { Boxes } from "lucide-react";
 import { parseAsInteger, useQueryState } from "nuqs";
-import { PageShell } from "@repohive/ui/shared/page-shell";
-import {
-  DeterminismPanel,
-  Fragmentation,
-  GroupDsm,
-  LevelFlow,
-  type DeterminismPanelProps,
-  type DsmEntryView,
-  type DsmGroupView,
-  type FragmentedRegionView,
-  type LevelFlowRowData,
-} from "@repohive/ui/repohive";
-import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
+import { PageShell } from "@/components/shared/page-shell";
+import { DeterminismPanel, type DeterminismPanelProps } from "@/features/architecture/determinism-panel";
+import { Fragmentation, type FragmentedRegionView } from "@/features/adaptivity/fragmentation";
+import { GroupDsm, type DsmEntryView, type DsmGroupView } from "@/features/architecture/group-dsm";
+import { LevelFlow, type LevelFlowRowData } from "@/features/architecture/level-flow";
+import { useSnapshotJson } from "@/features/repository/snapshot-context";
 
 interface ArchitectureResponse {
   levels: LevelFlowRowData[];
