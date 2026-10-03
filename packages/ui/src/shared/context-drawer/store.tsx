@@ -10,7 +10,7 @@ import type { EntityRef } from "../entity/types";
  *
  * Consumers wire URL synchronization at their app layer (see web layout).
  */
-export interface ContextDrawerState {
+interface ContextDrawerState {
   entity: EntityRef | null;
   open: (entity: EntityRef) => void;
   close: () => void;
@@ -18,7 +18,7 @@ export interface ContextDrawerState {
 
 const ContextDrawerContext = React.createContext<ContextDrawerState | null>(null);
 
-export interface ContextDrawerProviderProps {
+interface ContextDrawerProviderProps {
   children: React.ReactNode;
   /** Optional initial entity (e.g. from URL hydration). */
   initialEntity?: EntityRef | null;

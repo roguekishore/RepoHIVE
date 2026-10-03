@@ -20,8 +20,6 @@ import { CollapsibleSection } from "../shared/collapsible-section";
 import { formatRelativeTimeOrNull } from "../lib/format";
 import { Sparkline } from "./sparkline";
 import {
-  SEVERITY_CHIP,
-  SEVERITY_LABEL,
   deltaColor,
   formatDelta,
   type Severity,
@@ -69,7 +67,7 @@ export interface HealthDrawerMetric {
   total_deduction?: number | null;
 }
 
-export interface HealthFileDrawerProps {
+interface HealthFileDrawerProps {
   open: boolean;
   onClose: () => void;
   loading?: boolean;

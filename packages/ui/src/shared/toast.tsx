@@ -7,7 +7,7 @@ import { Toaster as SonnerToaster, toast } from "sonner";
  * resolved theme (e.g. from next-themes) instead of this component reading it.
  * Mount once at the app shell level; fire toasts via the re-exported `toast`.
  */
-export interface ToasterProps {
+interface ToasterProps {
   theme?: "light" | "dark" | undefined;
   position?: React.ComponentProps<typeof SonnerToaster>["position"] | undefined;
 }

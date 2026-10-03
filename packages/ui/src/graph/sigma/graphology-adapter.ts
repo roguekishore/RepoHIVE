@@ -6,21 +6,15 @@ import type {
   GraphLink,
   ModuleGraph,
   ModuleNode,
-  ModuleEdge,
   CommunitySummaryItem,
 } from "@repohive/types/graph";
-import forceAtlas2 from "graphology-layout-forceatlas2";
-import noverlap from "graphology-layout-noverlap";
 import type { SigmaNodeAttributes, SigmaEdgeAttributes } from "./types";
 import {
   NODE_BASE_SIZES,
   EDGE_COLORS,
   EDGE_SIZE_MULTIPLIERS,
   CURVED_EDGE_THRESHOLD,
-  PRESETTLE_MAX_NODES,
   SEED_JITTER_PER_SQRT_MEMBER,
-  getFA2Settings,
-  getPresettleIterations,
   getScaledNodeSize,
   getNodeMass,
   languageColor,
@@ -30,7 +24,6 @@ import {
 // community palette is applied by use-sigma's color effect (per light/dark);
 // this neutral keeps modules visible for the one frame before that runs.
 const PLACEHOLDER_NODE_COLOR = EDGE_COLORS.dynamic;
-import { groupNodesAsModules } from "../elk-layout";
 
 function simpleHash(str: string): number {
   let hash = 5381;
@@ -110,7 +103,7 @@ function yieldToEventLoop(): Promise<void> {
 
 const CHUNK_SIZE = 500;
 
-export type FileGraphAdapterOptions = {
+type FileGraphAdapterOptions = {
   signals?: { hotNodeIds?: Set<string>; deadNodeIds?: Set<string> };
   nodeCount?: number;
 };
@@ -483,46 +476,4 @@ export function moduleGraphToGraphology(
   }
 
   return result;
-}
-
-/**
- * Synchronously settle a small graph with FA2 + noverlap so the FIRST painted
- * frame is the final layout — no visible "expand then collapse into a blob"
- * convergence animation, no FA2 worker spin-up. Marks the graph `presettled`
- * so use-fa2-layout skips its auto-run (the manual layout toggle still works).
- *
- * No-ops above PRESETTLE_MAX_NODES: large graphs keep the animated worker
- * layout, which stays off the main thread.
- */
-export function settleGraph(
-  graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
-): Graph<SigmaNodeAttributes, SigmaEdgeAttributes> {
-  if (graph.order === 0 || graph.order > PRESETTLE_MAX_NODES) return graph;
-  const settings = {
-    ...forceAtlas2.inferSettings(graph),
-    ...getFA2Settings(graph.order),
-  };
-  forceAtlas2.assign(graph, {
-    iterations: getPresettleIterations(graph.order),
-    settings,
-  });
-  noverlap.assign(graph, {
-    maxIterations: 60,
-    settings: { ratio: 1.1, margin: 6, expansion: 1.1 },
-  });
-  graph.setAttribute("presettled", true);
-  return graph;
-}
-
-export function groupFilesAsModules(
-  graph: GraphExport,
-  options?: { prefix?: string },
-): Graph<SigmaNodeAttributes, SigmaEdgeAttributes> {
-  const { moduleNodes, moduleEdges } = groupNodesAsModules(
-    graph.nodes,
-    graph.links,
-    options?.prefix ?? "",
-  );
-
-  return moduleGraphToGraphology({ nodes: moduleNodes, edges: moduleEdges });
 }

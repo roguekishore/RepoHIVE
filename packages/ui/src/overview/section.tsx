@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "../lib/cn";
 
-export interface OverviewSectionProps {
+interface OverviewSectionProps {
   title: string;
   /** One line under the title. Use it to say what the numbers mean, not what
    *  the section is called again. */
@@ -63,26 +63,5 @@ export function OverviewSection({
       )}
       {children}
     </section>
-  );
-}
-
-/** The standard "go to the page that owns this" link. */
-export function SectionLink({
-  href,
-  children,
-  LinkComponent,
-}: {
-  href: string;
-  children: React.ReactNode;
-  LinkComponent?: React.ElementType | undefined;
-}) {
-  const A = LinkComponent ?? "a";
-  return (
-    <A
-      href={href}
-      className="whitespace-nowrap text-xs font-medium text-[var(--color-accent-primary)] hover:underline"
-    >
-      {children} <span aria-hidden>→</span>
-    </A>
   );
 }

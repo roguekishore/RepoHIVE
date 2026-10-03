@@ -39,7 +39,7 @@ export interface CodeHealthMapFile {
  * Lens applied to the same field — recolors every file node without re-laying
  * the galaxies. One diagram, switchable overlay (the page spine).
  */
-export type CodeHealthOverlay =
+type CodeHealthOverlay =
   | "health"
   | "maintainability"
   | "performance"
@@ -48,7 +48,7 @@ export type CodeHealthOverlay =
   | "dead-code"
   | "security";
 
-export interface CodeHealthMapProps {
+interface CodeHealthMapProps {
   files: CodeHealthMapFile[];
   /** Highlight ring on this file. */
   selectedPath?: string | null;
@@ -106,13 +106,13 @@ const BAND_LABEL: { band: ScoreBand; label: string }[] = [
 /** Neutral fill for nodes a non-health overlay has no signal for. */
 const NEUTRAL_FILL = "var(--color-text-tertiary)";
 
-export interface LegendRow {
+interface LegendRow {
   fill: string;
   label: string;
 }
 
 /** Lens metadata: how to fill a node and what the key reads. */
-export interface OverlaySpec {
+interface OverlaySpec {
   label: string;
   /** Caption shown under the legend key. */
   caption: string;
@@ -165,7 +165,7 @@ function churnFill(pctile: number | null | undefined): string {
   return "var(--color-success)";
 }
 
-export const OVERLAY_SPECS: Record<CodeHealthOverlay, OverlaySpec> = {
+const OVERLAY_SPECS: Record<CodeHealthOverlay, OverlaySpec> = {
   health: {
     label: "Health",
     caption: "galaxy = module · size = lines of code",
@@ -246,7 +246,7 @@ export const OVERLAY_SPECS: Record<CodeHealthOverlay, OverlaySpec> = {
  * where nobody joined it paints an all-neutral field that reads as "no churn"
  * rather than "no data". Hosts that do the join pass their own `lenses`.
  */
-export const OVERLAY_ORDER: CodeHealthOverlay[] = [
+const OVERLAY_ORDER: CodeHealthOverlay[] = [
   "health",
   "maintainability",
   "performance",
@@ -255,7 +255,7 @@ export const OVERLAY_ORDER: CodeHealthOverlay[] = [
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ~2.39996 rad
 
 /** One module = one galaxy: its files plus size aggregates. */
-export interface GalaxyAgg {
+interface GalaxyAgg {
   module: string;
   files: CodeHealthMapFile[]; // NLOC-desc
   totalNloc: number;

@@ -23,7 +23,7 @@ import { useElkSigmaLayout } from "./use-elk-sigma-layout";
 import { SigmaControls } from "./sigma-controls";
 import { DepthRings } from "./depth-rings";
 
-export interface SigmaCanvasProps {
+interface SigmaCanvasProps {
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;
   // "radial" = constellation: positions are pre-computed, no FA2/ELK runs.
   layoutMode: "force" | "hierarchical" | "radial";

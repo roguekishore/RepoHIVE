@@ -19,7 +19,6 @@
 
 import type {
   DecisionAction,
-  DecisionState,
   DecisionWeights,
   RegionPoint,
   RegionView,
@@ -123,7 +122,7 @@ export function deriveRegionViews(
     });
 }
 
-export interface BoundaryTally {
+interface BoundaryTally {
   /** Measured at or above the boundary. */
   preserve: number;
   /** Measured below the boundary and rebuilt. */

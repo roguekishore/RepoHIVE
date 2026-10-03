@@ -28,7 +28,7 @@ import { DecisionLegend, DecisionMarkShape } from "./decision-mark";
 import { displayNumber } from "./format";
 import type { DecisionWeights, RegionView } from "./types";
 
-export interface DecisionScatterProps {
+interface DecisionScatterProps {
   regions: readonly RegionView[];
   weights: DecisionWeights;
   /** The boundary currently applied (may be the slider's counterfactual). */
@@ -42,7 +42,7 @@ export interface DecisionScatterProps {
 }
 
 /** Above this many marks the plot is unreadable before it is slow. */
-export const SCATTER_BUDGET = 500;
+const SCATTER_BUDGET = 500;
 
 const W = 640;
 const H = 430;

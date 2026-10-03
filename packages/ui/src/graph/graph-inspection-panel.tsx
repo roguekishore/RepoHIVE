@@ -34,7 +34,7 @@ interface NeighborInfo {
   edgeCount: number;
 }
 
-export interface GraphInspectionPanelProps {
+interface GraphInspectionPanelProps {
   nodeId: string;
   data: FileNodeData | ModuleNodeData;
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;

@@ -9,7 +9,7 @@
  */
 
 /** Weekday indices as the punch-card matrix stores them: 0 = Monday. */
-export interface WeekendPreset {
+interface WeekendPreset {
   id: string;
   label: string;
   days: readonly number[];
@@ -24,20 +24,3 @@ export const WEEKEND_PRESETS: readonly WeekendPreset[] = [
 ];
 
 export const DEFAULT_WEEKEND_PRESET = WEEKEND_PRESETS[0]!;
-
-/** Resolve a stored preset id to its weekday indices, falling back to Sat/Sun. */
-export function weekendDaysFor(presetId: string | null | undefined): readonly number[] {
-  return (WEEKEND_PRESETS.find((p) => p.id === presetId) ?? DEFAULT_WEEKEND_PRESET).days;
-}
-
-/** Share of commits landing on `days`, as a percentage rounded to one decimal. */
-export function weekendShare(matrix: number[][], days: readonly number[]): number {
-  let weekend = 0;
-  let total = 0;
-  matrix.forEach((row, weekday) => {
-    const rowTotal = row.reduce((sum, n) => sum + n, 0);
-    total += rowTotal;
-    if (days.includes(weekday)) weekend += rowTotal;
-  });
-  return total > 0 ? Math.round((weekend / total) * 1000) / 10 : 0;
-}

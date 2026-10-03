@@ -30,7 +30,7 @@ import {
 import { formatNumber } from "../lib/format";
 
 /** Built-in wiki styles (mirrors the server's style registry). */
-export const WIKI_STYLE_OPTIONS = [
+const WIKI_STYLE_OPTIONS = [
   {
     name: "comprehensive",
     label: "Comprehensive",
@@ -53,11 +53,11 @@ export const WIKI_STYLE_OPTIONS = [
   },
 ] as const;
 
-export const DEFAULT_WIKI_STYLE = "comprehensive";
+const DEFAULT_WIKI_STYLE = "comprehensive";
 
 /** Estimates above this auto-start quietly; above it, an explicit confirm is
  * required (same threshold as the CLI's pre-generation cost gate). */
-export const COST_GATE_USD = 2.0;
+const COST_GATE_USD = 2.0;
 
 export interface AddRepoPreflightResult {
   provider: {
@@ -76,7 +76,7 @@ export interface AddRepoPreflightResult {
   } | null;
 }
 
-export interface AddRepoInput {
+interface AddRepoInput {
   name: string;
   local_path: string;
   url?: string | undefined;
@@ -111,7 +111,7 @@ function formatCostRange(est: NonNullable<AddRepoPreflightResult["estimate"]>): 
   return `$${est.estimated_cost_usd.toFixed(2)}`;
 }
 
-export interface AddRepoWizardProps {
+interface AddRepoWizardProps {
   adapter: AddRepoWizardAdapter;
   open: boolean;
   onOpenChange: (open: boolean) => void;

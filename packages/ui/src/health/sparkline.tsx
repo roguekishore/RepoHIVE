@@ -1,4 +1,4 @@
-export interface SparklineProps {
+interface SparklineProps {
   values: number[];
   width?: number;
   height?: number;

@@ -23,7 +23,7 @@
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 /** A single 2D position. */
-export interface RadialPosition {
+interface RadialPosition {
   x: number;
   y: number;
 }
@@ -36,9 +36,9 @@ export interface RadialCommunityInput {
 }
 
 /** Optional per-community member ids, used to place satellites in G4. */
-export type RadialMembersInput = Map<number, string[]>;
+type RadialMembersInput = Map<number, string[]>;
 
-export interface RadialLayoutResult {
+interface RadialLayoutResult {
   /** Hub disc center per community_id. */
   hubs: Map<number, RadialPosition>;
   /** Satellite positions keyed by member node id (empty unless members given). */

@@ -56,7 +56,7 @@ export function useThemeVersion(): number {
 export const COMMUNITY_FAMILY_COUNT = 12;
 
 /** A resolved community color pair: `hub` for centroids, `satellite` for leaves. */
-export interface CommunityFamily {
+interface CommunityFamily {
   hub: string;
   satellite: string;
 }

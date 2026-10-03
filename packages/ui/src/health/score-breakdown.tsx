@@ -7,7 +7,7 @@ import {
 import { scoreBadgeClass, type Severity } from "./tokens";
 import { SeverityMark } from "./severity-mark";
 
-export interface ScoreBreakdownCategoryFinding {
+interface ScoreBreakdownCategoryFinding {
   id: string;
   biomarker_type: string;
   severity: Severity;
@@ -30,7 +30,7 @@ export interface ScoreBreakdownCategory {
   findings: ScoreBreakdownCategoryFinding[];
 }
 
-export interface ScoreBreakdownProps {
+interface ScoreBreakdownProps {
   score: number;
   totalDeduction: number;
   categories: ScoreBreakdownCategory[];

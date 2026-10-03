@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "../lib/cn";
 
-export interface CollapsibleSectionProps {
+interface CollapsibleSectionProps {
   title: React.ReactNode;
   /** Right-aligned hint shown on the toggle (e.g. a count). */
   hint?: React.ReactNode;

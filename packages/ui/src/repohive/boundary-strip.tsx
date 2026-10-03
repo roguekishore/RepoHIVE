@@ -29,7 +29,7 @@ import { DecisionMarkShape } from "./decision-mark";
 import { displayNumber } from "./format";
 import type { DecisionState, RegionView } from "./types";
 
-export interface BoundaryStripProps {
+interface BoundaryStripProps {
   regions: readonly RegionView[];
   boundary: number;
   recordedBoundary: number;
@@ -41,7 +41,7 @@ export interface BoundaryStripProps {
 }
 
 /** Above this many regions individual marks stop being readable. */
-export const STRIP_BUDGET = 64;
+const STRIP_BUDGET = 64;
 /** Bin width in score units when binned. */
 const BIN = 0.02;
 

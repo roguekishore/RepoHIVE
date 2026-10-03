@@ -412,7 +412,7 @@ function tintColor(hex: string, tintHex: string, amount: number): string {
   );
 }
 
-export interface UseSigmaOptions {
+interface UseSigmaOptions {
   container: HTMLDivElement | null;
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;
   selectedNodeId: string | null;
@@ -430,7 +430,7 @@ export interface UseSigmaOptions {
   visibleEdgeTypes?: Set<string> | undefined;
 }
 
-export interface UseSigmaReturn {
+interface UseSigmaReturn {
   sigma: Sigma | null;
   /** Ease the camera onto a node. `ratio` controls the resting zoom (smaller =
    *  closer); defaults to 0.15 (tight, for small file nodes). Pass a larger

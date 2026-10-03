@@ -15,7 +15,7 @@
 export type ZoomKind = "system" | "layer" | "group" | "folder" | "file";
 
 /** A child's allocation inside its parent, in parent `[0,1]` space. */
-export interface ZoomRect {
+interface ZoomRect {
   x: number;
   y: number;
   w: number;

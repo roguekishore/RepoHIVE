@@ -16,7 +16,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
  * scroll viewport measures 0) trivially correct, and avoids paying for a
  * virtualizer when there is nothing to save.
  */
-export interface UseVirtualRowsOptions {
+interface UseVirtualRowsOptions {
   /** Total number of rows. */
   count: number;
   /**
@@ -35,13 +35,13 @@ export interface UseVirtualRowsOptions {
   threshold?: number;
 }
 
-export interface VirtualRow {
+interface VirtualRow {
   index: number;
   start: number;
   size: number;
 }
 
-export interface UseVirtualRows<E extends HTMLElement = HTMLDivElement> {
+interface UseVirtualRows<E extends HTMLElement = HTMLDivElement> {
   /** Attach to the scroll container (needs `overflow: auto` + a bounded height). */
   scrollRef: React.RefObject<E | null>;
   /** The window of rows to render (every row when not virtualizing). */

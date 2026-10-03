@@ -28,7 +28,7 @@ function arraysEqual(a: string[], b: string[]) {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
-export interface GeneralFormProps {
+interface GeneralFormProps {
   /** Initial form value. Also used as the "saved" baseline for dirty-check. */
   value: RepoSettingsValue;
   /**

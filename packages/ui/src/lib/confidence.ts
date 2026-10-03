@@ -13,32 +13,6 @@ export function scoreToStatus(score: number): FreshnessStatus {
   return "outdated";
 }
 
-/** CSS color variable for a given freshness status */
-export function statusColor(status: FreshnessStatus): string {
-  switch (status) {
-    case "fresh":
-      return "var(--color-confidence-fresh)";
-    case "stale":
-      return "var(--color-confidence-stale)";
-    case "outdated":
-    default:
-      return "var(--color-confidence-outdated)";
-  }
-}
-
-/** Tailwind text color class for a given freshness status (theme-aware) */
-export function statusTextClass(status: FreshnessStatus): string {
-  switch (status) {
-    case "fresh":
-      return "text-[var(--color-confidence-fresh)]";
-    case "stale":
-      return "text-[var(--color-confidence-stale)]";
-    case "outdated":
-    default:
-      return "text-[var(--color-confidence-outdated)]";
-  }
-}
-
 /** Tailwind bg + text badge classes for a given freshness status (theme-aware) */
 export function statusBadgeClasses(status: FreshnessStatus): string {
   switch (status) {
@@ -93,18 +67,4 @@ export const LANGUAGE_COLORS: Record<string, string> = {
 
 export function languageColor(lang: string): string {
   return LANGUAGE_COLORS[lang.toLowerCase()] ?? LANGUAGE_COLORS.other ?? "#8B5CF6";
-}
-
-/** Color hex for a graph edge type (warm theme palette; mirrors --color-edge-*) */
-export const EDGE_COLORS: Record<string, string> = {
-  imports: "#F59520",
-  calls: "#34D399",
-  inherits: "#A98FC4",
-  implements: "#C85AA0",
-  co_change: "#7C5CC4",
-  co_changes: "#7C5CC4",
-};
-
-export function edgeColor(edgeType: string): string {
-  return EDGE_COLORS[edgeType.toLowerCase()] ?? EDGE_COLORS.imports ?? "#F27F3D";
 }

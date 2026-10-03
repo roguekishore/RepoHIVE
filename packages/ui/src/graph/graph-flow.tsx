@@ -862,15 +862,6 @@ export function GraphFlow(props: GraphFlowProps) {
     setLayoutNotice(null);
   }, [sigmaGraph]);
 
-  const handleSignalToggle = useCallback((signal: Signal) => {
-    setActiveSignals((prev) => {
-      const next = new Set(prev);
-      if (next.has(signal)) next.delete(signal);
-      else next.add(signal);
-      return next;
-    });
-  }, []);
-
   const handleEdgeTypeToggle = useCallback((edgeType: string) => {
     setVisibleEdgeTypes((prev) => {
       const next = new Set(prev);

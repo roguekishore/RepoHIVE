@@ -20,12 +20,12 @@ import type { ZoomMap, ZoomRelation } from "./types";
 /** The co-changes verb, as `c4_builder/labels.py` spells it. */
 export const CO_CHANGES = "co-changes";
 
-export interface VerbCount {
+interface VerbCount {
   verb: string;
   count: number;
 }
 
-export interface RelationSummary {
+interface RelationSummary {
   /** Relations incident to the node, in either direction. */
   total: number;
   /** How many the canvas will actually draw, given the per-parent cap. */
