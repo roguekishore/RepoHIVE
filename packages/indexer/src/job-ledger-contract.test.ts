@@ -152,6 +152,38 @@ function registerContractSuite(name: string, createLedger: () => JobLedger): voi
       assert.equal(record?.progress?.completed, 4);
     });
 
+    test("listJobsEndedSince returns terminal jobs after the checkpoint", async () => {
+      let t = 1_700_000_000_000;
+      const timed =
+        name === "memory"
+          ? createMemoryJobLedger({ nowMs: () => t })
+          : name === "file"
+            ? createFileJobLedger({
+                path: join(fileDir, `ended-${Math.random().toString(36).slice(2)}.json`),
+                nowMs: () => t,
+              })
+            : createDynamoDbJobLedger(createFakeDynamoDbClient(), {
+                tableName: "t-ended",
+                nowMs: () => t,
+              });
+      await timed.claim(sampleInput({ jobId: "early" }));
+      await timed.finish("early", { state: "succeeded" });
+      const earlyEnded = (await timed.get("early"))?.endedAt;
+      assert.ok(earlyEnded);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      t += 60_000;
+      await timed.claim(sampleInput({ jobId: "late" }));
+      await timed.finish("late", { state: "failed", failureClass: "user", failureCode: "too-large" });
+      const lateEnded = (await timed.get("late"))?.endedAt;
+      assert.ok(lateEnded);
+      const since = earlyEnded;
+      const listed = await timed.listJobsEndedSince(since);
+      assert.equal(listed.length, 1);
+      assert.equal(listed[0]?.input.jobId, "late");
+      const none = await timed.listJobsEndedSince(lateEnded);
+      assert.deepEqual(none, []);
+    });
+
     test("the large slot is exclusive until the lease expires", async () => {
       let t = 5_000;
       const timed =

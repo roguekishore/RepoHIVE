@@ -6,6 +6,7 @@ import {
   DynamoDBClient,
   GetItemCommand,
   PutItemCommand,
+  ScanCommand,
   UpdateItemCommand,
   type AttributeValue,
 } from "@aws-sdk/client-dynamodb";
@@ -134,6 +135,29 @@ export function createFakeDynamoDbClient(): DynamoDBClient {
         }
         store.set(pk, updated);
         return {};
+      }
+
+      if (command instanceof ScanCommand) {
+        const input = command.input;
+        if (!input.TableName) {
+          throw new Error("invalid Scan");
+        }
+        const store = table(input.TableName);
+        const since = input.ExpressionAttributeValues?.[":since"]?.S;
+        const jobPrefix = input.ExpressionAttributeValues?.[":jobPrefix"]?.S ?? "JOB#";
+        const items: Item[] = [];
+        for (const item of store.values()) {
+          const pk = item.pk?.S ?? "";
+          const endedAt = item.endedAt?.S;
+          if (!pk.startsWith(jobPrefix) || endedAt === undefined) {
+            continue;
+          }
+          if (since !== undefined && endedAt <= since) {
+            continue;
+          }
+          items.push(cloneItem(item));
+        }
+        return { Items: items };
       }
 
       if (command instanceof DeleteItemCommand) {
