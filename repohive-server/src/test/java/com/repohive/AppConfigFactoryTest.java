@@ -18,7 +18,12 @@ import org.junit.jupiter.api.Test;
 
 class AppConfigFactoryTest {
 
-    private static final Path CWD = Path.of("/srv/app");
+    /** Absolute on every OS: a bare "/srv" has no drive on Windows, and the factory would anchor it to the current drive. */
+    private static Path abs(String path) {
+        return Path.of(path).toAbsolutePath();
+    }
+
+    private static final Path CWD = abs("/srv/app");
     private static final String ARN = "arn:aws:states:ap-south-1:123456789012:stateMachine:repohive-index";
 
     private static Map<String, String> local() {
@@ -77,15 +82,15 @@ class AppConfigFactoryTest {
         AppConfig config = parse(local());
         assertThat(config.mode()).isEqualTo(Mode.LOCAL);
         assertThat(config.siteOrigin()).isEqualTo("http://localhost:3000");
-        assertThat(config.dataDirectory()).isEqualTo(Path.of("/srv/app/data"));
-        assertThat(config.databaseFile()).isEqualTo(Path.of("/srv/app/data/app.sqlite"));
-        assertThat(config.store()).isEqualTo(new StoreConfig.Local(Path.of("/srv/app/store")));
+        assertThat(config.dataDirectory()).isEqualTo(abs("/srv/app/data"));
+        assertThat(config.databaseFile()).isEqualTo(abs("/srv/app/data/app.sqlite"));
+        assertThat(config.store()).isEqualTo(new StoreConfig.Local(abs("/srv/app/store")));
         assertThat(config.orchestrator()).isEqualTo(new OrchestratorConfig.Local());
         assertThat(config.clientIpHeader()).isNull();
         assertThat(config.githubToken()).isNull();
         assertThat(config.quota()).isEqualTo(new QuotaLimits(5, 10, 20, 40));
         assertThat(config.internalSecret()).isEqualTo("local-secret");
-        assertThat(config.indexerDir()).isEqualTo(Path.of("/srv/packages/indexer"));
+        assertThat(config.indexerDir()).isEqualTo(abs("/srv/packages/indexer"));
         assertThat(config.node()).isEqualTo("node");
         assertThat(config.serverUrl()).isEqualTo("http://127.0.0.1:8080");
         assertThat(config.webDir()).isNull();
@@ -101,13 +106,15 @@ class AppConfigFactoryTest {
     @Test
     void optionalSettingsAreRead() {
         Map<String, String> env = local();
-        env.put("REPOHIVE_INDEXER_DIR", "/opt/indexer");
+        // "/opt/indexer" is not absolute on Windows (no drive), so the factory would resolve it against the working directory.
+        Path indexer = abs("/opt/indexer");
+        env.put("REPOHIVE_INDEXER_DIR", indexer.toString());
         env.put("REPOHIVE_NODE", "/usr/bin/node24");
         env.put("REPOHIVE_WEB_DIR", "web/out");
         AppConfig config = parse(env);
-        assertThat(config.indexerDir()).isEqualTo(Path.of("/opt/indexer"));
+        assertThat(config.indexerDir()).isEqualTo(indexer);
         assertThat(config.node()).isEqualTo("/usr/bin/node24");
-        assertThat(config.webDir()).isEqualTo(Path.of("/srv/app/web/out"));
+        assertThat(config.webDir()).isEqualTo(abs("/srv/app/web/out"));
     }
 
     @Test

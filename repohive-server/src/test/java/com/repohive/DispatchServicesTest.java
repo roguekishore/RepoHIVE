@@ -84,17 +84,23 @@ class DispatchServicesTest {
         return service.describe(ref);
     }
 
+    /** A child that stays alive until the service stops it (`sleep 30` is not portable). */
+    private static final String SLEEP = "setTimeout(() => {}, 30000)";
+
+    /** The fake child is a Node one-liner, so the tests run on Windows and Linux alike. Node is a project prerequisite. */
     private static LocalDispatchService local(Path dir, String script) {
         Map<String, String> env = new HashMap<>(System.getenv());
         env.put("REPOHIVE_LOCAL_JOB_INJECT_FAILURE", "system");
-        return new LocalDispatchService(List.of("sh", "-c", script, "sh"), env, dir.resolve("data"), dir.resolve("store"), "http://127.0.0.1:9", "s3cret");
+        return new LocalDispatchService(List.of("node", "-e", script), env, dir.resolve("data"), dir.resolve("store"), "http://127.0.0.1:9", "s3cret");
     }
 
     @Test
     void localRunsAChildWithTheEnvironmentAndLogsItsOutput(@TempDir Path dir) throws Exception {
         LocalDispatchService service = local(dir,
-                "echo \"input=$REPOHIVE_JOB_INPUT\"; echo \"store=$REPOHIVE_STORE\"; echo \"url=$REPOHIVE_SERVER_URL\"; echo \"secret=$REPOHIVE_INTERNAL_SECRET\";"
-                        + " echo \"tar=$REPOHIVE_TARBALL_DIR\"; echo \"inject=$REPOHIVE_LOCAL_JOB_INJECT_FAILURE\"; echo oops >&2; exit 3");
+                "const e = process.env; console.log('input=' + e.REPOHIVE_JOB_INPUT); console.log('store=' + e.REPOHIVE_STORE);"
+                        + " console.log('url=' + e.REPOHIVE_SERVER_URL); console.log('secret=' + e.REPOHIVE_INTERNAL_SECRET);"
+                        + " console.log('tar=' + e.REPOHIVE_TARBALL_DIR); console.log('inject=' + e.REPOHIVE_LOCAL_JOB_INJECT_FAILURE);"
+                        + " console.error('oops'); process.exitCode = 3");
         String ref = service.start(INPUT, "job1");
         assertThat(ref).isEqualTo("job1");
         assertThat(await(service, ref)).isEqualTo(ExecutionStatus.FAILED);
@@ -112,12 +118,12 @@ class DispatchServicesTest {
 
     @Test
     void localDescribeFollowsTheProcess(@TempDir Path dir) throws Exception {
-        LocalDispatchService ok = local(dir, "exit 0");
+        LocalDispatchService ok = local(dir, "process.exitCode = 0");
         ok.start(INPUT, "ok");
         assertThat(await(ok, "ok")).isEqualTo(ExecutionStatus.SUCCEEDED);
         assertThat(ok.describe("never-started")).isEqualTo(ExecutionStatus.UNKNOWN);
 
-        LocalDispatchService slow = local(dir, "sleep 30");
+        LocalDispatchService slow = local(dir, SLEEP);
         slow.start(INPUT, "slow");
         assertThat(slow.describe("slow")).isEqualTo(ExecutionStatus.RUNNING);
         slow.shutdown();
@@ -126,18 +132,16 @@ class DispatchServicesTest {
 
     @Test
     void localShutdownDestroysChildren(@TempDir Path dir) throws Exception {
-        LocalDispatchService slow = local(dir, "sleep 30");
+        LocalDispatchService slow = local(dir, SLEEP);
         slow.start(INPUT, "slow");
-        ProcessHandle child = ProcessHandle.allProcesses().filter(p -> p.parent().map(h -> h.pid() == ProcessHandle.current().pid()).orElse(false))
-                .filter(p -> p.info().commandLine().map(c -> c.contains("sleep 30")).orElse(false)).findFirst().orElse(null);
+        List<ProcessHandle> children = ProcessHandle.current().children().filter(ProcessHandle::isAlive).toList();
+        assertThat(children).as("the started child").isNotEmpty();
         slow.shutdown();
-        if (child != null) {
-            long deadline = System.currentTimeMillis() + 5000;
-            while (child.isAlive() && System.currentTimeMillis() < deadline) {
-                Thread.sleep(25);
-            }
-            assertThat(child.isAlive()).isFalse();
+        long deadline = System.currentTimeMillis() + 5000;
+        while (children.stream().anyMatch(ProcessHandle::isAlive) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(25);
         }
+        assertThat(children).noneMatch(ProcessHandle::isAlive);
     }
 
     @Test
