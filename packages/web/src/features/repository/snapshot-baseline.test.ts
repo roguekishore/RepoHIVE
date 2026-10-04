@@ -2,14 +2,14 @@
  * Each surface matches the recorded baselines on
  * Broadleaf and on sample-java-project, modulo the registry entry id swap.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { brotliDecompressSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { createLocalArtifactStore, latestKey, VIEW_FILES, type LatestPointer } from "@repohive/indexer";
+import { createLocalArtifactStore, VIEW_FILES, viewKey, type ViewFile } from "@repohive/indexer";
 
 const repoRoot = path.resolve(__dirname, "../../../../..");
-const storeDir = path.join(repoRoot, ".repohive-local", "store");
+const storeDir = path.join(repoRoot, ".repohive-local");
 const baselineRoot = path.join(repoRoot, ".agents", "baselines", "hosting-3");
 
 /** Registry entries from `capture-baselines.mjs`. */
@@ -26,8 +26,24 @@ const LOCAL_REPO: Record<string, string> = {
 /** Surfaces not compared, per fixture. None today: entry-derived fields are normalized instead. */
 const SKIP_ROUTES: Partial<Record<string, string[]>> = {};
 
-async function readView(store: ReturnType<typeof createLocalArtifactStore>, snapshotId: string, file: string) {
-  const object = await store.get(`s/${snapshotId}/${file}`);
+/** Newest snapshot directory under `artifacts/<owner>/<repo>/`; the server's database pointer is not read here. */
+function newestSnapshotId(repo: string): string | undefined {
+  const dir = path.join(storeDir, "artifacts", repo);
+  if (!existsSync(dir)) {
+    return undefined;
+  }
+  const ids = readdirSync(dir).filter((name) => /^[0-9a-f]{32}$/.test(name));
+  ids.sort((a, b) => statSync(path.join(dir, b)).mtimeMs - statSync(path.join(dir, a)).mtimeMs);
+  return ids[0];
+}
+
+async function readView(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  repo: string,
+  snapshotId: string,
+  file: string,
+) {
+  const object = await store.get(viewKey(`github.com/${repo}`, snapshotId, file as ViewFile));
   if (object === undefined) {
     return undefined;
   }
@@ -93,12 +109,11 @@ async function compareFixture(fixture: string) {
   if (repo === undefined) {
     throw new Error(`no local repo mapping for ${fixture}`);
   }
-  const latest = await store.get(latestKey(`github.com/${repo}`));
-  if (latest === undefined) {
-    console.warn(`skipped: ${repo} is not seeded`);
+  const snapshotId = newestSnapshotId(repo);
+  if (snapshotId === undefined) {
+    console.warn(`skipped: ${repo} is not indexed`);
     return;
   }
-  const pointer = JSON.parse(Buffer.from(latest.body).toString("utf8")) as LatestPointer;
   const baselineEntry = BASELINE_ENTRIES[fixture]!;
   const repoSegment = repo.slice("local/".length);
   const actualEntry = { id: repo, name: repoSegment };
@@ -129,7 +144,7 @@ async function compareFixture(fixture: string) {
     if (viewFile === undefined) {
       continue;
     }
-    const actual = await readView(store, pointer.snapshotId, viewFile);
+    const actual = await readView(store, repo, snapshotId, viewFile);
     expect(normalizeForBaseline(actual, actualEntry, baselineEntry, route), route).toEqual(baseline);
   }
 
@@ -146,14 +161,14 @@ async function compareFixture(fixture: string) {
       const position = meta.architectureLevels.indexOf(level);
       expect(position, `architecture level ${level}`).toBeGreaterThanOrEqual(0);
       const baseline = JSON.parse(readFileSync(path.join(archDir, file), "utf8"));
-      const actual = await readView(store, pointer.snapshotId, `views/architecture/${position}.json`);
+      const actual = await readView(store, repo, snapshotId, `views/architecture/${position}.json`);
       expect(actual, file).toEqual(baseline);
     }
   }
 
   const regionDir = path.join(routesDir, "region-detail");
   if (existsSync(regionDir)) {
-    const index = (await readView(store, pointer.snapshotId, VIEW_FILES.regionDetailIndex)) as Record<string, number>;
+    const index = (await readView(store, repo, snapshotId, VIEW_FILES.regionDetailIndex)) as Record<string, number>;
     for (const file of readdirSync(regionDir)) {
       const baseline = JSON.parse(readFileSync(path.join(regionDir, file), "utf8")) as {
         regionId: string;
@@ -161,7 +176,7 @@ async function compareFixture(fixture: string) {
         body: unknown;
       };
       const position = index[baseline.regionId];
-      const actual = await readView(store, pointer.snapshotId, `views/region-detail/${position}.json`);
+      const actual = await readView(store, repo, snapshotId, `views/region-detail/${position}.json`);
       if (baseline.status === 404) {
         expect(actual, file).toBeUndefined();
       } else {
