@@ -1,72 +1,59 @@
 /**
- * One-command local stack: Next.js server, the
- * background worker and the local orchestrator env, reading `config/local.env`
- * directly. The GitHub pre-check is stubbed to fixture tarballs when the app runs
- * in local mode.
+ * The one command for local work: the Java server and the web dev server.
  *
- *   npm run start-local --workspace @repohive/web [--port N] [--prod]
+ *   npm run start-local --workspace @repohive/web
  *
- * By default the web server is `next dev`, so edits under `packages/web/src` rebuild
- * and refresh the browser with no build step. Pass `--prod` for the production
- * server instead; that needs `npm run build --workspace @repohive/web` first and
- * does not pick up edits.
+ * - `java -jar target/repohive-server.jar`, run from `<repo>/repohive-server`.
+ *   The server reads `repohive-server/config/local.env` itself.
+ * - `next dev --port 3000`, which proxies `/api`, `/artifacts` and `/healthz` to
+ *   the server on port 8080 and maps the repository and job shells the way a
+ *   production host does (see next.config.ts).
+ *
+ * Ctrl-C stops both. If the server jar is missing, build it first:
+ *   (cd repohive-server && ./mvnw -q package -DskipTests)
  */
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadLocalAppEnv, webRoot } from "./load-local-env.mjs";
 
+const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "..", "..");
-const port = process.argv.includes("--port")
-  ? process.argv[process.argv.indexOf("--port") + 1]
-  : "3000";
+const serverDir = path.join(repoRoot, "repohive-server");
+const jar = path.join(serverDir, "target", "repohive-server.jar");
 
-const prod = process.argv.includes("--prod");
+if (!existsSync(jar)) {
+  console.error("build it first: (cd repohive-server && ./mvnw -q package -DskipTests)");
+  process.exit(1);
+}
 
-const baseEnv = loadLocalAppEnv(prod ? { PORT: port, NODE_ENV: "production" } : { PORT: port });
+const windows = process.platform === "win32";
+let stopping = false;
 
-function npmScript(args, name) {
-  const child = spawn(process.platform === "win32" ? "npm.cmd" : "npm", args, {
-    cwd: repoRoot,
-    env: { ...process.env, ...baseEnv },
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+function start(command, args, options) {
+  const child = spawn(command, args, { stdio: "inherit", shell: windows && command !== "java", ...options });
   child.on("exit", (code, signal) => {
-    if (signal !== null) {
-      process.kill(process.pid, signal);
-    } else if (code !== 0 && code !== null) {
-      process.exitCode = code;
-      shutdown();
-    }
+    if (stopping) return;
+    // One side ending takes the other down, so nothing is left running by accident.
+    process.exitCode = code ?? (signal === null ? 0 : 1);
+    shutdown();
   });
   return child;
 }
 
 const children = [
-  npmScript(["run", prod ? "start" : "dev", "--workspace", "@repohive/web", "--", "--port", port], "web"),
-  npmScript(["run", "worker", "--workspace", "@repohive/web"], "worker"),
+  start("java", ["-jar", path.join("target", "repohive-server.jar")], { cwd: serverDir }),
+  start(windows ? "npx.cmd" : "npx", ["next", "dev", "--port", "3000"], { cwd: webRoot }),
 ];
 
 function shutdown() {
+  stopping = true;
   for (const child of children) {
-    if (!child.killed) {
-      child.kill("SIGTERM");
-    }
+    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
   }
 }
 
-process.on("SIGINT", () => {
-  shutdown();
-  process.exit(0);
-});
+process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-console.log(
-  JSON.stringify({
-    level: "info",
-    msg: "local stack running",
-    origin: baseEnv.REPOHIVE_SITE_ORIGIN ?? `http://localhost:${port}`,
-    port,
-  }),
-);
+console.log("RepoHIVE local: web http://localhost:3000, server http://127.0.0.1:8080 (Ctrl-C stops both)");

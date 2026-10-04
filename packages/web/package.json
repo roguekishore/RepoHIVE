@@ -2,15 +2,12 @@
   "name": "@repohive/web",
   "version": "0.3.0",
   "private": true,
-  "description": "RepoHIVE web app: the Next.js viewer, its account and index-request routes, and the background worker",
+  "description": "RepoHIVE web app: a static single-page viewer (Next.js export) that talks to the RepoHIVE server",
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "next start --port 3000",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "seed": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local scripts/seed-local.mjs",
-    "worker": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local --import ./scripts/register-aliases.mjs scripts/run-worker.mjs",
     "start-local": "node scripts/start-local.mjs",
     "e2e": "node scripts/e2e.mjs",
     "test": "vitest run"

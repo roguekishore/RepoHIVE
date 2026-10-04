@@ -4,19 +4,20 @@
  * One snapshot per page session.
  *
  * The provider resolves a repository's snapshot once, from `?snapshot=<id>` when
- * that is a valid id and otherwise from `latest.json`, and then never changes
- * it. Every view fetch under it reads `/s/<id>/...`, so a re-index published
+ * that is a valid id and otherwise from `GET /api/repos/<owner>/<repo>`, and
+ * then never changes it. Every view fetch under it reads
+ * `/artifacts/<owner>/<repo>/<id>/...`, so a re-index published
  * while the page is open cannot mix two snapshots. The layout keys the provider
  * by repository, so moving to another repository starts a new session.
  */
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { latestPointerPath, parseSnapshotParam } from "./repo-name";
+import { artifactPath, parseSnapshotParam, repoApiPath } from "./repo-name";
 
 export type SnapshotState =
   | { status: "loading" }
-  /** No `latest.json`: the repository has never been indexed. */
+  /** The server has no snapshot for it (404): the repository has never been indexed. */
   | { status: "never-indexed" }
   /** `?snapshot=` named a snapshot that is no longer published. */
   | { status: "expired"; requested: string }
@@ -35,21 +36,21 @@ async function fetchOptionalJson(url: string): Promise<unknown | undefined> {
 export async function resolveSnapshot(repoId: string, requested: string | undefined): Promise<SnapshotState> {
   try {
     if (requested !== undefined) {
-      const manifest = await fetchOptionalJson(`/s/${requested}/manifest.json`);
+      const manifest = await fetchOptionalJson(artifactPath(repoId, requested, "manifest.json"));
       if (manifest === undefined) return { status: "expired", requested };
       return { status: "ready", snapshotId: requested, source: "query" };
     }
-    const pointer = (await fetchOptionalJson(latestPointerPath(repoId))) as
+    const answer = (await fetchOptionalJson(repoApiPath(repoId))) as
       | { snapshotId?: unknown; commitSha?: unknown }
       | undefined;
-    if (pointer === undefined) return { status: "never-indexed" };
-    const snapshotId = parseSnapshotParam(typeof pointer.snapshotId === "string" ? pointer.snapshotId : undefined);
-    if (snapshotId === undefined) return { status: "error", message: "The latest snapshot pointer is malformed." };
+    if (answer === undefined) return { status: "never-indexed" };
+    const snapshotId = parseSnapshotParam(typeof answer.snapshotId === "string" ? answer.snapshotId : undefined);
+    if (snapshotId === undefined) return { status: "error", message: "The snapshot answer for this repository is malformed." };
     return {
       status: "ready",
       snapshotId,
       source: "latest",
-      commitSha: typeof pointer.commitSha === "string" ? pointer.commitSha : undefined,
+      commitSha: typeof answer.commitSha === "string" ? answer.commitSha : undefined,
     };
   } catch (error) {
     return { status: "error", message: error instanceof Error ? error.message : "Could not reach the snapshot." };
@@ -99,13 +100,14 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /**
  * One JSON object of the session's snapshot, e.g. `views/zoom-map.json`. `path`
- * is relative to `s/<snapshotId>/`; `null` skips the fetch. Snapshot objects
+ * is relative to `artifacts/<owner>/<repo>/<snapshotId>/`; `null` skips the fetch. Snapshot objects
  * are immutable, so nothing revalidates.
  */
 export function useSnapshotJson<T>(path: string | null) {
+  const { repoId } = useSnapshot();
   const snapshotId = useSnapshotId();
   const { data, error, isLoading } = useSWR<T>(
-    snapshotId !== null && path !== null ? `/s/${snapshotId}/${path}` : null,
+    snapshotId !== null && path !== null ? artifactPath(repoId, snapshotId, path) : null,
     fetchJson<T>,
     { revalidateOnFocus: false, revalidateOnReconnect: false, revalidateIfStale: false },
   );

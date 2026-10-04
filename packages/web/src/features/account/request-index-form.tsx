@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { clientSiteOrigin } from "@/lib/site-origin";
-import { intakeRejectionMessage } from "@/server/intake/rejection-copy";
+import { intakeRejectionMessage } from "./rejection-copy";
 
 interface IndexResponse {
   readonly status?: string;

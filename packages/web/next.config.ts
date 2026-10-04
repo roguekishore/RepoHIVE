@@ -1,49 +1,54 @@
 import type { NextConfig } from "next";
-import { APP_SECURITY_HEADERS } from "./src/server/auth/security-headers";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 /**
- * Workspace packages the server loads from node_modules at run time instead of
- * bundling. The indexer and the engine under it are compiled ESM
- * that use `import.meta.resolve`, which webpack cannot bundle. Next.js's
- * `serverExternalPackages` does not apply to them: npm links workspace
- * packages, so they resolve outside node_modules and Next.js bundles them
- * anyway. A webpack external of type `import` leaves a plain dynamic import.
+ * The web app is a static export (`output: "export"`): `next build` writes
+ * `out/`, which a host serves. Security headers are the server's and Caddy's
+ * job, so there is no `headers()` here.
+ *
+ * Repository and job pages are client shells exported once under the
+ * placeholder params `_`. A production host maps the real paths onto those
+ * files (see "Static export and host mapping" in README.md). `next dev` has no
+ * such host, so in development only the same mapping is done with rewrites,
+ * together with the proxy to the Java server. The export build never sees them.
  */
-// `@repohive/views`' `getViewsVersion()` reads `dist/views-version.json` next
-// to its own compiled file via `import.meta.url`. Bundled into a webpack chunk,
-// that URL points at the chunk's virtual location instead of the real package
-// directory, so the file is never found at run time (only surfaces once a
-// route that calls it, e.g. `/api/index`, actually runs against a production
-// build — unit tests import `@repohive/views` unbundled and never hit this).
-const SERVER_RUNTIME_PACKAGES = new Set(["@repohive/indexer", "@repohive/engine", "@repohive/views"]);
+const apiOrigin = process.env.REPOHIVE_API_ORIGIN ?? "http://127.0.0.1:8080";
 
-const nextConfig: NextConfig = {
-  output: "standalone",
-  async headers() {
-    return [{ source: "/:path*", headers: [...APP_SECURITY_HEADERS] }];
-  },
-  experimental: {
-    optimizePackageImports: ["lucide-react"],
-  },
-  webpack(config, { isServer }) {
-    if (isServer) {
-      const runtimeExternal = (
-        { request }: { request?: string },
-        callback: (error?: Error | null, result?: string) => void,
-      ) => {
-        if (request !== undefined && SERVER_RUNTIME_PACKAGES.has(request)) {
-          callback(null, `import ${request}`);
-          return;
-        }
-        callback();
+export default function config(phase: string): NextConfig {
+  const base: NextConfig = {
+    output: "export",
+    experimental: {
+      optimizePackageImports: ["lucide-react"],
+    },
+    images: {
+      unoptimized: true,
+    },
+  };
+
+  if (phase !== PHASE_DEVELOPMENT_SERVER) {
+    return base;
+  }
+
+  // `next dev` checks every requested path against `generateStaticParams` when
+  // `output: "export"` is set, and cannot see the placeholders a layout exports.
+  // The rewrites below send every real path to the placeholder route anyway, so
+  // development runs without `output`; only the production build is exported.
+  const { output: _output, ...development } = base;
+  return {
+    ...development,
+    async rewrites() {
+      return {
+        beforeFiles: [
+          { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },
+          { source: "/artifacts/:path*", destination: `${apiOrigin}/artifacts/:path*` },
+          { source: "/healthz", destination: `${apiOrigin}/healthz` },
+          { source: "/repos/:owner/:repo", destination: "/repos/_/_" },
+          { source: "/repos/:owner/:repo/:surface", destination: "/repos/_/_/:surface" },
+          { source: "/jobs/:jobId", destination: "/jobs/_" },
+        ],
+        afterFiles: [],
+        fallback: [],
       };
-      config.externals = [runtimeExternal, ...(Array.isArray(config.externals) ? config.externals : [config.externals])];
-    }
-    return config;
-  },
-  images: {
-    unoptimized: true,
-  },
-};
-
-export default nextConfig;
+    },
+  };
+}

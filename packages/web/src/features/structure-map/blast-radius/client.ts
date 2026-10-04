@@ -1,6 +1,6 @@
 /**
  * The browser side. One session per
- * snapshot id fetches `/s/<id>/views/blast-radius.json` once, on first use,
+ * snapshot id fetches `/artifacts/<owner>/<repo>/<id>/views/blast-radius.json` once, on first use,
  * hands it to a Web Worker and answers queries through it. A re-index never
  * mixes snapshots because a session is bound to one id.
  *
@@ -8,6 +8,7 @@
  * testable without a browser.
  */
 import type { BlastRadiusData } from "@repohive/views";
+import { artifactPath } from "@/features/repository/repo-name";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 import type { BlastRadiusResult } from "./traverse";
 
@@ -18,6 +19,7 @@ export interface BlastRadiusWorker {
 }
 
 interface BlastRadiusSessionOptions {
+  repoId: string;
   snapshotId: string;
   fetchData?: (url: string) => Promise<BlastRadiusData>;
   createWorker?: () => BlastRadiusWorker;
@@ -42,7 +44,7 @@ function createBrowserWorker(): BlastRadiusWorker {
 }
 
 export function createBlastRadiusSession(options: BlastRadiusSessionOptions): BlastRadiusSession {
-  const { snapshotId, fetchData = fetchBlastRadiusData, createWorker = createBrowserWorker } = options;
+  const { repoId, snapshotId, fetchData = fetchBlastRadiusData, createWorker = createBrowserWorker } = options;
   const pending = new Map<number, { resolve: (r: BlastRadiusResult | null) => void; reject: (e: Error) => void }>();
   let nextRequestId = 1;
   let ready: Promise<BlastRadiusWorker> | undefined;
@@ -50,7 +52,7 @@ export function createBlastRadiusSession(options: BlastRadiusSessionOptions): Bl
 
   const start = (): Promise<BlastRadiusWorker> => {
     ready ??= (async () => {
-      const data = await fetchData(`/s/${snapshotId}/views/blast-radius.json`);
+      const data = await fetchData(artifactPath(repoId, snapshotId, "views/blast-radius.json"));
       const created = createWorker();
       worker = created;
       await new Promise<void>((resolve) => {
