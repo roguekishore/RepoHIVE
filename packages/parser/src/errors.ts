@@ -87,6 +87,14 @@ export interface ParseSuccess {
    */
   excludedDirectoryCount?: number;
   /**
+   * Files left out of the graph under `ParseOptions.tolerateFileErrors`, in the
+   * order found: collector errors, then per-file extraction errors in canonical
+   * file order, then duplicate-declaration drops. Present only in that mode and
+   * only when at least one file was skipped; the default mode fails instead, so
+   * a caller that does not opt in never sees it.
+   */
+  skippedFiles?: ParseError[];
+  /**
    * The graph that was just written, handed over in memory so an in-process
    * consumer (the engine's `parse` -> `group` pipeline) can skip reading
    * `graph.json` back off disk.
