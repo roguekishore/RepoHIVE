@@ -10,39 +10,39 @@
  * packages must not import it.
  */
 export type { ArtifactStore, ObjectHeaders, StoredObject } from "./artifact-store.js";
-export type { ClaimResult, JobEnd, JobLedger, JobProgress, JobRecord } from "./job-ledger.js";
-export { createDynamoDbJobLedger } from "./job-ledger-dynamodb.js";
-export type { DynamoDbJobLedgerOptions } from "./job-ledger-dynamodb.js";
-export { createFileJobLedger } from "./job-ledger-file.js";
-export type { FileJobLedgerOptions } from "./job-ledger-file.js";
-export { createMemoryJobLedger } from "./job-ledger-memory.js";
-export type { MemoryJobLedger, MemoryJobLedgerOptions } from "./job-ledger-memory.js";
+export type { JobOutcome, JobProgress, JobReporter } from "./job-reporter.js";
 export {
-  DEFAULT_INFLIGHT_CAP,
   JOB_STATE_ORDER,
   PROGRESS_WRITE_INTERVAL_MS,
   isForwardJobTransition,
   isTerminalJobState,
   jobStateIndex,
-} from "./job-ledger-states.js";
+} from "./job-states.js";
+export {
+  REPORT_ATTEMPTS,
+  REPORT_BACKOFF_MS,
+  createHttpActiveSnapshotReader,
+  createHttpJobReporter,
+} from "./reporter-http.js";
+export type { HttpActiveSnapshotReaderOptions, HttpJobReporterOptions } from "./reporter-http.js";
+export { createMemoryJobReporter } from "./reporter-memory.js";
+export type { MemoryJobReporter, ReportedCall } from "./reporter-memory.js";
 export type { FailureClass, JobFailure, JobInput, JobState, Tier, Visibility } from "./job-types.js";
 export type { FetchCaps, FetchedSource, FetchRequest, FetchResult, SourceFetcher } from "./source-fetcher.js";
-// Snapshot identity, object keys and the manifest, latest and history documents.
+// Snapshot identity, object keys and the manifest and history documents.
 export { canonicalJson, compareBytewise, sha256Hex } from "./canonical-json.js";
 export type { JsonValue } from "./canonical-json.js";
 export {
   MANIFEST_VERSION,
-  POINTER_VERSION,
   VIEW_FILES,
   architectureLevelKey,
-  buildLatest,
   buildManifest,
   historyKey,
   indexObjectKey,
   indexPrefix,
+  privateSnapshotPrefix,
   isValidRepoName,
   jsonBytes,
-  latestKey,
   manifestKey,
   recordPublish,
   regionDetailKey,
@@ -54,8 +54,6 @@ export {
 export type {
   History,
   HistoryEntry,
-  LatestFields,
-  LatestPointer,
   Manifest,
   ManifestFields,
   ManifestFile,
@@ -68,7 +66,6 @@ export {
   BROTLI_QUALITY,
   IMMUTABLE_CACHE_CONTROL,
   JSON_CONTENT_TYPE,
-  LATEST_CACHE_CONTROL,
   compressBrotli,
   headersForKey,
   prepareObject,
@@ -97,18 +94,14 @@ export type { PrecheckAccepted, PrecheckDeps, PrecheckReason, PrecheckRejection,
 export { createMemoryArtifactStore } from "./artifact-store-memory.js";
 export { createLocalArtifactStore } from "./artifact-store-local.js";
 // The job, its entry points' shared pieces, publishing and telemetry (9 and 11).
-export { runJob, ABORT_MARGIN_MS, SLOT_LEASE_MARGIN_MS } from "./run-job.js";
+export { runJob, ABORT_MARGIN_MS } from "./run-job.js";
 export type { RunJobDeps } from "./run-job.js";
 export type { JobCounts, JobDurations, JobResult } from "./job-result.js";
 export { parseJobInput } from "./job-input.js";
-export { ConfigError, createLedger, createStore, loadConfig, parseLedgerConfig } from "./config.js";
-export type { IndexerConfig, LedgerConfig, StoreConfig } from "./config.js";
+export { ConfigError, createStore, loadConfig } from "./config.js";
+export type { IndexerConfig, StoreConfig } from "./config.js";
 export { executeJob } from "./entry.js";
-export { CONTROL_SLOT_MARGIN_MS, createControl, parseControlEvent } from "./control.js";
-export type { ControlDeps, ControlEvent, ControlResult } from "./control.js";
-export { LEDGER_TABLE_LAYOUT } from "./ledger-table.js";
-export type { LedgerTableLayout } from "./ledger-table.js";
-export { resolveGithubToken } from "./github-token.js";
+export { resolveGithubToken, resolveInternalSecret, resolveSecret } from "./github-token.js";
 export { createS3ArtifactStore } from "./artifact-store-s3.js";
 export type { S3ArtifactStoreOptions } from "./artifact-store-s3.js";
 export { indexObjects, viewObjects } from "./snapshot-objects.js";
@@ -126,3 +119,15 @@ export type { LineWriter, LogLevel, Logger, LoggerOptions, Runtime, StageName, T
 // The local end-to-end run.
 export { runLocal } from "./local-run.js";
 export type { LocalRunOptions, LocalRunOutcome } from "./local-run.js";
+// Local fixtures: tarballs and a GitHub stand-in (the pre-check CLI and the local job use them).
+export {
+  LOCAL_REPO_TO_FIXTURE,
+  createLocalPrecheckFetch,
+  ensureFixtureTarball,
+  fixtureForLocalRepo,
+  fixtureSource,
+  repoRoot,
+  resetLocalFixtureCacheForTests,
+  tarballForRepoKey,
+  warmLocalFixtureCache,
+} from "./local-fixtures.js";

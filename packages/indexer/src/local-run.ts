@@ -1,6 +1,6 @@
 /**
  * The local end-to-end run: `runJob` with the local
- * fetcher, store and ledger, and the pre-check's GitHub calls stubbed from the
+ * fetcher, store, a memory reporter, and the pre-check's GitHub calls stubbed from the
  * tarball itself (the stub's repository is public with default branch `main`,
  * head commit the given SHA, and a tree listing the tarball's selected files).
  * Nothing touches the network or AWS.
@@ -10,9 +10,11 @@ import { getViewsVersion } from "@repohive/views";
 import type { ArtifactStore } from "./artifact-store.js";
 import type { FetchFunction } from "./github.js";
 import { hostedConfigDigest } from "./hosted-options.js";
-import type { JobLedger } from "./job-ledger.js";
+import type { JobReporter } from "./job-reporter.js";
 import type { JobResult } from "./job-result.js";
 import type { JobInput, Tier } from "./job-types.js";
+import { manifestKey } from "./layout.js";
+import { createMemoryJobReporter } from "./reporter-memory.js";
 import { precheck } from "./precheck.js";
 import { runJob } from "./run-job.js";
 import { createLocalSourceFetcher } from "./source-fetcher-local.js";
@@ -27,7 +29,8 @@ export interface LocalRunOptions {
   /** The 40-character commit the tarball was made from. */
   readonly commitSha: string;
   readonly store: ArtifactStore;
-  readonly ledger: JobLedger;
+  /** Where progress and the outcome go; default: a memory reporter. */
+  readonly reporter?: JobReporter;
   /** Overrides the tier the pre-check picks. */
   readonly tier?: Tier;
   readonly timeLimitMs?: number;
@@ -76,13 +79,14 @@ export async function runLocal(options: LocalRunOptions): Promise<LocalRunOutcom
   }
   const stub = stubGithub(listing.source.entries, options.commitSha);
   const viewsVersion = getViewsVersion();
-  const check = (input: string) => precheck(input, { token: "local-stub", store: options.store, viewsVersion, fetch: stub });
+  const check = (input: string) => precheck(input, { token: "local-stub", viewsVersion, fetch: stub });
 
   const accepted = await check(options.repo);
   if (!accepted.ok) {
     return { kind: "rejected", reason: accepted.reason, message: accepted.message };
   }
-  if (accepted.cacheHit) {
+  // A cache hit: the manifest of this snapshot is already in the store (it is written last).
+  if ((await options.store.get(manifestKey(accepted.repo, accepted.snapshotId))) !== undefined) {
     return { kind: "cache-hit", snapshotId: accepted.snapshotId };
   }
 
@@ -96,18 +100,13 @@ export async function runLocal(options: LocalRunOptions): Promise<LocalRunOutcom
     snapshotId: accepted.snapshotId,
     visibility: "public",
   };
-  const claim = await options.ledger.claim(input);
-  if (!claim.claimed) {
-    return { kind: "rejected", reason: claim.reason, message: "the repository already has a job in flight" };
-  }
-
   const started = Date.now();
   const limit = options.timeLimitMs ?? 15 * 60_000;
   const write = options.write;
   const result = await runJob(input, {
     fetcher,
     store: options.store,
-    ledger: options.ledger,
+    reporter: options.reporter ?? createMemoryJobReporter(),
     runtime: "local",
     log: createLogger({ jobId: input.jobId, ...(write === undefined ? {} : { write }) }),
     telemetry: createTelemetry({ tier, runtime: "local", ...(write === undefined ? {} : { write }) }),

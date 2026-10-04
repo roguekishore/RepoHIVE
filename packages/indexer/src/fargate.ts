@@ -6,8 +6,8 @@ import { parseJobInput } from "./job-input.js";
 /**
  * The Fargate task entry point for L and XL jobs.
  * The input is JSON in `REPOHIVE_JOB_INPUT`; the time limit is
- * `REPOHIVE_TIME_LIMIT_MS` counted from process start. The result goes to the
- * ledger; the exit code is 0 for `succeeded` and `retier`, 1 for `failed`.
+ * `REPOHIVE_TIME_LIMIT_MS` counted from process start. The outcome goes to the
+ * server; the exit code is 0 for `succeeded` and `retier`, 1 for `failed`.
  */
 async function main(): Promise<number> {
   const started = Date.now();

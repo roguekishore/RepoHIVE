@@ -1,11 +1,12 @@
 /**
  * Snapshot identity and object layout.
  *
- * Public objects use keys equal to their URL paths (`s/...`, `r/...`), so the
- * CDN needs no rewriting; non-public objects sit under prefixes it never
- * serves (`idx/...`, `meta/...`). Everything under `s/<snapshotId>/` and
- * `idx/<snapshotId>/` is a pure function of the snapshot inputs: the manifest
- * carries no timestamp, and only `latest.json` and `history.json` hold times.
+ * Public objects live under `artifacts/<owner>/<repo>/<snapshotId>/`; their keys equal their URL paths, so the
+ * CDN needs no rewriting. Non-public objects live under `private/<owner>/<repo>/...`, which is never served:
+ * the compact index under `private/<owner>/<repo>/<snapshotId>/index/` and the pruning record at
+ * `private/<owner>/<repo>/history.json`. Everything under a snapshot id is a pure function of the snapshot
+ * inputs: the manifest carries no timestamp, and only `history.json` holds times. Nothing in the store marks a
+ * snapshot active; the server does that when the worker reports success.
  */
 import { canonicalJson, compareBytewise, sha256Hex } from "./canonical-json.js";
 
@@ -70,7 +71,7 @@ export function snapshotIdOf(inputs: SnapshotInputs): string {
 
 // --- Object keys -------------------------------------------------------------------
 
-/** The fixed view files, relative to `s/<snapshotId>/`. */
+/** The fixed view files, relative to `artifacts/<owner>/<repo>/<snapshotId>/`. */
 export const VIEW_FILES = {
   repo: "views/repo.json",
   graph: "views/graph.json",
@@ -91,58 +92,62 @@ function assertPosition(n: number): void {
   }
 }
 
-/** `s/<snapshotId>/`: every public object of the snapshot. */
-export function snapshotPrefix(snapshotId: string): string {
+/** `<owner>/<repo>` from a canonical repo key (validates the key). */
+function repoPath(repo: string): string {
+  assertRepoKey(repo);
+  return repo.slice("github.com/".length);
+}
+
+/** `artifacts/<owner>/<repo>/<snapshotId>/`: every public object of the snapshot. */
+export function snapshotPrefix(repo: string, snapshotId: string): string {
   assertSnapshotId(snapshotId);
-  return `s/${snapshotId}/`;
+  return `artifacts/${repoPath(repo)}/${snapshotId}/`;
 }
 
-/** `s/<snapshotId>/manifest.json`. */
-export function manifestKey(snapshotId: string): string {
-  return `${snapshotPrefix(snapshotId)}manifest.json`;
+/** `artifacts/<owner>/<repo>/<snapshotId>/manifest.json`. */
+export function manifestKey(repo: string, snapshotId: string): string {
+  return `${snapshotPrefix(repo, snapshotId)}manifest.json`;
 }
 
-/** `s/<snapshotId>/<view file>` for one of {@link VIEW_FILES}. */
-export function viewKey(snapshotId: string, file: ViewFile): string {
-  return `${snapshotPrefix(snapshotId)}${file}`;
+/** `artifacts/<owner>/<repo>/<snapshotId>/<view file>` for one of {@link VIEW_FILES}. */
+export function viewKey(repo: string, snapshotId: string, file: ViewFile): string {
+  return `${snapshotPrefix(repo, snapshotId)}${file}`;
 }
 
-/** `s/<snapshotId>/views/architecture/<n>.json`, `n` the level's 0-based position in `availableLevels`. */
-export function architectureLevelKey(snapshotId: string, n: number): string {
+/** `.../views/architecture/<n>.json`, `n` the level's 0-based position in `availableLevels`. */
+export function architectureLevelKey(repo: string, snapshotId: string, n: number): string {
   assertPosition(n);
-  return `${snapshotPrefix(snapshotId)}views/architecture/${n}.json`;
+  return `${snapshotPrefix(repo, snapshotId)}views/architecture/${n}.json`;
 }
 
-/** `s/<snapshotId>/views/region-detail/<n>.json`, `n` the region's 0-based position in `metadata.regionDecisions`. */
-export function regionDetailKey(snapshotId: string, n: number): string {
+/** `.../views/region-detail/<n>.json`, `n` the region's 0-based position in `metadata.regionDecisions`. */
+export function regionDetailKey(repo: string, snapshotId: string, n: number): string {
   assertPosition(n);
-  return `${snapshotPrefix(snapshotId)}views/region-detail/${n}.json`;
+  return `${snapshotPrefix(repo, snapshotId)}views/region-detail/${n}.json`;
 }
 
-/** `idx/<snapshotId>/`: the compact index, never served. */
-export function indexPrefix(snapshotId: string): string {
+/** `private/<owner>/<repo>/<snapshotId>/`: everything of the snapshot that is never served. */
+export function privateSnapshotPrefix(repo: string, snapshotId: string): string {
   assertSnapshotId(snapshotId);
-  return `idx/${snapshotId}/`;
+  return `private/${repoPath(repo)}/${snapshotId}/`;
 }
 
-/** `idx/<snapshotId>/<fileName>`, with the file name the engine writes. */
-export function indexObjectKey(snapshotId: string, fileName: string): string {
+/** `private/<owner>/<repo>/<snapshotId>/index/`: the compact index, never served. */
+export function indexPrefix(repo: string, snapshotId: string): string {
+  return `${privateSnapshotPrefix(repo, snapshotId)}index/`;
+}
+
+/** `private/<owner>/<repo>/<snapshotId>/index/<fileName>`, with the file name the engine writes. */
+export function indexObjectKey(repo: string, snapshotId: string, fileName: string): string {
   if (fileName.length === 0 || /[/\\]/.test(fileName) || fileName === "." || fileName === "..") {
     throw new RangeError(`not an index file name: ${JSON.stringify(fileName)}`);
   }
-  return `${indexPrefix(snapshotId)}${fileName}`;
+  return `${indexPrefix(repo, snapshotId)}${fileName}`;
 }
 
-/** `r/github.com/<owner>/<repo>/latest.json`: the public pointer to the current snapshot. */
-export function latestKey(repo: string): string {
-  assertRepoKey(repo);
-  return `r/${repo}/latest.json`;
-}
-
-/** `meta/github.com/<owner>/<repo>/history.json`: the pruning record, never served. */
+/** `private/<owner>/<repo>/history.json`: the pruning record, never served. */
 export function historyKey(repo: string): string {
-  assertRepoKey(repo);
-  return `meta/${repo}/history.json`;
+  return `private/${repoPath(repo)}/history.json`;
 }
 
 // --- JSON documents ------------------------------------------------------------------
@@ -212,48 +217,12 @@ export function buildManifest(fields: ManifestFields, objects: readonly Snapshot
   };
 }
 
-export const POINTER_VERSION = 1;
-
-/** `latest.json`: which snapshot a repository currently shows. */
-export interface LatestPointer {
-  readonly pointerVersion: typeof POINTER_VERSION;
-  readonly repo: string;
-  readonly snapshotId: string;
-  readonly commitSha: string;
-  readonly engineVersion: string;
-  readonly viewsVersion: string;
-  /** ISO-8601 UTC. */
-  readonly publishedAt: string;
-}
-
-export interface LatestFields {
-  readonly repo: string;
-  readonly snapshotId: string;
-  readonly commitSha: string;
-  readonly engineVersion: string;
-  readonly viewsVersion: string;
-}
-
-export function buildLatest(fields: LatestFields, publishedAt: Date): LatestPointer {
-  assertRepoKey(fields.repo);
-  assertSnapshotId(fields.snapshotId);
-  return {
-    pointerVersion: POINTER_VERSION,
-    repo: fields.repo,
-    snapshotId: fields.snapshotId,
-    commitSha: fields.commitSha,
-    engineVersion: fields.engineVersion,
-    viewsVersion: fields.viewsVersion,
-    publishedAt: publishedAt.toISOString(),
-  };
-}
-
 /** One published snapshot of a repository. */
 export interface HistoryEntry {
   readonly snapshotId: string;
   /** ISO-8601 UTC. */
   readonly publishedAt: string;
-  /** ISO-8601 UTC, set when a newer snapshot replaced this one in `latest.json`; `null` while current. */
+  /** ISO-8601 UTC, set when a newer snapshot was published after this one; `null` while current. */
   readonly retiredAt: string | null;
 }
 

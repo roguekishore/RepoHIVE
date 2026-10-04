@@ -83,12 +83,13 @@ describe("logs", () => {
 });
 
 describe("configuration", () => {
-  const base = { REPOHIVE_RUNTIME: "local", REPOHIVE_STORE: "local:/tmp/store", REPOHIVE_LEDGER: "memory" };
+  const base = { REPOHIVE_RUNTIME: "local", REPOHIVE_STORE: "local:/tmp/store" };
 
   test("reads a local configuration without a token", () => {
     const config = loadConfig(base);
     assert.deepEqual(config.store, { kind: "local", directory: "/tmp/store" });
-    assert.deepEqual(config.ledger, { kind: "memory" });
+    assert.equal(config.serverUrl, undefined);
+    assert.equal(config.internalSecret, undefined);
     assert.equal(config.githubToken, undefined);
     assert.equal(config.runtime, "local");
   });
@@ -97,13 +98,14 @@ describe("configuration", () => {
     const config = loadConfig({
       REPOHIVE_RUNTIME: "fargate",
       REPOHIVE_STORE: "s3:my-bucket",
-      REPOHIVE_LEDGER: "dynamodb:jobs",
+      REPOHIVE_SERVER_URL: "https://app.example.com/",
+      REPOHIVE_INTERNAL_SECRET: "s3cret-value",
       REPOHIVE_GITHUB_TOKEN: "t0ken",
       AWS_REGION: "ap-south-1",
     });
     assert.deepEqual(config.store, { kind: "s3", bucket: "my-bucket" });
-    assert.deepEqual(config.ledger, { kind: "dynamodb", table: "jobs" });
-    assert.equal(loadConfig({ ...base, REPOHIVE_LEDGER: "file:/tmp/l.json" }).ledger.kind, "file");
+    assert.equal(config.serverUrl, "https://app.example.com");
+    assert.equal(config.internalSecret, "s3cret-value");
   });
 
   test("rejects a missing or malformed variable by name, without echoing the token", () => {
@@ -113,7 +115,8 @@ describe("configuration", () => {
     rejects({ ...base, REPOHIVE_RUNTIME: "ec2" }, /REPOHIVE_RUNTIME must be/);
     rejects({ ...base, REPOHIVE_STORE: "ftp:x" }, /REPOHIVE_STORE must be/);
     rejects({ ...base, REPOHIVE_STORE: "s3:" }, /REPOHIVE_STORE must be/);
-    rejects({ ...base, REPOHIVE_LEDGER: "redis:x" }, /REPOHIVE_LEDGER must be/);
+    rejects({ ...base, REPOHIVE_SERVER_URL: "ftp://x" }, /REPOHIVE_SERVER_URL must be/);
+    rejects({ ...base, REPOHIVE_SERVER_URL: "not a url" }, /REPOHIVE_SERVER_URL must be/);
     rejects({ ...base, REPOHIVE_RUNTIME: "lambda" }, /REPOHIVE_GITHUB_TOKEN is not set/);
     rejects({ ...base, REPOHIVE_STORE: "s3:b" }, /AWS_REGION is not set/);
     assert.throws(

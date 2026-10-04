@@ -2,8 +2,6 @@
 import "./thread-pool.js";
 import { parseArgs } from "node:util";
 import { createLocalArtifactStore } from "./artifact-store-local.js";
-import { createFileJobLedger } from "./job-ledger-file.js";
-import { createMemoryJobLedger } from "./job-ledger-memory.js";
 import type { Tier } from "./job-types.js";
 import { runLocal } from "./local-run.js";
 
@@ -11,10 +9,10 @@ import { runLocal } from "./local-run.js";
  * The local dev command:
  *
  *   node dist/cli.js --tarball <file.tar.gz> --repo <owner>/<repo> --commit <40-hex sha> --store <dir>
- *                    [--ledger <file.json>] [--tier S|M|L|XL] [--time-limit-ms <n>]
+ *                    [--tier S|M|L|XL] [--time-limit-ms <n>]
  *
  * Runs the pre-check (GitHub stubbed from the tarball) and then `runJob` with
- * the local fetcher, a directory store and a memory or file ledger. Prints the
+ * the local fetcher, a directory store and a memory reporter. Prints the
  * outcome as one JSON line after the job's own metric and log lines. Exit code:
  * 0 for a published snapshot, a cache hit or a retier, 1 otherwise.
  */
@@ -25,7 +23,6 @@ async function main(): Promise<number> {
       repo: { type: "string" },
       commit: { type: "string" },
       store: { type: "string" },
-      ledger: { type: "string" },
       tier: { type: "string" },
       "time-limit-ms": { type: "string" },
     },
@@ -46,7 +43,6 @@ async function main(): Promise<number> {
     repo: need("repo"),
     commitSha: need("commit"),
     store: createLocalArtifactStore(need("store")),
-    ledger: values.ledger === undefined ? createMemoryJobLedger() : createFileJobLedger({ path: values.ledger }),
     ...(tier === undefined ? {} : { tier }),
     ...(values["time-limit-ms"] === undefined ? {} : { timeLimitMs: Number(values["time-limit-ms"]) }),
   });

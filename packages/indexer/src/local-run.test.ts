@@ -1,6 +1,6 @@
 /**
  * The local end-to-end run: pre-check on a stubbed
- * GitHub, then `runJob`, then a second run that is a cache hit.
+ * GitHub, then `runJob`, then a second run that is a cache hit (the manifest already exists in the store).
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -10,8 +10,8 @@ import { after, test } from "node:test";
 import { gzipSync } from "node:zlib";
 import tar from "tar-stream";
 import { createMemoryArtifactStore } from "./artifact-store-memory.js";
-import { createMemoryJobLedger } from "./job-ledger-memory.js";
-import { latestKey } from "./layout.js";
+import { manifestKey } from "./layout.js";
+import { createMemoryJobReporter } from "./reporter-memory.js";
 import { runLocal } from "./local-run.js";
 
 const SHA = "fedcba9876543210fedcba9876543210fedcba98";
@@ -44,14 +44,14 @@ const JAVA = {
 test("pre-check, job and cache hit run end to end with no network", async () => {
   const file = await tarball(JAVA, "tiny");
   const store = createMemoryArtifactStore();
-  const ledger = createMemoryJobLedger();
+  const reporter = createMemoryJobReporter();
   const lines: string[] = [];
   const options = {
     tarballPath: file,
     repo: "Acme/Tiny",
     commitSha: SHA,
     store,
-    ledger,
+    reporter,
     tmpRoot: scratch,
     write: (line: string) => lines.push(line),
   };
@@ -61,8 +61,8 @@ test("pre-check, job and cache hit run end to end with no network", async () => 
   if (first.kind !== "ran") return;
   assert.equal(first.tier, "S");
   assert.equal(first.result.status, "succeeded", JSON.stringify(first.result));
-  assert.ok(await store.get(latestKey("github.com/acme/tiny")));
-  assert.equal((await ledger.get(firstJobId(ledger, first.snapshotId)))?.state, "succeeded");
+  assert.ok(await store.get(manifestKey("github.com/acme/tiny", first.snapshotId)));
+  assert.equal(reporter.outcome()?.status, "succeeded");
   assert.ok(lines.some((line) => line.includes("JobsSucceeded")));
   assert.deepEqual(readdirSync(scratch).filter((name) => name.startsWith("repohive-job-")), []);
 
@@ -72,13 +72,11 @@ test("pre-check, job and cache hit run end to end with no network", async () => 
 
 test("a tier override is honoured, and a repository with no Java is rejected before any job", async () => {
   const store = createMemoryArtifactStore();
-  const ledger = createMemoryJobLedger();
   const noJava = await runLocal({
     tarballPath: await tarball({ "README.md": "x" }, "nojava"),
     repo: "acme/none",
     commitSha: SHA,
     store,
-    ledger,
     tmpRoot: scratch,
   });
   assert.equal(noJava.kind, "rejected");
@@ -90,23 +88,10 @@ test("a tier override is honoured, and a repository with no Java is rejected bef
     repo: "acme/tier",
     commitSha: SHA,
     store,
-    ledger,
     tier: "L",
     tmpRoot: scratch,
     write: () => undefined,
   });
   assert.equal(bigger.kind === "ran" && bigger.tier, "L");
   assert.equal(bigger.kind === "ran" && bigger.result.status, "succeeded");
-  // The large slot was taken for the L job and released.
-  assert.equal(await ledger.acquireLargeSlot("next", Date.now() + 60_000), true);
 });
-
-/** The ledger has no list call, so find the job by reading the memory ledger's rows. */
-function firstJobId(ledger: ReturnType<typeof createMemoryJobLedger>, snapshotId: string): string {
-  for (const [key, row] of ledger.rows) {
-    if (row.kind === "job" && row.data.input.snapshotId === snapshotId) {
-      return key.replace(/^JOB#/, "");
-    }
-  }
-  throw new Error("no job row");
-}

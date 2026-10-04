@@ -17,9 +17,11 @@ export interface JobCounts {
   /** Selected Java files handed to the engine. */
   readonly files: number;
   readonly nodes: number;
+  /** `views.hierarchyScale.totalNodes`: the node count the dashboard shows. */
+  readonly hierarchyNodes: number;
   readonly edges: number;
   readonly regions: number;
-  /** Objects written under `s/` and `idx/`, including the manifest. */
+  /** Objects written under `artifacts/` and `private/`, including the manifest. */
   readonly objects: number;
   /** Stored (compressed) bytes of those objects. */
   readonly storedBytes: number;
