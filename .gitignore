@@ -16,6 +16,7 @@ graph.json
 **/graph.json
 index/
 **/index/
+!packages/web/src/app/api/index/
 
 # Tooling and scrap (not part of the project repo)
 tooling/
