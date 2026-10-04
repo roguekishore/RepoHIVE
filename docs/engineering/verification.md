@@ -12,6 +12,7 @@ report anything as passing.
 |------|---------------|-------------------------------|
 | 1. build | `npm install` | **Yes**, after install |
 | 2. tests | `npm install`, plus a built `dist/` for the engine | **Yes**, after install and build, with the caveats below |
+| 2b. server tests | JDK 21+ (`./mvnw -B verify` in `repohive-server/`); no npm install | **Yes**, once a JDK 21+ is on `JAVA_HOME` |
 | 3. determinism | install, build, and `fixtures/sample-java-project` | **Partly.** The comparison runs. The recorded digests to compare against are below, but the baseline history is in the mount |
 | 4. real-repo smoke | recorded counts in `context/registers/measurements.md` | **No.** Needs the private mount |
 
@@ -33,6 +34,9 @@ npm run build
 Runs `tsc -b packages/parser packages/core packages/engine packages/views packages/indexer`, then `node packages/views/scripts/write-views-version.mjs`. Must be clean. No new type errors, no suppressed
 diagnostics.
 
+The root build does **not** build the viewer or the server. For code in `packages/web`, also run `npm run type-check`
+and `npm run build` in that workspace (the static export must succeed); for code in `repohive-server/`, Gate 2b.
+
 Note that the root `npm run typecheck` is **byte-identical to `build`** and emits `dist/`. It is not a
 no-emit check. The per-package no-emit checks are `typecheck` in `shared`, `parser`, and `core`, but
 `type-check` in `web`. No root script runs it.
@@ -48,9 +52,17 @@ Runs `npm run test --workspaces --if-present`.
 ### Root `npm test`
 
 Measured 2026-10-03 on `server-java` (Windows, Node v24.21.0, after `npm run build` and `next build` in `packages/web`): exit 0,
-about 51 s warm. The earlier non-zero exit came from the `types` workspace (a missing fixture), which no longer exists.
-The `web` suite includes an end-to-end test that starts the built server, so it fails without `next build`, and the
-views version without the root build. A failure from either is a missing precondition, not a regression.
+about 51 s warm. That was before the Next.js server half was removed, and **root `npm test` was not re-run
+after it**; the per-workspace results on 2026-10-04 are below. **Root `npm test` does not run the Java server's tests**
+(`repohive-server` is not an npm workspace); see Gate 2b. The `web` suite needs the root build (its tests import the
+built `indexer`, `engine` and `views`), but it no longer needs `next build`, because the end-to-end test that started
+the built server is gone; the end-to-end script is `npm run e2e --workspace @repohive/web` and runs on demand.
+
+**A green `web` suite can hide skipped baseline tests.** `src/features/repository/snapshot-baseline.test.ts` compares
+published views with baselines in `.agents/baselines/hosting-3` and with a store in `.repohive-local`. Both are
+git-ignored, so on a clean clone the test logs `skipped: ...` with `console.warn` **and passes**. It checks something
+only after you index the fixture through the server (`local/broadleafcommerce`) and have the baselines. Read the
+output for `skipped:` before counting it.
 
 ### How the engine test script works, and the trap it replaced
 
@@ -119,6 +131,49 @@ The `ui`, `types` and `api-client` packages are gone; their surviving code and t
 2026-10-03 on `server-java`, Windows, Node v24.21.0, after that merge: `web` 283 / 283 in 41 files, `core` 176 / 176,
 `parser` 235 pass and 1 skipped (236), `engine` 76 / 76, `indexer` 192 / 192. The numbers in the two paragraphs above
 no longer apply to `web`.
+
+After the Spring Boot cutover, 2026-10-04, Windows 11, Node v24.21.0, warm, one session: `indexer` 180 / 180 and `web` 231 tests
+in 30 files, all passing; `tsc --noEmit` and the static `next build` clean. The drop from 192 to 180 in `indexer` is
+the removed ledger, control Lambda and ledger-table tests. `parser`, `core` and `engine` were not re-run (no change to
+them). On Linux, 2026-10-03, before the web cutover: `parser` 236 / 236, `core` 176 / 176, `engine` 76 / 76, `indexer`
+192 / 192, `web` 295 / 295 in 42 files, from the baseline of that run.
+
+## Gate 2b: the server tests
+
+```
+./mvnw -B verify
+```
+
+Run in `repohive-server/`. It compiles, runs the whole JUnit suite and builds the jar; the gate is **every test passing
+and the jar built**. Read the Surefire summary (`Tests run: N, Failures: 0, Errors: 0`), not the exit code alone.
+Measured 2026-10-04: **156 / 156** on Windows 11 with JDK 23.0.2, and on Linux x64 with OpenJDK 21.0.12 (Maven 3.9.16 from
+the wrapper), both before the last portability commit; after it, 156 / 156 again on Windows only. Warm, with the Maven
+repository already populated.
+
+- **JDK.** The server needs Java 21 or newer. Set `JAVA_HOME` before running; the wrapper uses whatever `java` it finds.
+  A machine whose default `java` is older fails with a compiler error about release 21, which is a missing
+  precondition, not a regression. **Java 21 itself has not been run on Windows**, and **Linux has not run the current
+  tests**: the Linux run predates the change below.
+- **Tests must not depend on `sh`, on a Unix path, or on a binary on `PATH` other than `node`.** The tests that spawn a
+  child (the pre-check runner, the local dispatcher) use `node -e` for fake children and absolute paths for scripts and
+  directories, so they pass the same on Windows and Linux. A test that shells out to `sh -c` passes on Linux and
+  fails on Windows; that is what the commit "run the process tests with node and absolute paths" fixed. Keep new tests
+  free of it.
+- Tests run against SQLite in a temporary directory, with a fake dispatcher and a fake pre-check runner
+  (`src/test/java/com/repohive/support`); nothing reaches AWS or GitHub. **No AWS path is verified by a real call**:
+  Step Functions, SSM and S3 are exercised against mocks only.
+
+## Gate 2c: the end-to-end script
+
+```
+npm run e2e --workspace @repohive/web
+```
+
+Needs the jar (`./mvnw -B package` in `repohive-server/`), the root build, and a free port (default 3299,
+`REPOHIVE_E2E_PORT`). It starts the jar on a scratch data directory and drives sign-up, an index request on a fixture
+repository, the job's event stream, the limits and a forced system failure with its refund. Measured 2026-10-04,
+Windows 11, Node 24.21.0, JDK 23.0.2: happy path, limits and refund pass, 37 s total, warm. It is not part of
+`npm test`; there is no vitest wrapper for it any more.
 
 ### Known failures. Confirm these are the only ones
 

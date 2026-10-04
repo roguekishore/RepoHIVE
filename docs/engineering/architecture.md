@@ -14,7 +14,7 @@ Java repo  →  [parse]  →  graph.json  →  [group]  →  index/*.json  →  
 |-------|-------|--------|---------------|
 | `parse` | a Java source tree | `graph.json` | batch; reads files, writes one file, exits |
 | `group` | `graph.json` | `index/` (5 files) | batch; reads one file, writes five, exits |
-| `view` | `index/` | HTTP + browser | long-running Next.js server |
+| `view` | published snapshot views | browser | static export of the viewer; data from the Java server's JSON API and the published `artifacts/` objects |
 
 `parse` internals: Tree-Sitter produces a per-file AST; the AST is held one file at a time and
 discarded. Our stitcher resolves cross-file references and emits the graph. **ASTs are never
@@ -106,7 +106,9 @@ packages/
   engine/       parse then group in one call (`indexProject`), progress, snapshot-id inputs
   views/        the viewer's response bodies as pure functions of a parsed index (ecosystem)
   indexer/      the hosted indexing job: pre-check, tarball fetch, run, views, publish (ecosystem)
-  web/          Next.js 15 app: the six repository views, accounts, index requests, the worker (ecosystem)
+  web/          the viewer: a Next.js 15 static export, no server code (ecosystem)
+repohive-server/  Spring Boot 3 / Java 21 server: accounts, quota, index requests, job ledger, dispatch
+                  (ecosystem; Maven, not an npm workspace)
 ```
 
 `shared` is the leaf dependency. `parser` and `core` depend only on `shared`; `engine` depends on
@@ -123,49 +125,97 @@ The root `parse` and `group` npm scripts remain for running one stage alone.
 the adapters and route logic that used to live in `web`; each route handler now parses its request and calls a
 `views` function. Its `buildSnapshotViews(groupingOutput, entry)` builds every response a snapshot publishes at
 index time, and `fromGroupingOutput` makes the in-memory output equal what `parseIndex` returns. `indexer`
-depends on `engine`, `core` and `views`. It defines `ArtifactStore`, `JobLedger` and `SourceFetcher`, each with
-a local implementation (directory or memory, memory or file, tarball file) and an AWS or network one (S3,
-DynamoDB, GitHub tarball), so the whole job runs offline. `runJob` is the one function both the Lambda handler and
-the Fargate entry point call; the container image and its start commands are in `packages/indexer/DEPLOY.md`.
-Published objects have URL-shaped keys under `s/<snapshotId>/` (public, immutable), `r/github.com/<owner>/<repo>/`
-(the `latest.json` pointer) and non-public `idx/` and `meta/`; the snapshot id hashes the repository, commit,
-`engineVersion`, the views version and `configDigest`. The views version is a build-time hash of the `views`
-`dist/`, written by `packages/views/scripts/write-views-version.mjs` after `tsc -b`.
+depends on `engine`, `core` and `views`. It defines `ArtifactStore`, `JobReporter` and `SourceFetcher`, each with
+a local implementation (directory or memory, memory, tarball file) and an AWS or network one (S3, HTTP to the
+server, GitHub tarball), so the whole job runs offline. `runJob` is the one function the Lambda handler, the
+Fargate entry point and the local child (`local-job.ts`) call; the container image and its start commands are in
+`packages/indexer/DEPLOY.md`. The job holds **no state of its own**: it posts progress and exactly one outcome
+(`succeeded`, `failed` or `retier`) to the server's internal API through `JobReporter` (`reporter-http.ts`), and
+the server's database is the ledger (see "Server"). `precheck-cli.ts` prints the pre-check result as one JSON line
+for the server to run as a child process.
+
+Published objects have URL-shaped keys. **Public and immutable:** `artifacts/<owner>/<repo>/<snapshotId>/`
+(views and `manifest.json`; owner and repo lowercase). **Private**, outside anything the CDN serves:
+`private/<owner>/<repo>/<snapshotId>/index/` (the index files) and `private/<owner>/<repo>/history.json`. There is
+no pointer object; the active snapshot is `indexed_repositories.snapshot_id` in the server's database. The worker's
+prune keeps the three most recent snapshots at least 24 h old and never prunes the one the server reports active
+(`GET /api/internal/repos/<owner>/<repo>/active`; if that read fails the prune is skipped). The snapshot id hashes
+the repository, commit, `engineVersion`, the views version and `configDigest`; it did not change when the key layout
+did. The views version is a build-time hash of the `views` `dist/`, written by
+`packages/views/scripts/write-views-version.mjs` after `tsc -b`.
+
+## Server (`repohive-server/`)
+
+Spring Boot 3 on Java 21, built with Maven (the wrapper is script-only, so no binary jar is committed). It owns all
+application state in one SQLite database (Flyway migrations `V1` accounts and quota, `V2` repositories and jobs) and
+serves the JSON API under `/api`, `/healthz`, and, in local mode, `/artifacts/**` and optionally the exported viewer
+(`REPOHIVE_WEB_DIR`). Data access is plain JDBC (`JdbcTemplate`), not JPA, and there is no Spring Security: the cookie,
+origin check, lockouts and scrypt (BouncyCastle) are written out to match the behaviour the Next.js server had.
+Package layout under `com.repohive`: `controller` (HTTP), `service` (auth, quota, intake, jobs, reconciliation,
+backup), `repository` (SQL), `dispatch`, `store`, `config`, `model`.
+
+- **The job ledger is the table `job_executions`.** `status` (`QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`) is the lock
+  column; `state` is the fine-grained state the job API and SSE return. A partial unique index on `repo` where status
+  is `QUEUED` or `RUNNING` allows one job in flight per repository. L and XL jobs run one at a time: the dispatcher
+  starts one only when no L or XL job is `RUNNING`, and starts waiting ones in `created_at` order when the slot frees.
+  A retier outcome goes back through the same slot logic, at most twice.
+- **Dispatch** has two implementations of `DispatchService`: Step Functions `StartExecution` (hosted) and a local one
+  that spawns the indexer's `local-job.js` as a child process. Execution names are `<jobId>`, `<jobId>-r<n>` and
+  `<jobId>-s`.
+- **Reconciliation** (`JobReconciliationService`, every 30 s) fails and refunds a `RUNNING` job whose execution ended
+  without a completion call, restarts a never-started job once, and expires `QUEUED` jobs that wait past the slot
+  timeout. This replaces the old state machine's decide-and-fail-open states.
+- **Internal API**, `/api/internal/**`, bearer secret compared in constant time: `jobs/progress`, `jobs/complete`,
+  `repos/<owner>/<repo>/active`. The secret is `REPOHIVE_INTERNAL_SECRET` locally and an SSM SecureString hosted.
+- **Pre-check stays TypeScript.** `ProcessPrecheckRunner` runs `packages/indexer/dist/precheck-cli.js` under Node
+  (`REPOHIVE_NODE`, `REPOHIVE_INDEXER_DIR`), because the pre-check depends on the parser's selection policy and on
+  `engineVersion`, and a Java port could drift. The box therefore keeps a Node runtime.
+- Cache hits are decided by the server: the pre-check's snapshot id equals `indexed_repositories.snapshot_id`.
+- Configuration is validated at start from environment variables (`AppConfigFactory`); the error names the variable
+  and never echoes a value. Locally they come from `repohive-server/config/local.env`.
+
+The request contract, the object layout and the job lifecycle are specified in the server's design document
+(`context/specs/redesign/`); where it disagrees with the code, the code and then the contract win.
 
 ## Web app (`packages/web`)
 
-One Next.js 15 package holds the viewer, the account and index-request routes, and the background worker. The
-UI components and types that used to be separate packages live inside it.
+One Next.js 15 package holds the viewer and nothing else: **a static export** (`output: "export"`), with no route
+handlers, no database and no server code. Accounts, quota, index requests and jobs are the Java server's.
 
 ```
 src/
-  app/          routes only: pages and route handlers
+  app/          routes only: pages and layouts
   components/   ui/ (Radix primitives), layout/ (navigation, theme), shared/ (page shell, loading state, table)
   features/     one folder per surface; see below
   lib/          small client helpers: cn, theme tokens, site origin
-  server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting (config, clients),
-                telemetry, health, repositories, views (adapter tests)
+  views/        tests of the @repohive/views adapters
   styles/       globals.css (design tokens) and the token drift test
+scripts/        start-local.mjs (local launcher), e2e.mjs (end-to-end script against the jar)
 ```
 
 `features/`: `structure-map` (the knowledge-graph page's canvas engine, panels and blast-radius worker),
 `hierarchy`, `decisions` (the shared decision model and marks, with the audit page's parts), `architecture`,
 `adaptivity`, `flat-baseline` (a purpose-built Sigma view of `views/graph.json`), `repository` (URL parsing, the
-snapshot session, breadcrumb, repository list) and `account` (sign-in and sign-up, index request, quota).
+snapshot session, breadcrumb, repository list), `jobs` (the public job shape) and `account` (sign-in and sign-up,
+index request, quota dialog).
 
-Pages: `/`, `/request`, `/quota`, `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`, `/jobs/[jobId]`, and the six
+Pages: `/` (dashboard and index request), `/auth/sign-in`, `/auth/sign-up`, `/jobs/[jobId]`, and the seven
 repository views under `/repos/[owner]/[repo]/`: `knowledge-graph` (the structure map), `hierarchy`,
-`decision-audit`, `architecture`, `flat-baseline`, `adaptivity`. The middleware redirects `/repos/[owner]/[repo]`
-to the structure map and lowercases the repository in the URL.
+`decision-audit`, `architecture`, `circles`, `flat-baseline`, `adaptivity`. `/repos/[owner]/[repo]` redirects to the
+structure map and the repository is lowercased in the URL; both happen **in the client** now (the old middleware is
+gone).
 
-Route handlers: `/api/auth/{session,sign-in,sign-up,sign-out}`, `/api/index`, `/api/jobs/[jobId]` and
-`/api/jobs/[jobId]/events`, `/api/quota`, `/healthz`, and `/r/*` and `/s/*`, which serve published snapshot objects
-from the local store in local mode (CloudFront serves them from the artifact bucket when hosted).
+A static export cannot pre-render arbitrary owners, repositories or job ids. Each dynamic route exports one
+placeholder shell (`_`), and **the host maps `/repos/<owner>/<repo>[/<surface>]` and `/jobs/<jobId>` to those
+shells**; the browser path supplies the real values. The mapping, and the rules that keep it identical across hosts,
+are in `packages/web/README.md` ("Static export and host mapping"). Three hosts apply it: the Java server's local mode
+(`REPOHIVE_WEB_DIR`), `next dev` (rewrites, development only) and Caddy on the box (a deploy follow-up, not yet done).
 
-The repository views do not read `index/`. They resolve one snapshot per page session from
-`/r/github.com/<owner>/<repo>/latest.json` and then fetch `/s/<snapshotId>/views/*.json`, which `packages/views`
-built at index time. Snapshot objects under `s/` are public and immutable by design. Layout is computed
-client-side; the blast-radius traversal runs in a Web Worker over `views/blast-radius.json`.
+The repository views do not read `index/`. They call `GET /api/repos/<owner>/<repo>` once per page session (served
+`no-store` by the server) to learn the active snapshot id, then fetch
+`/artifacts/<owner>/<repo>/<snapshotId>/views/*.json`, which `packages/views` built at index time. `?snapshot=<id>`
+pins a snapshot, checked against its `manifest.json`. Objects under `artifacts/` are public and immutable by design.
+Layout is computed client-side; the blast-radius traversal runs in a Web Worker over `views/blast-radius.json`.
 
 Two long-standing descriptions of the renderer are recorded here but **not confirmed against the
 current code**: that the per-level node budget is about 20, and that client-side layout is
@@ -175,7 +225,9 @@ relying on them.
 ## Engine / ecosystem boundary
 
 - **Engine:** `parser`, `core`, `shared` are the parse/group/blast-radius logic.
-- **Ecosystem:** `web`, `views`, `indexer`, and any future CLI, MCP server or editor extension.
+- **Ecosystem:** `web`, `views`, `indexer`, `repohive-server` (Java; it reaches TypeScript code only by running the
+  indexer's compiled CLIs as child processes, and by HTTP from the workers), and any future CLI, MCP server or editor
+  extension.
 
 Ecosystem code may depend on engine code. **Engine code may never depend on ecosystem code.** Every
 change belongs clearly on one side of this line.
@@ -190,6 +242,7 @@ Tracked at the repository root:
 
 ```
 packages/            see above
+repohive-server/     the Java server (Maven; `mvnw` wrapper, `config/local.env` for local runs)
 fixtures/            sample-java-project (its sources are tracked even though .gitignore lists it;
                      its generated graph.json and index/ are ignored)
 deploy/              AWS deployment as code (Terraform, box files, scripts, runbook); not a workspace
@@ -224,6 +277,15 @@ optional by construction. `docs/engineering/` is the durable, public half and mu
 `deploy/` holds everything needed to run the hosted stack on AWS (ap-south-1), as code. It is **not an npm
 workspace and no package imports it**; it reaches `packages/indexer` and `packages/web` only by building them
 (the indexer image, the app release bundle), never by importing.
+
+> **The deploy tree has not caught up with the redesign.** Everything below describes `deploy/` as it is, which is
+> the design that was deployed to the test account: the DynamoDB ledger, the control Lambda, the ~30-state state
+> machine, the `s/*` and `r/*` CloudFront behaviours, and a box that runs the Next.js server and a worker. The code
+> no longer matches it: the server (`repohive-server`) replaces the box's Next.js server and worker, the ledger and
+> control code are gone from `packages/indexer`, and the keys moved to `artifacts/`. Until the follow-up list in
+> `context/specs/redesign/progress.md` ("Deploy follow-up", 12 items) is done, **a release built from this code
+> cannot be deployed with this tree.** `ledger-table.ts`, `control.ts` and `packages/web/src/server/` named below no
+> longer exist.
 
 ```
 deploy/terraform/bootstrap/   applied once per account, local state: state bucket, ops bucket, ECR, CloudFront

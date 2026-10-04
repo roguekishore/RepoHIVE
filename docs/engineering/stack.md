@@ -11,6 +11,12 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
   mismatch (no `engine-strict` is set), and `.nvmrc` binds only tools that read it. `packages/web`
   additionally declares its own `engines` (`>=20.0.0`). The engine test script no longer depends on
   the Node version or the shell; see below.
+- **Java 21** for `repohive-server/` (`java.version` is 21 in its `pom.xml`). Nothing enforces the JDK either: any
+  JDK 21 or newer builds it (built on 21.0.12 and on 23.0.2). **Check which `java` is first on
+  `PATH`**: a machine can have several JDKs and an old default (the Windows dev machine's default was 14), and Maven
+  then fails with a bare "release version 21 not supported". Set `JAVA_HOME` to a 21+ JDK.
+- **Maven 3.9.16**, through the committed wrapper (`repohive-server/mvnw`, `mvnw.cmd`). The wrapper is
+  `distributionType=only-script`: it downloads Maven on first use and commits no binary jar.
 - ESM. `"type": "module"` is set in `shared`, `parser` and `core`. It is
   **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
@@ -47,31 +53,55 @@ WASM artifacts are resolved from `node_modules` at runtime by `resolveGrammarPat
 
 | Package | Version | Role |
 |---------|---------|------|
-| `@aws-sdk/client-dynamodb` | `3.1144.0` | DynamoDB `JobLedger` (low-level client, hand-written attribute maps) |
 | `tar-stream` | `3.2.1` | MIT; streams the repository archive (`tarball.ts`); ships its own types, so `@types/tar-stream` is not used |
 | `@aws-sdk/client-s3` | `3.1144.0` | S3 `ArtifactStore` (`artifact-store-s3.ts`) |
+| `@aws-sdk/client-ssm` | `3.1144.0` | reads the GitHub token and the internal secret from SSM SecureString parameters |
 | `@types/aws-lambda` | `8.10.164` | dev only; Lambda handler types |
-| `aws-sdk-client-mock` | `4.1.0` | dev only; mocks the S3 client in `artifact-store.test.ts` (the DynamoDB ledger uses a hand-written fake) |
+| `aws-sdk-client-mock` | `4.1.0` | dev only; mocks the S3 client in `artifact-store.test.ts` |
 
-Exact pins in `packages/indexer/package.json`.
+Exact pins in `packages/indexer/package.json`. `@aws-sdk/client-dynamodb` was removed with the ledger; the job reports to the server over `fetch`, with no HTTP
+client dependency.
+
+## Server dependencies (`repohive-server`)
+
+Exact versions in `repohive-server/pom.xml`; the first two are Maven properties or the parent version.
+
+| Dependency | Version | Role |
+|------------|---------|------|
+| Spring Boot (`spring-boot-starter-parent`, `-web`, `-jdbc`, `-test`) | 3.5.16 | HTTP, `JdbcTemplate`, tests (JUnit 5). No JPA, no Spring Security, no Actuator |
+| `org.flywaydb:flyway-core` | 11.7.2 | migrations `V1`, `V2` (`src/main/resources/db/migration`) |
+| `org.xerial:sqlite-jdbc` | 3.53.4.0 | SQLite driver; the SQL is kept portable, PostgreSQL is not built |
+| `org.bouncycastle:bcprov-jdk18on` | 1.86 | scrypt, for password hashes verifiable against the old Node ones |
+| `org.brotli:dec` | 0.1.2 | brotli decoding in `ArtifactService` and `ArtifactController`, the local `/artifacts/**` route |
+| AWS SDK for Java v2 (`bom` 2.55.11): `s3`, `sfn`, `ssm` | 2.55.11 | object store, Step Functions dispatch and reconciliation, SSM secrets |
+
+Spring Boot is pinned to its latest 3.x release at the time the server was written, exactly (no range). A change
+to any version here is a dependency change: record it in `context/decisions/`.
 
 ## Viewer dependencies
 
-In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
-(hosted store, ledger and Step Functions orchestrator); `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
+In `packages/web`: `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
 (`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `lucide-react ^1.7.0`, `next-themes ^0.4.6`, `geist ^1.3.0`,
 the Radix primitives the UI uses (`react-dialog`, `react-slot`, `react-tooltip`), `class-variance-authority`,
 `tailwind-merge ^3.5.0`, `@tanstack/react-virtual`, and for the flat baseline `sigma ^3.0.3`, `graphology ^0.26.0`
 and `graphology-layout-forceatlas2`.
-Tests: **Vitest** (`^4.1.5`, in two projects: `server` on Node for `src/server` and the middleware, `client` on jsdom
-for components, features, lib and styles) with Testing Library. `@types/node` is `20.19.9` at the root and `^22` in `web`.
+The web package has **no AWS SDK, no database driver and no server dependency**. `@repohive/indexer` and
+`@repohive/engine` are devDependencies, for tests and the end-to-end script only.
+Tests: **Vitest** (`^4.1.5`, in two projects: `views` on Node for `src/views`, `client` on jsdom for components,
+features, lib and styles) with Testing Library. `@types/node` is `20.19.9` at the root and `^22` in `web`.
 
 The root also carries `shadcn ^4.12.0` in `devDependencies` with a root `components.json`.
 
 ## Tool choices with history
 
-**Next.js stays for `packages/web`.** Most of `components/` and `features/` import nothing from `next/*`, so the
-choice is not forced by the UI code; treat it as one to revisit deliberately.
+**Next.js stays for `packages/web`, as a static export.** Most of `components/` and `features/` import nothing from
+`next/*`, so the choice is not forced by the UI code; treat it as one to revisit deliberately. Export worked with
+placeholder shells and a host mapping, so the fallbacks considered (a catch-all shell, then Vite) were
+not needed.
+
+**Spring Boot on JDBC, not JPA, with no Spring Security.** JPA would hide SQL that has to stay portable, and Spring
+Security's defaults (CSRF tokens, its own session handling) would change the cookie and origin-check behaviour the
+viewer relies on. Do not add either without a decision.
 
 **MySQL is not used.** Removed as the wrong fit for graph data, and absent from every manifest today.
 
@@ -97,7 +127,10 @@ AGPL-3.0-or-later remains a hard rule.
 
 ## Deploy tree (`deploy/`)
 
-Run against an AWS account with that account's credentials in the profile `repohive` (see the scripts below). Exact pins:
+Run against an AWS account with that account's credentials in the profile `repohive` (see the scripts below). **The
+tree has not been updated for the redesign** (see `architecture.md`, "Deploy tree"): its release build, `verify-release.sh`,
+`smoke.sh`, workflow and runbook still assume the Next.js server and the DynamoDB ledger, and its release image has
+no Java runtime. Exact pins:
 
 | Tool | Pin | Licence note |
 |------|-----|--------------|
@@ -171,7 +204,19 @@ Run from the repo root.
 | `npm run group -- <args>` | group `graph.json` → `index/` |
 | `npm run demo:group-determinism` | repeated-run SHA-256 comparison |
 | `npm run demo:baselines` | baseline comparison output |
-| `npm run dev --workspace @repohive/web` | viewer on port 3000 (long-running; start it yourself) |
+| `npm run dev --workspace @repohive/web` | viewer on port 3000 (long-running; start it yourself). It proxies `/api`, `/artifacts` and `/healthz` to the server on 8080, so the server must be running |
+| `npm run start-local --workspace @repohive/web` | starts the jar and `next dev` together (long-running; the user starts this). Needs the jar built first |
+| `npm run build --workspace @repohive/web` | static export to `packages/web/out` |
+| `npm run type-check --workspace @repohive/web` | `tsc --noEmit` for the viewer |
+| `npm run e2e --workspace @repohive/web` | `scripts/e2e.mjs`: spawns the jar on a scratch data dir and runs the happy path, the limits and the system-failure refund. Needs the jar and the root build. Not part of `npm test` |
+
+From `repohive-server/` (set `JAVA_HOME` to a JDK 21+ first; on Windows use `mvnw.cmd` or `./mvnw` from Git Bash):
+
+| Command | Effect |
+|---------|--------|
+| `./mvnw -B verify` | compile, run the JUnit suite, build the jar. **The server's gate** |
+| `./mvnw -B -DskipTests package` | build `target/repohive-server.jar` only |
+| `java -jar target/repohive-server.jar` | run it from `repohive-server/`: it reads `config/local.env` and listens on 8080. Set `REPOHIVE_DATA_DIR` to a scratch directory to keep your dev data out of `.repohive-local`, and `REPOHIVE_WEB_DIR=../packages/web/out` to serve the exported viewer from it (long-running; the user starts this) |
 
 **The root `typecheck` script is not a no-emit check.** It is
 the same `tsc -b ...` followed by the same views-version script, byte-identical to `build`, so it writes `dist/`. Real no-emit checks live per package, under two
@@ -204,7 +249,10 @@ around the parser's CLI entry point, not the packaged CLI, which does not exist.
 
 ## Storage
 
-JSON files on disk. No database. `graph.json` is **estimated** at roughly 10 to 20 MB for a 4k-file
+**The engine's artifacts are JSON files on disk; the engine has no database.** The hosted application's state (accounts,
+quota, sessions, the repository pointer, the job ledger) is one SQLite file owned by `repohive-server`, at
+`<REPOHIVE_DATA_DIR>/app.sqlite` (locally `.repohive-local/data/app.sqlite`). Published snapshots live in an object
+store: a directory (`.repohive-local/`) locally, S3 hosted. `graph.json` is **estimated** at roughly 10 to 20 MB for a 4k-file
 repository (ids and small integers only, no source text). That figure is an estimate, not a measurement.
 
 **The storage seam is asymmetric, not complete.** The *write* path has one: `IndexSerializerDeps`
