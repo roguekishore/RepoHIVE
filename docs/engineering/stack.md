@@ -56,7 +56,8 @@ Exact pins in `packages/indexer/package.json`.
 
 ## Viewer dependencies
 
-In `packages/web`: `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
+In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
+(hosted store, ledger and Step Functions orchestrator); `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
 (`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `framer-motion ^11.11.0`, `recharts`,
 `shiki`, `cmdk ^1.0.0`, `lucide-react`, `sonner ^2.0.7`, `next-themes ^0.4.6`, `geist ^1.3.0`.
 Tests: **Vitest** (`^4.1.5` across every workspace that tests with it).
