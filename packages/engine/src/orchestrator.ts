@@ -142,6 +142,14 @@ export interface EngineOptions {
    */
   excludedSegments?: ReadonlySet<string>;
   /**
+   * Passed through to the parser: build the graph from the files that parsed
+   * instead of failing the run on the first that did not. The skipped files come
+   * back on {@link EngineSuccess.skippedFiles}. Default `false`. It only changes
+   * the outcome for a tree the strict run would reject, so it is not part of
+   * {@link configDigest}.
+   */
+  tolerateFileErrors?: boolean;
+  /**
    * Grouping configuration, passed through to core untouched. Core resolves it
    * over its defaults and validates it at the start of the group stage; an
    * invalid config therefore surfaces as a group-stage `INVALID_CONFIG` failure
@@ -452,6 +460,7 @@ async function indexProjectUnguarded(
       : {}),
     // Omitted rather than passed as an explicit undefined, so the parser's own
     // default applies instead of this package re-declaring it.
+    ...(options.tolerateFileErrors === true ? { tolerateFileErrors: true } : {}),
     ...(options.concurrency !== undefined
       ? { concurrency: options.concurrency }
       : {}),
@@ -547,6 +556,7 @@ async function indexProjectUnguarded(
     ...(parsed.value.excludedDirectoryCount !== undefined
       ? { excludedDirectoryCount: parsed.value.excludedDirectoryCount }
       : {}),
+    ...(parsed.value.skippedFiles !== undefined ? { skippedFiles: parsed.value.skippedFiles } : {}),
   };
   return { ok: true, value };
 }
