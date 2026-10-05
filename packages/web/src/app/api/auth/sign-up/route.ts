@@ -1,6 +1,7 @@
 import { signUp } from "@/lib/auth/accounts";
 import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/lib/auth/http";
 import { buildSessionSetCookie } from "@/lib/auth/session-cookie";
+import { getAppTelemetry } from "@/lib/telemetry/app-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
       result.code === "SIGNUP_IP_LIMIT" ? 429 : result.code === "EMAIL_TAKEN" ? 409 : 400;
     return jsonResponse({ code: result.code, message: result.message }, { status });
   }
+
+  getAppTelemetry().signUp();
 
   const headers = new Headers();
   headers.set("Set-Cookie", buildSessionSetCookie(result.sessionToken, result.expiresAt, config.mode));
