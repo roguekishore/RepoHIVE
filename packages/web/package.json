@@ -10,6 +10,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "seed": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local scripts/seed-local.mjs",
+    "worker": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local scripts/run-worker.mjs",
     "test": "vitest run"
   },
   "dependencies": {
