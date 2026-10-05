@@ -1,6 +1,7 @@
 /**
  * Reconcile finished ledger jobs with SQLite.
  */
+import { brotliDecompressSync } from "node:zlib";
 import {
   VIEW_FILES,
   isTerminalJobState,
@@ -25,7 +26,8 @@ async function readNodeCount(store: ArtifactStore, snapshotId: string): Promise<
   if (object === undefined) {
     return 0;
   }
-  const parsed = JSON.parse(new TextDecoder().decode(object.body)) as HierarchyScaleView;
+  const bytes = object.headers.contentEncoding === "br" ? brotliDecompressSync(object.body) : object.body;
+  const parsed = JSON.parse(new TextDecoder().decode(bytes)) as HierarchyScaleView;
   return typeof parsed.totalNodes === "number" && parsed.totalNodes >= 0 ? parsed.totalNodes : 0;
 }
 
