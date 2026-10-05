@@ -24,6 +24,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1144.0",
     "@aws-sdk/client-s3": "3.1144.0",
+    "@aws-sdk/client-ssm": "3.1144.0",
     "@repohive/core": "0.0.0",
     "@repohive/engine": "0.0.0",
     "@repohive/views": "0.0.0",
