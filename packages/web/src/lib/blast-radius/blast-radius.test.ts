@@ -91,20 +91,28 @@ describe("computeBlastRadiusFromData", () => {
   });
 });
 
+async function assertBaselineBlastRadius(fixture: string, repo: string) {
+  const baseline = readBaseline(fixture);
+  const seeded = await readSeededView(repo);
+  if (baseline === undefined || seeded === undefined) {
+    console.warn(`skipped: baseline or seeded ${fixture} snapshot is absent`);
+    return;
+  }
+  const index = buildBlastRadiusIndex(seeded.data);
+  expect(baseline.results.length).toBeGreaterThan(0);
+  for (const { node, result } of baseline.results) {
+    expect(computeBlastRadiusFromData(index, node), node).toEqual(result);
+  }
+}
+
 describe("blast radius equals the removed route's output (R4.3)", () => {
   it("sample-java-project: 100-node seeded sample", async () => {
-    const baseline = readBaseline("sample-java-project");
-    const seeded = await readSeededView("local/sample-java-project");
-    if (baseline === undefined || seeded === undefined) {
-      console.warn("skipped: baseline or seeded sample-java-project snapshot is absent");
-      return;
-    }
-    const index = buildBlastRadiusIndex(seeded.data);
-    expect(baseline.results.length).toBeGreaterThan(0);
-    for (const { node, result } of baseline.results) {
-      expect(computeBlastRadiusFromData(index, node), node).toEqual(result);
-    }
+    await assertBaselineBlastRadius("sample-java-project", "local/sample-java-project");
   });
+
+  it("BroadleafCommerce: 100-node seeded sample", async () => {
+    await assertBaselineBlastRadius("BroadleafCommerce", "local/broadleafcommerce");
+  }, 120_000);
 });
 
 describe("createBlastRadiusSession", () => {
