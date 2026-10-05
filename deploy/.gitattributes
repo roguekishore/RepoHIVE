@@ -1,0 +1,2 @@
+# Everything under deploy/ runs on Linux (scripts, cloud-init, Caddyfile, systemd units): keep LF.
+* text=auto eol=lf
