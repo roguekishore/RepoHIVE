@@ -44,6 +44,7 @@ public class IntakeService {
     private final PrecheckRunner precheck;
     private final QuotaService quota;
     private final RuntimeLimits limits;
+    private final BenchAccounts bench;
     private final JobRepository jobs;
     private final IndexedRepoRepository repos;
     private final JobService jobService;
@@ -55,6 +56,7 @@ public class IntakeService {
             PrecheckRunner precheck,
             QuotaService quota,
             RuntimeLimits limits,
+            BenchAccounts bench,
             JobRepository jobs,
             IndexedRepoRepository repos,
             JobService jobService,
@@ -65,6 +67,7 @@ public class IntakeService {
         this.precheck = precheck;
         this.quota = quota;
         this.limits = limits;
+        this.bench = bench;
         this.jobs = jobs;
         this.repos = repos;
         this.jobService = jobService;
@@ -145,7 +148,7 @@ public class IntakeService {
                 status.setRollbackOnly();
                 return new Reservation.QuotaRejected(reserved.rejection());
             }
-            if (jobs.countOpen() >= limits.current().inFlightCap()) {
+            if (!bench.isActive(accountId) && jobs.countOpen() >= limits.current().inFlightCap()) {
                 status.setRollbackOnly();
                 return new Reservation.AtCap();
             }

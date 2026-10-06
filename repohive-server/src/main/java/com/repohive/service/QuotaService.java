@@ -15,15 +15,24 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class QuotaService {
 
+    /** Stands in for the address on a benchmark account's charges. */
+    static final String BENCH_IP = "bench";
+
     private final QuotaRepository repository;
     private final RuntimeLimits runtimeLimits;
+    private final BenchAccounts bench;
     private final Clock clock;
     private final TransactionTemplate tx;
 
     public QuotaService(
-            QuotaRepository repository, RuntimeLimits runtimeLimits, Clock clock, PlatformTransactionManager txManager) {
+            QuotaRepository repository,
+            RuntimeLimits runtimeLimits,
+            BenchAccounts bench,
+            Clock clock,
+            PlatformTransactionManager txManager) {
         this.repository = repository;
         this.runtimeLimits = runtimeLimits;
+        this.bench = bench;
         this.clock = clock;
         this.tx = new TransactionTemplate(txManager);
     }
@@ -47,6 +56,9 @@ public class QuotaService {
 
     /** One pre-check attempt against the hourly account then IP limits; all or nothing. */
     public QuotaResult recordPrecheckAttempt(String accountId, String ip) {
+        if (bench.isActive(accountId)) {
+            return QuotaResult.OK;
+        }
         String hour = TimeFormat.utcHour(clock.instant());
         QuotaLimits limits = runtimeLimits.current();
         return tx.execute(status -> {
@@ -82,16 +94,22 @@ public class QuotaService {
         Instant now = clock.instant();
         String day = TimeFormat.utcDay(now);
         QuotaLimits limits = runtimeLimits.current();
-        if (repository.hasAccountInflight(accountId)) {
-            return QuotaResult.rejected(QuotaRejectCode.INFLIGHT);
+        // A benchmark account is charged like any other (so a refund still works) but is never turned away by these,
+        // and its charges are filed under "bench" rather than its address so they cannot use up the quota of ordinary
+        // users who share that address.
+        boolean benchmarking = bench.isActive(accountId);
+        if (!benchmarking) {
+            if (repository.hasAccountInflight(accountId)) {
+                return QuotaResult.rejected(QuotaRejectCode.INFLIGHT);
+            }
+            if (repository.countAccountCharges(accountId, day) >= limits.acceptedPerAccountPerDay()) {
+                return QuotaResult.rejected(QuotaRejectCode.QUOTA_ACCOUNT);
+            }
+            if (repository.countIpCharges(ip, day) >= limits.acceptedPerIpPerDay()) {
+                return QuotaResult.rejected(QuotaRejectCode.QUOTA_IP);
+            }
         }
-        if (repository.countAccountCharges(accountId, day) >= limits.acceptedPerAccountPerDay()) {
-            return QuotaResult.rejected(QuotaRejectCode.QUOTA_ACCOUNT);
-        }
-        if (repository.countIpCharges(ip, day) >= limits.acceptedPerIpPerDay()) {
-            return QuotaResult.rejected(QuotaRejectCode.QUOTA_IP);
-        }
-        repository.insertCharge(jobId, accountId, ip, day, TimeFormat.iso(now));
+        repository.insertCharge(jobId, accountId, benchmarking ? BENCH_IP : ip, day, TimeFormat.iso(now));
         return QuotaResult.OK;
     }
 
