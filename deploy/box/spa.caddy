@@ -1,0 +1,85 @@
+# The exported viewer, served from disk with the host mapping of packages/web/README.md ("Static export and host
+# mapping"). Imported by the Caddyfile inside its route, after everything that belongs to the server, so it only
+# sees paths that are not /api/*, /healthz or /artifacts/*. The same rules run in the Java server's local mode
+# (SpaService) and in `next dev` (rewrites in next.config.ts); a change here changes all three.
+# deploy/scripts/check-spa-mapping.mjs runs a table of requests against this file and the static export.
+#
+# WEB_ROOT is the `out/` directory of the static export. It defaults to the release's web directory; a test points
+# it at packages/web/out.
+#
+# Caddy puts consecutive `rewrite` directives of one block in a group where only the first match applies. Each
+# step below that must see the result of the one before is therefore its own `route`.
+
+root * {$WEB_ROOT:/opt/repohive/current/web}
+
+# The three headers the old Next.js server set (the Java server sets the same three on its own responses).
+header {
+	X-Content-Type-Options nosniff
+	Referrer-Policy strict-origin-when-cross-origin
+	Content-Security-Policy "frame-ancestors 'none'"
+}
+
+# A payload request is the client router's soft navigation or prefetch: it asks for <path>.txt (or <path>/index.txt
+# for a path ending in /) with the header RSC: 1 and a _rsc query. Everything else is a page request.
+vars ext .html
+@payload expression `{header.RSC} == '1' || {query._rsc} != ''`
+vars @payload ext .txt
+header @payload Content-Type text/x-component
+
+# Step 1. For a payload request, take the .txt off the last path segment (/index.txt leaves the directory and its /),
+# so the rules below see the page's own path. A repository named foo.txt is told apart from the payload of foo by
+# the header, not by the name.
+route {
+	@strip_index {
+		vars {http.vars.ext} .txt
+		path_regexp strip_index ^(.*/)index\.txt$
+	}
+	rewrite @strip_index {re.strip_index.1}
+	@strip_txt {
+		vars {http.vars.ext} .txt
+		path_regexp strip_txt ^(.+)\.txt$
+	}
+	rewrite @strip_txt {re.strip_txt.1}
+}
+
+# Step 2. Rule 1: any repository, valid name or not, is the one placeholder page. Rule 2: one segment after it is a
+# surface (one that does not exist is a 404, below). Rule 3: any job id is the job placeholder. The dashboard is `/`.
+route {
+	@repo path_regexp repo ^/repos/[^/]+/[^/]+/?$
+	rewrite @repo /repos/_/_{http.vars.ext}
+	@surface path_regexp surface ^/repos/[^/]+/[^/]+/([^/]+)$
+	rewrite @surface /repos/_/_/{re.surface.1}{http.vars.ext}
+	@job path_regexp job ^/jobs/[^/]+$
+	rewrite @job /jobs/_{http.vars.ext}
+	@root path /
+	rewrite @root /index{http.vars.ext}
+}
+
+# Step 3. Rule 4: a path ending in / is looked up without it.
+route {
+	@trailing path_regexp trailing ^(.+)/$
+	rewrite @trailing {re.trailing.1}
+}
+
+# Step 4. Rule 4: the exact file; else <path>.html (.txt for a payload); else <path>/index.html; else 404.html with
+# status 404 (a plain file_server would answer 200 for it).
+@missing not file {
+	try_files {path} {path}{http.vars.ext} {path}/index{http.vars.ext}
+}
+route @missing {
+	rewrite * /404.html
+	header Content-Type "text/html; charset=utf-8"
+	header Cache-Control no-cache
+	file_server {
+		status 404
+	}
+}
+try_files {path} {path}{http.vars.ext} {path}/index{http.vars.ext}
+
+# Cache-Control, on the file that is served: hashed assets never change; every page and payload is revalidated.
+@immutable path /_next/static/*
+header @immutable Cache-Control "public, max-age=31536000, immutable"
+@revalidate path *.html *.txt
+header @revalidate Cache-Control no-cache
+
+file_server
