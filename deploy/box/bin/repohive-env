@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Runs on the box as repohive-env.service. Renders the environment files
-# of the app and Caddy under /run/repohive/ (tmpfs, mode 0600) from the non-secret settings in
+# of the server and Caddy under /run/repohive/ (tmpfs, mode 0600) from the non-secret settings in
 # /etc/repohive/box.env and the SecureString parameters under /repohive/. A secret is never printed, never an
 # argument, and never written anywhere but those files.
+#
+# The server reads two of its secrets itself, at start-up, from SSM (the box role allows it): the internal secret
+# and the admin token. This script only passes their parameter names. The admin token is optional: until
+# deploy/scripts/put-admin-token.sh has stored /repohive/admin-token the variable is left out and the server
+# answers 404 for /api/admin/**.
 set -euo pipefail
 umask 077
 
@@ -22,8 +27,8 @@ need() {
     exit 1
   }
 }
-for key in AWS_REGION SITE_DOMAIN ORIGIN_DOMAIN ARTIFACT_BUCKET LEDGER_TABLE STATE_MACHINE_ARN \
-  RATE_LIMIT_PER_MINUTE RATE_LIMIT_API_POST_PER_MINUTE WEB_NODE_HEAP_MB WORKER_NODE_HEAP_MB; do
+for key in AWS_REGION SITE_DOMAIN ORIGIN_DOMAIN ARTIFACT_BUCKET STATE_MACHINE_ARN \
+  RATE_LIMIT_PER_MINUTE RATE_LIMIT_API_POST_PER_MINUTE SERVER_HEAP_MB; do
   need "${key}"
 done
 
@@ -32,25 +37,23 @@ read_parameter() {
   aws --region "${box[AWS_REGION]}" ssm get-parameter --name "$1" --with-decryption \
     --query Parameter.Value --output text
 }
+
+# True when the parameter exists. Only a parameter that is not there yet counts as "no"; any other failure stops the
+# script, so a permissions problem is not mistaken for an unset token. No decryption, and only the name is printed.
+parameter_exists() {
+  local out
+  if out="$(aws --region "${box[AWS_REGION]}" ssm get-parameter --name "$1" --query Parameter.Name --output text 2>&1)"; then
+    return 0
+  fi
+  [[ "${out}" == *ParameterNotFound* ]] && return 1
+  printf 'repohive-env: could not look up %s\n' "$1" >&2
+  exit 1
+}
+
 github_token="$(read_parameter /repohive/github-token)"
 origin_secret="$(read_parameter /repohive/origin-secret)"
 
 mkdir -p "${OUT_DIR}"
-
-# The settings the web configuration validates (packages/web/src/server/hosting/config.ts).
-app_settings() {
-  printf '%s\n' \
-    "REPOHIVE_MODE=hosted" \
-    "REPOHIVE_SITE_ORIGIN=https://${box[SITE_DOMAIN]}" \
-    "REPOHIVE_DATA_DIR=/var/lib/repohive/data" \
-    "REPOHIVE_STORE=s3:${box[ARTIFACT_BUCKET]}" \
-    "REPOHIVE_LEDGER=dynamodb:${box[LEDGER_TABLE]}" \
-    "REPOHIVE_ORCHESTRATOR=sfn:${box[STATE_MACHINE_ARN]}" \
-    "REPOHIVE_CLIENT_IP_HEADER=X-RepoHIVE-Client-IP" \
-    "AWS_REGION=${box[AWS_REGION]}" \
-    "NODE_ENV=production"
-  printf 'REPOHIVE_GITHUB_TOKEN=%s\n' "${github_token}"
-}
 
 write_file() {
   local name="$1" tmp
@@ -60,15 +63,38 @@ write_file() {
   mv -f "${tmp}" "${OUT_DIR}/${name}"
 }
 
-{
-  app_settings
-  printf '%s\n' "PORT=3000" "HOSTNAME=127.0.0.1" "NODE_OPTIONS=--max-old-space-size=${box[WEB_NODE_HEAP_MB]}"
-} | write_file web.env
+# The settings the server validates (repohive-server config/AppConfigFactory.java). The server listens on the
+# loopback address only; Caddy is the only thing that reaches it.
+server_settings() {
+  printf '%s\n' \
+    "REPOHIVE_MODE=hosted" \
+    "REPOHIVE_SITE_ORIGIN=https://${box[SITE_DOMAIN]}" \
+    "REPOHIVE_DATA_DIR=/var/lib/repohive/data" \
+    "REPOHIVE_STORE=s3:${box[ARTIFACT_BUCKET]}" \
+    "REPOHIVE_ORCHESTRATOR=sfn:${box[STATE_MACHINE_ARN]}" \
+    "REPOHIVE_CLIENT_IP_HEADER=X-RepoHIVE-Client-IP" \
+    "REPOHIVE_INTERNAL_SECRET_PARAMETER=/repohive/internal-secret" \
+    "REPOHIVE_INDEXER_DIR=/opt/repohive/current/indexer" \
+    "REPOHIVE_NODE=/opt/repohive/current/bin/node" \
+    "AWS_REGION=${box[AWS_REGION]}" \
+    "SERVER_ADDRESS=127.0.0.1" \
+    "SERVER_PORT=8080" \
+    "JAVA_TOOL_OPTIONS=-Xmx${box[SERVER_HEAP_MB]}m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
+  printf 'REPOHIVE_GITHUB_TOKEN=%s\n' "${github_token}"
+  if [[ "${admin_state}" == "on" ]]; then
+    printf '%s\n' "REPOHIVE_ADMIN_TOKEN_PARAMETER=/repohive/admin-token"
+    if [[ -n "${box[ADMIN_ORIGINS]:-}" ]]; then
+      printf 'REPOHIVE_ADMIN_ORIGINS=%s\n' "${box[ADMIN_ORIGINS]}"
+    fi
+  fi
+}
 
-{
-  app_settings
-  printf '%s\n' "NODE_OPTIONS=--max-old-space-size=${box[WORKER_NODE_HEAP_MB]}"
-} | write_file worker.env
+if parameter_exists /repohive/admin-token; then
+  admin_state="on"
+else
+  admin_state="off (no /repohive/admin-token yet)"
+fi
+server_settings | write_file server.env
 
 printf '%s\n' \
   "ORIGIN_DOMAIN=${box[ORIGIN_DOMAIN]}" \
@@ -77,4 +103,4 @@ printf '%s\n' \
   "RATE_LIMIT_API_POST_PER_MINUTE=${box[RATE_LIMIT_API_POST_PER_MINUTE]}" \
   "ORIGIN_SECRET=${origin_secret}" | write_file caddy.env
 
-printf 'repohive-env: wrote web.env, worker.env and caddy.env\n'
+printf 'repohive-env: wrote server.env and caddy.env (admin API %s)\n' "${admin_state}"

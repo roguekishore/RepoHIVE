@@ -1,5 +1,5 @@
-# Alarms and budget. Eight alarms, under the free allowance of ten, all to one SNS topic that
-# emails var.alert_email. The box recover alarm is in box.tf and also names this topic.
+# Alarms and budget. Six alarms here and the box recover alarm in box.tf, seven in all and under
+# the free allowance of ten, all to one SNS topic that emails var.alert_email.
 
 resource "aws_sns_topic" "alerts" {
   name = "repohive-alerts"
@@ -19,6 +19,8 @@ locals {
 
 # --- Step Functions -----------------------------------------------------------------------------
 
+# A failed execution is a run that did not end cleanly: a Lambda error or timeout, a Fargate task that exited
+# non-zero (which includes a job that reported its own failure with exit code 1) or ECS refusing to start one.
 resource "aws_cloudwatch_metric_alarm" "executions_failed" {
   alarm_name          = "repohive-index-executions-failed"
   alarm_description   = "Index executions ended FAILED."
@@ -81,26 +83,11 @@ resource "aws_cloudwatch_metric_alarm" "indexer_throttles" {
   alarm_actions       = local.alarm_actions
 }
 
-resource "aws_cloudwatch_metric_alarm" "control_errors" {
-  alarm_name          = "repohive-control-errors"
-  alarm_description   = "The control function raised errors: the state machine could not reach the ledger."
-  namespace           = "AWS/Lambda"
-  metric_name         = "Errors"
-  dimensions          = { FunctionName = local.control_function }
-  statistic           = "Sum"
-  period              = local.alarm_period
-  evaluation_periods  = 1
-  threshold           = var.alarm_thresholds.control_errors
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = local.alarm_actions
-}
-
 # --- system failures reported by the jobs ---------------------------------------------------
 # JobsFailed carries the dimensions Tier, Runtime and Class together, so one alarm cannot name Class alone: this
-# sums the metric over every Tier and Runtime a system failure can carry. The control function reports the
-# failures the job never could (failIfOpen), always with Runtime = lambda. A combination that never occurs has
-# no data and counts as zero.
+# sums the metric over every Tier and Runtime a system failure can carry. Only the worker emits it, so a run that
+# dies before it can report (the server closes that job from the execution's status) shows as a failed execution,
+# not here. A combination that never occurs has no data and counts as zero.
 
 locals {
   jobs_failed_system_combinations = {

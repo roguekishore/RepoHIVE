@@ -1,5 +1,7 @@
-# The Step Functions state machine: Standard, JSONata, written in state-machine.asl.json
-# and filled in with templatefile. A test in packages/indexer reads that file and keeps its structure honest.
+# The Step Functions state machine: Standard, JSONata, written in state-machine.asl.json and filled in with
+# templatefile. It only routes a run by tier and runs it (Lambda for S and M, Fargate for L and XL); the job's
+# ledger, the large-job slot, retier and restart live in the server. A test in packages/indexer reads that file
+# and keeps its structure honest.
 
 resource "aws_cloudwatch_log_group" "state_machine" {
   name              = local.log_group_state_machine
@@ -31,12 +33,9 @@ data "aws_iam_policy_document" "states_assume" {
 
 data "aws_iam_policy_document" "state_machine" {
   statement {
-    sid     = "InvokeTheTwoFunctions"
-    actions = ["lambda:InvokeFunction"]
-    resources = [
-      aws_lambda_function.indexer.arn,
-      aws_lambda_function.control.arn,
-    ]
+    sid       = "InvokeTheIndexerFunction"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.indexer.arn]
   }
 
   # ecs:runTask.sync also polls the task and stops it if the execution is aborted.
@@ -126,7 +125,6 @@ resource "aws_sfn_state_machine" "index" {
 
   definition = templatefile("${path.module}/state-machine.asl.json", {
     indexer_function_arn   = aws_lambda_function.indexer.arn
-    control_function_arn   = aws_lambda_function.control.arn
     cluster_arn            = aws_ecs_cluster.main.arn
     task_definition_family = local.task_family
     container_name         = local.task_container
@@ -145,40 +143,5 @@ resource "aws_sfn_state_machine" "index" {
   depends_on = [aws_iam_role_policy.state_machine]
 }
 
-# An execution that ends FAILED, TIMED_OUT or ABORTED outside its own error handling still leaves a
-# terminal ledger state: EventBridge calls failIfOpen with the execution name, which is the job id
-# (11.9).
-resource "aws_cloudwatch_event_rule" "execution_ended" {
-  name        = "repohive-index-ended"
-  description = "repohive-index executions that ended FAILED, TIMED_OUT or ABORTED"
-
-  event_pattern = jsonencode({
-    source        = ["aws.states"]
-    "detail-type" = ["Step Functions Execution Status Change"]
-    detail = {
-      status          = ["FAILED", "TIMED_OUT", "ABORTED"]
-      stateMachineArn = [aws_sfn_state_machine.index.arn]
-    }
-  })
-}
-
-resource "aws_cloudwatch_event_target" "execution_ended" {
-  rule = aws_cloudwatch_event_rule.execution_ended.name
-  arn  = aws_lambda_function.control.arn
-
-  input_transformer {
-    input_paths = {
-      name   = "$.detail.name"
-      status = "$.detail.status"
-    }
-    input_template = "{\"op\":\"failIfOpen\",\"jobId\":\"<name>\",\"code\":\"execution-<status>\"}"
-  }
-}
-
-resource "aws_lambda_permission" "events_invoke_control" {
-  statement_id  = "AllowEventBridgeFailIfOpen"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.control.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.execution_ended.arn
-}
+# No EventBridge rule closes a job whose execution ended badly: the server's reconciliation reads the execution's
+# status (states:DescribeExecution on the box role) and fails and refunds the job itself.

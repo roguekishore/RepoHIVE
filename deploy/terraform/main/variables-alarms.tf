@@ -6,7 +6,6 @@ variable "alarm_thresholds" {
     executions_timed_out  = optional(number, 1)
     indexer_errors        = optional(number, 3)
     indexer_throttles     = optional(number, 1)
-    control_errors        = optional(number, 1)
     jobs_failed_system    = optional(number, 3)
     heartbeat_bad_minutes = optional(number, 5)
   })

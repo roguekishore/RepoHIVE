@@ -1,4 +1,4 @@
-# Settings of the app box. The memory limits and heap flags are unmeasured defaults.
+# Settings of the app box. The memory limit and heap are unmeasured defaults.
 
 variable "box_root_volume_gb" {
   type        = number
@@ -22,37 +22,31 @@ variable "box_data_volume_gb" {
   }
 }
 
-variable "web_memory_max_mb" {
+variable "server_memory_max_mb" {
   type        = number
-  description = "systemd MemoryMax of repohive-web, in MB."
-  default     = 768
+  description = "systemd MemoryMax of repohive-server, in MB. It covers the JVM and the pre-check's Node child process."
+  default     = 1280
 }
 
-variable "web_node_heap_mb" {
+variable "server_heap_mb" {
   type        = number
-  description = "Node --max-old-space-size of repohive-web, in MB. Keep it below web_memory_max_mb."
+  description = "JVM -Xmx of repohive-server, in MB. Keep it well below server_memory_max_mb: metaspace, thread stacks and the pre-check child come on top."
   default     = 512
 
   validation {
-    condition     = var.web_node_heap_mb < var.web_memory_max_mb
-    error_message = "web_node_heap_mb must be below web_memory_max_mb."
+    condition     = var.server_heap_mb + 384 <= var.server_memory_max_mb
+    error_message = "server_heap_mb must leave at least 384 MB of server_memory_max_mb for the JVM's own memory and the pre-check child."
   }
 }
 
-variable "worker_memory_max_mb" {
-  type        = number
-  description = "systemd MemoryMax of repohive-worker, in MB."
-  default     = 256
-}
-
-variable "worker_node_heap_mb" {
-  type        = number
-  description = "Node --max-old-space-size of repohive-worker, in MB. Keep it below worker_memory_max_mb."
-  default     = 192
+variable "admin_origins" {
+  type        = list(string)
+  description = "Origins allowed to call /api/admin/** from a browser (the owner's quota page), for example [\"https://hivequota.themaverick.tech\"]. Empty allows none. The admin API itself stays off until deploy/scripts/put-admin-token.sh has stored a token."
+  default     = []
 
   validation {
-    condition     = var.worker_node_heap_mb < var.worker_memory_max_mb
-    error_message = "worker_node_heap_mb must be below worker_memory_max_mb."
+    condition     = alltrue([for o in var.admin_origins : can(regex("^https://[a-z0-9.-]+(:[0-9]+)?$", o))])
+    error_message = "Every admin origin must be an https origin in lower case with no path, such as https://example.com."
   }
 }
 

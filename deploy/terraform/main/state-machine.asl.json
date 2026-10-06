@@ -1,20 +1,15 @@
 {
-  "Comment": "repohive-index: one indexing request, from the job input to a recorded outcome. Every path ends by reading or writing the ledger through the control function, so no execution leaves a job stuck in flight.",
+  "Comment": "repohive-index: routes one indexing run by tier and runs it, nothing else. The server owns the job: its ledger, the large-job slot, retier, restart-once and the failure codes (it reads this execution's status in its reconciliation). The worker reports progress and the outcome to the server itself.",
   "QueryLanguage": "JSONata",
   "TimeoutSeconds": 3600,
   "StartAt": "Init",
   "States": {
     "Init": {
       "Type": "Pass",
-      "Comment": "job is the input, unchanged; tier is the tier it runs on now and can change when the job asks for a larger one (retier).",
+      "Comment": "job is the input, unchanged: jobId, accountId, repo, commitSha, tier, snapshotId, visibility. failure holds the error of a run that went wrong.",
       "Assign": {
         "job": "{% $states.input %}",
-        "tier": "{% $states.input.tier %}",
-        "retiers": 0,
-        "restarted": false,
-        "slotAttempts": 0,
-        "outcome": "none",
-        "inspected": {}
+        "failure": {}
       },
       "Next": "RouteTier"
     },
@@ -24,11 +19,19 @@
       "Comment": "S and M run on Lambda, L and XL on Fargate. The job re-runs the pre-check itself, so this does not.",
       "Choices": [
         {
-          "Condition": "{% $tier = 'S' or $tier = 'M' %}",
+          "Condition": "{% $job.tier = 'S' or $job.tier = 'M' %}",
           "Next": "RunLambda"
+        },
+        {
+          "Condition": "{% $job.tier = 'L' %}",
+          "Next": "RunFargateL"
+        },
+        {
+          "Condition": "{% $job.tier = 'XL' %}",
+          "Next": "RunFargateXL"
         }
       ],
-      "Default": "AcquireSlot"
+      "Default": "FailUnknownTier"
     },
 
     "RunLambda": {
@@ -36,7 +39,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Arguments": {
         "FunctionName": "${indexer_function_arn}",
-        "Payload": "{% $merge([$job, {'tier': $tier}]) %}"
+        "Payload": "{% $job %}"
       },
       "TimeoutSeconds": 330,
       "Retry": [
@@ -47,81 +50,14 @@
           "MaxAttempts": 3
         }
       ],
-      "Assign": {
-        "outcome": "ok"
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.Timeout"],
-          "Assign": { "outcome": "runtime-timeout" },
-          "Next": "InspectAfterRun"
-        },
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Assign": { "outcome": "runtime-error" },
-          "Next": "InspectAfterRun"
-        }
-      ],
-      "Next": "InspectAfterRun"
-    },
-
-    "AcquireSlot": {
-      "Type": "Task",
-      "Comment": "L and XL share one execution slot. The control function takes it, and moves a refused job to waiting-for-slot.",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "acquireSlot",
-          "jobId": "{% $job.jobId %}",
-          "tier": "{% $tier %}"
-        }
-      },
-      "Assign": {
-        "acquired": "{% $states.result.Payload.acquired %}",
-        "slotAttempts": "{% $slotAttempts + 1 %}"
-      },
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
-          "Assign": { "outcome": "runtime-error" },
-          "Next": "FailOpenError"
+          "Assign": { "failure": "{% $states.errorOutput %}" },
+          "Next": "FailRun"
         }
       ],
-      "Next": "CheckSlot"
-    },
-
-    "CheckSlot": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Condition": "{% $acquired = true %}",
-          "Next": "ChooseFargateTask"
-        },
-        {
-          "Condition": "{% $slotAttempts >= 20 %}",
-          "Next": "FailOpenSlotTimeout"
-        }
-      ],
-      "Default": "WaitForSlot"
-    },
-
-    "WaitForSlot": {
-      "Type": "Wait",
-      "Comment": "Try again every 60 s for at most 20 minutes (20 attempts).",
-      "Seconds": 60,
-      "Next": "AcquireSlot"
-    },
-
-    "ChooseFargateTask": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Condition": "{% $tier = 'XL' %}",
-          "Next": "RunFargateXL"
-        }
-      ],
-      "Default": "RunFargateL"
+      "Next": "Succeed"
     },
 
     "RunFargateL": {
@@ -144,7 +80,7 @@
             {
               "Name": "${container_name}",
               "Environment": [
-                { "Name": "REPOHIVE_JOB_INPUT", "Value": "{% $string($merge([$job, {'tier': $tier}])) %}" },
+                { "Name": "REPOHIVE_JOB_INPUT", "Value": "{% $string($job) %}" },
                 { "Name": "REPOHIVE_TIME_LIMIT_MS", "Value": "600000" }
               ]
             }
@@ -160,22 +96,14 @@
           "MaxAttempts": 3
         }
       ],
-      "Assign": {
-        "outcome": "ok"
-      },
       "Catch": [
         {
-          "ErrorEquals": ["States.Timeout"],
-          "Assign": { "outcome": "runtime-timeout" },
-          "Next": "ListRunningTasks"
-        },
-        {
           "ErrorEquals": ["States.ALL"],
-          "Assign": { "outcome": "runtime-error" },
+          "Assign": { "failure": "{% $states.errorOutput %}" },
           "Next": "ListRunningTasks"
         }
       ],
-      "Next": "ReleaseSlot"
+      "Next": "Succeed"
     },
 
     "RunFargateXL": {
@@ -198,7 +126,7 @@
             {
               "Name": "${container_name}",
               "Environment": [
-                { "Name": "REPOHIVE_JOB_INPUT", "Value": "{% $string($merge([$job, {'tier': $tier}])) %}" },
+                { "Name": "REPOHIVE_JOB_INPUT", "Value": "{% $string($job) %}" },
                 { "Name": "REPOHIVE_TIME_LIMIT_MS", "Value": "900000" }
               ]
             }
@@ -214,22 +142,14 @@
           "MaxAttempts": 3
         }
       ],
-      "Assign": {
-        "outcome": "ok"
-      },
       "Catch": [
         {
-          "ErrorEquals": ["States.Timeout"],
-          "Assign": { "outcome": "runtime-timeout" },
-          "Next": "ListRunningTasks"
-        },
-        {
           "ErrorEquals": ["States.ALL"],
-          "Assign": { "outcome": "runtime-error" },
+          "Assign": { "failure": "{% $states.errorOutput %}" },
           "Next": "ListRunningTasks"
         }
       ],
-      "Next": "ReleaseSlot"
+      "Next": "Succeed"
     },
 
     "ListRunningTasks": {
@@ -247,7 +167,7 @@
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
-          "Next": "ReleaseSlot"
+          "Next": "FailRun"
         }
       ],
       "Next": "AnyRunningTasks"
@@ -261,7 +181,7 @@
           "Next": "DescribeRunningTasks"
         }
       ],
-      "Default": "ReleaseSlot"
+      "Default": "FailRun"
     },
 
     "DescribeRunningTasks": {
@@ -278,7 +198,7 @@
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
-          "Next": "ReleaseSlot"
+          "Next": "FailRun"
         }
       ],
       "Next": "StopRunningTasks"
@@ -318,275 +238,27 @@
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
-          "Next": "ReleaseSlot"
+          "Next": "FailRun"
         }
       ],
-      "Next": "ReleaseSlot"
-    },
-
-    "ReleaseSlot": {
-      "Type": "Task",
-      "Comment": "Every Fargate run, whatever its outcome, gives the slot back (the task also releases its own). A failure here is not fatal: failIfOpen releases it too.",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "releaseSlot",
-          "jobId": "{% $job.jobId %}"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "InspectAfterRun"
-        }
-      ],
-      "Next": "InspectAfterRun"
-    },
-
-    "InspectAfterRun": {
-      "Type": "Task",
-      "Comment": "The ledger, not the runtime's exit status, says what happened.",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "inspect",
-          "jobId": "{% $job.jobId %}"
-        }
-      },
-      "Assign": {
-        "inspected": "{% $states.result.Payload %}"
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Assign": { "outcome": "runtime-error" },
-          "Next": "FailOpenError"
-        }
-      ],
-      "Next": "Decide"
-    },
-
-    "Decide": {
-      "Type": "Choice",
-      "Comment": "In order: a retier goes again on the new tier (twice at most); a job the runtime never started is run once more; a job that did not reach an end state is failed.",
-      "Choices": [
-        {
-          "Condition": "{% $inspected.state = 'queued' and $inspected.tier != $tier and $retiers < 2 %}",
-          "Next": "RouteAgain"
-        },
-        {
-          "Condition": "{% $inspected.state = 'queued' and $inspected.tier != $tier %}",
-          "Next": "FailOpenRetierLimit"
-        },
-        {
-          "Condition": "{% ($inspected.state = 'queued' or $inspected.state = 'waiting-for-slot') and $inspected.tier = $tier and $restarted = false %}",
-          "Next": "RestartRun"
-        },
-        {
-          "Condition": "{% $inspected.state = 'queued' or $inspected.state = 'waiting-for-slot' %}",
-          "Next": "FailOpenNotStarted"
-        },
-        {
-          "Condition": "{% $inspected.state = 'succeeded' or $inspected.state = 'failed' %}",
-          "Next": "Conclude"
-        },
-        {
-          "Condition": "{% $outcome = 'runtime-timeout' %}",
-          "Next": "FailOpenTimeout"
-        }
-      ],
-      "Default": "FailOpenError"
-    },
-
-    "RouteAgain": {
-      "Type": "Pass",
-      "Comment": "The job asked for a larger tier; run it there.",
-      "Assign": {
-        "tier": "{% $inspected.tier %}",
-        "retiers": "{% $retiers + 1 %}",
-        "restarted": false,
-        "slotAttempts": 0,
-        "outcome": "none"
-      },
-      "Next": "RouteTier"
-    },
-
-    "RestartRun": {
-      "Type": "Pass",
-      "Comment": "The runtime never started the job; try the same tier once more.",
-      "Assign": {
-        "restarted": true,
-        "slotAttempts": 0,
-        "outcome": "none"
-      },
-      "Next": "RouteTier"
-    },
-
-    "FailOpenSlotTimeout": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "failIfOpen",
-          "jobId": "{% $job.jobId %}",
-          "code": "slot-wait-timeout"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "InspectFinal"
-    },
-
-    "FailOpenRetierLimit": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "failIfOpen",
-          "jobId": "{% $job.jobId %}",
-          "code": "retier-limit"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "InspectFinal"
-    },
-
-    "FailOpenNotStarted": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "failIfOpen",
-          "jobId": "{% $job.jobId %}",
-          "code": "runtime-not-started"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "InspectFinal"
-    },
-
-    "FailOpenTimeout": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "failIfOpen",
-          "jobId": "{% $job.jobId %}",
-          "code": "runtime-timeout"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "InspectFinal"
-    },
-
-    "FailOpenError": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "failIfOpen",
-          "jobId": "{% $job.jobId %}",
-          "code": "runtime-error"
-        }
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "InspectFinal"
-    },
-
-    "InspectFinal": {
-      "Type": "Task",
-      "Comment": "Read the ledger again after failIfOpen: a job that ended on its own in the meantime keeps its own class and code.",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {
-        "FunctionName": "${control_function_arn}",
-        "Payload": {
-          "op": "inspect",
-          "jobId": "{% $job.jobId %}"
-        }
-      },
-      "Assign": {
-        "inspected": "{% $states.result.Payload %}"
-      },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "Next": "FailControl"
-        }
-      ],
-      "Next": "Conclude"
-    },
-
-    "Conclude": {
-      "Type": "Choice",
-      "Comment": "Succeed when the job succeeded or failed through the user's doing; fail the execution, named after the code, when the failure was ours.",
-      "Choices": [
-        {
-          "Condition": "{% $inspected.state = 'succeeded' %}",
-          "Next": "Succeed"
-        },
-        {
-          "Condition": "{% $inspected.state = 'failed' and $inspected.failureClass = 'user' %}",
-          "Next": "Succeed"
-        },
-        {
-          "Condition": "{% $inspected.state = 'failed' %}",
-          "Next": "FailSystem"
-        }
-      ],
-      "Default": "FailUnexpected"
+      "Next": "FailRun"
     },
 
     "Succeed": {
       "Type": "Succeed"
     },
 
-    "FailSystem": {
+    "FailRun": {
       "Type": "Fail",
-      "Error": "{% $string($inspected.failureCode) %}",
-      "Cause": "{% 'The job failed with a system failure: ' & $string($inspected.failureCode) %}"
+      "Comment": "The run did not end cleanly. The execution fails with the run's own error so the server's reconciliation and the alarms see it; whether the job itself failed is the server's ledger, not this execution.",
+      "Error": "{% $exists($failure.Error) ? $substring($string($failure.Error), 0, 200) : 'RunFailed' %}",
+      "Cause": "{% $exists($failure.Cause) ? $substring($string($failure.Cause), 0, 2000) : 'The run ended with an error.' %}"
     },
 
-    "FailUnexpected": {
+    "FailUnknownTier": {
       "Type": "Fail",
-      "Error": "UnexpectedLedgerState",
-      "Cause": "The job is not in an end state after failIfOpen."
-    },
-
-    "FailControl": {
-      "Type": "Fail",
-      "Error": "ControlFunctionFailed",
-      "Cause": "The control function could not be reached; the EventBridge rule calls failIfOpen when this execution ends."
+      "Error": "UnknownTier",
+      "Cause": "The job input names a tier other than S, M, L or XL."
     }
   }
 }

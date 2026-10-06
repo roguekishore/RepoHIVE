@@ -11,23 +11,17 @@ write_files:
       ORIGIN_DOMAIN=${origin_domain}
       ARTIFACT_BUCKET=${artifact_bucket}
       OPS_BUCKET=${ops_bucket}
-      LEDGER_TABLE=${ledger_table}
       STATE_MACHINE_ARN=${state_machine_arn}
       DATA_VOLUME_ID=${data_volume_id}
       RATE_LIMIT_PER_MINUTE=${rate_limit_per_minute}
       RATE_LIMIT_API_POST_PER_MINUTE=${rate_limit_api_post_per_minute}
-      WEB_NODE_HEAP_MB=${web_node_heap_mb}
-      WORKER_NODE_HEAP_MB=${worker_node_heap_mb}
-  - path: /etc/systemd/system/repohive-web.service.d/10-limits.conf
+      SERVER_HEAP_MB=${server_heap_mb}
+      ADMIN_ORIGINS=${admin_origins}
+  - path: /etc/systemd/system/repohive-server.service.d/10-limits.conf
     permissions: "0644"
     content: |
       [Service]
-      MemoryMax=${web_memory_max_mb}M
-  - path: /etc/systemd/system/repohive-worker.service.d/10-limits.conf
-    permissions: "0644"
-    content: |
-      [Service]
-      MemoryMax=${worker_memory_max_mb}M
+      MemoryMax=${server_memory_max_mb}M
   - path: /usr/local/sbin/repohive-env
     permissions: "0755"
     encoding: gz+b64

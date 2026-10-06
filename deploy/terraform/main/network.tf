@@ -1,6 +1,6 @@
 # The smallest network that lets Fargate and the box reach the internet: two public
-# subnets, one route table, gateway endpoints for S3 and DynamoDB. No NAT gateway, no private subnet,
-# no interface endpoint. Lambda runs outside the VPC.
+# subnets, one route table, a gateway endpoint for S3. No NAT gateway, no private subnet, no interface
+# endpoint. Lambda runs outside the VPC.
 
 data "aws_availability_zones" "available" {
   state = "available"
@@ -54,7 +54,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Gateway endpoints cost nothing and keep S3 and DynamoDB traffic off the internet gateway.
+# A gateway endpoint costs nothing and keeps S3 traffic off the internet gateway.
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id
   service_name      = "com.amazonaws.${local.region}.s3"
@@ -62,15 +62,6 @@ resource "aws_vpc_endpoint" "s3" {
   route_table_ids   = [aws_route_table.public.id]
 
   tags = { Name = "repohive-s3" }
-}
-
-resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${local.region}.dynamodb"
-  vpc_endpoint_type = "Gateway"
-  route_table_ids   = [aws_route_table.public.id]
-
-  tags = { Name = "repohive-dynamodb" }
 }
 
 # Fargate tasks: no inbound rule, outbound TCP 443 only.
@@ -84,7 +75,7 @@ resource "aws_security_group" "fargate" {
 
 resource "aws_vpc_security_group_egress_rule" "fargate_https" {
   security_group_id = aws_security_group.fargate.id
-  description       = "HTTPS to GitHub, S3, DynamoDB, ECR and CloudWatch"
+  description       = "HTTPS to GitHub, S3, SSM, the site (the server's API), ECR and CloudWatch"
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
