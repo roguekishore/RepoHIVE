@@ -65,3 +65,32 @@ account_guard() {
   [[ "${actual}" == "${AWS_ACCOUNT_ID}" ]] ||
     die "the active credentials are for account ${actual}, not the configured ${AWS_ACCOUNT_ID}"
 }
+
+# Docker 25 or later with buildx (the AWS Lambda base images need 25). On an x86-64 host, prints the binfmt
+# command that arm64 emulation needs instead of running it.
+require_docker() {
+  command -v docker >/dev/null 2>&1 || die "docker is not installed"
+  local version major
+  version="$(docker version --format '{{.Server.Version}}' 2>/dev/null)" ||
+    die "the Docker daemon is not reachable; start Docker and try again"
+  major="${version%%.*}"
+  [[ "${major}" =~ ^[0-9]+$ && "${major}" -ge 25 ]] || die "Docker 25 or later is required; found ${version}"
+  docker buildx version >/dev/null 2>&1 || die "docker buildx is not available"
+  case "$(uname -m)" in
+    x86_64 | amd64)
+      printf '%s\n' \
+        "note: this host is x86-64. Building and running linux/arm64 images needs emulation. If a build or run" \
+        "      fails with 'exec format error', register it once (not run by these scripts):" \
+        "        docker run --privileged --rm tonistiigi/binfmt --install arm64" >&2
+      ;;
+    *) ;;
+  esac
+}
+
+# The short git SHA of HEAD, the image tag.
+image_tag() {
+  git -C "${REPO_ROOT}" rev-parse --short HEAD
+}
+
+LOCAL_IMAGE_NAME="repohive-indexer"
+export LOCAL_IMAGE_NAME
