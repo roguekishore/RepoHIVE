@@ -433,7 +433,7 @@ one 5-minute period.
 standard build; every check below is warm):
 
 - `terraform fmt`, `validate` and the offline `terraform test` plan of the main root (protected and unprotected) passed on a
-  copy of the tree that leaves out the files the redesign removes (see the progress notes); the plan renders every policy, the state
+  tree, and `deploy/scripts/check.sh` as a whole passed on it (0 failed, `shellcheck` not run); the plan renders every policy, the state
   machine and cloud-init and asserts the intended architecture: no DynamoDB grant, the job role writes only under `artifacts/`
   and `private/`, the box role only under `backup/`, `/artifacts/*` is the only behaviour that reaches the bucket and `/api/*`
   is uncached with every method, user data under 16 KB.
@@ -450,12 +450,16 @@ standard build; every check below is warm):
   (Node on `packages/indexer`) answer a request.
 - `bash -n` on every script. **Not run:** `shellcheck`, `actionlint` (not installed here).
 
-**Never run:** the release build (`Dockerfile.release` has never been built, so the JRE copy, the Maven wrapper inside the image
-and `verify-app-tree.sh` on a real tree are unchecked), `verify-release.sh`, `build.yml` after this change, any plan or apply against
-AWS, the build workflow's publish path (it needs the bootstrap's role), any deploy script against an account, the box's first
-boot, the server unit under systemd (memory limits, `/tmp` for the SQLite native library, the JVM next to a Node child on
-2 GB), the Caddy plugins' directives (`rate_limit` with `not path`, `trusted_proxies cloudfront`), the CloudWatch agent, CloudFront,
-the workers reaching the server through CloudFront, and `teardown.sh`. The first apply is the first test of all of it.
+**Run in GitHub Actions on 2026-10-06** (tag `verify-2835bf48a750`, linux/arm64, Java 21, no AWS; run 37494100864, 4 min 14 s):
+the server's tests (186 of 186), the indexer image and the release bundle built, `verify-app-tree.sh` on the real tree, and
+`verify-release.sh` (the snapshot inputs of the bundle and the image are equal, the server starts on the bundle's own Java, the
+page mapping answers every request, and the bundle's Caddy adapts and validates the Caddyfile with both plugin modules).
+
+**Never run:** any plan or apply against AWS, the build workflow's publish path (it needs the bootstrap's role), any deploy script
+against an account, the box's first boot, the server unit under systemd (memory limits, `/tmp` for the SQLite native library, the
+JVM next to a Node child on 2 GB), the behaviour of the Caddy plugins' directives (`rate_limit` with `not path`, `trusted_proxies
+cloudfront`; they only adapt and validate), the CloudWatch agent, CloudFront, the workers reaching the server through CloudFront,
+and `teardown.sh`. The first apply is the first test of all of it.
 
 **Run for the previous stack** (no longer this stack): the indexer image built and ran jobs through its
 Lambda and Fargate entry points; the release build assembled on an older bundle layout; `check.sh` passed on the old roots.
