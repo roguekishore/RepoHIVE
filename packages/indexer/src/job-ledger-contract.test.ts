@@ -205,6 +205,32 @@ function registerContractSuite(name: string, createLedger: () => JobLedger): voi
       await timed.releaseLargeSlot("job-b");
       assert.equal(await timed.acquireLargeSlot("job-c", 30_000), true);
     });
+
+    test("taking the large slot is re-entrant for the same job and renews its lease", async () => {
+      let t = 5_000;
+      const timed =
+        name === "memory"
+          ? createMemoryJobLedger({ nowMs: () => t })
+          : name === "file"
+            ? createFileJobLedger({
+                path: join(fileDir, `reentrant-${Math.random().toString(36).slice(2)}.json`),
+                nowMs: () => t,
+              })
+            : createDynamoDbJobLedger(createFakeDynamoDbClient(), {
+                tableName: "t-reentrant",
+                nowMs: () => t,
+              });
+      assert.equal(await timed.acquireLargeSlot("job-a", 10_000), true);
+      // The same job takes it again while the lease is live, with a later expiry.
+      assert.equal(await timed.acquireLargeSlot("job-a", 50_000), true);
+      t = 10_001;
+      assert.equal(await timed.acquireLargeSlot("job-b", 60_000), false, "the renewed lease still holds");
+      t = 50_001;
+      assert.equal(await timed.acquireLargeSlot("job-b", 90_000), true, "and ends at the renewed time");
+      // A job that no longer holds the slot gets no say over it.
+      await timed.releaseLargeSlot("job-a");
+      assert.equal(await timed.acquireLargeSlot("job-a", 95_000), false);
+    });
   });
 }
 
