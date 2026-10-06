@@ -1,17 +1,23 @@
 # syntax=docker/dockerfile:1
 #
-# The app release bundle: everything the box runs, built for linux/arm64.
-# Built from the repository root by deploy/scripts/build-app-release.sh, which exports the `release` stage
-# as a directory and tars it:
+# The app release bundle: everything the box runs, built for linux/arm64. It holds
+# Caddy, the exported viewer, the Spring Boot server with its own Java runtime, and Node with the indexer's
+# pre-check (the server runs it as a child process). Built from the repository root by
+# deploy/scripts/build-app-release.sh, which exports the `release` stage as a directory and tars it:
 #
 #   docker buildx build --platform linux/arm64 --provenance=false -f deploy/box/Dockerfile.release \
 #     --target release --build-arg GIT_SHA=<sha> --output type=local,dest=<dir> .
 #
-# The images below are the multi-arch index digests read from Docker Hub. This file has never
-# been built; the first build is the first Linux check of the standalone output (see verify-app-tree.sh).
+# The server's tests are not run here: the build workflow runs `./mvnw -B verify` on its own runner first (Node on
+# the PATH, as the tests need it), and the jar is built from the same commit. This file has never been built; the
+# first build is the first Linux check of the bundle (see verify-app-tree.sh and verify-release.sh).
+#
+# The images below are the multi-arch index digests read from Docker Hub (Node, Go; Temurin on 2026-10-06).
 
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 ARG GO_IMAGE=golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d
+ARG JDK_IMAGE=eclipse-temurin:21-jdk-jammy@sha256:e0c60c487345d1dc9d0fc7b6f0496f3cc941e5132e09296cc17a6decc71b902b
+ARG JRE_IMAGE=eclipse-temurin:21-jre-jammy@sha256:f04fb34e053148344e83317976114ec3f37e4b830ec8bdab5a2fe3cecd7d010b
 
 # --- Caddy: 2.11.6 with its two modules, built by a pinned xcaddy -------------------
 FROM --platform=linux/arm64 ${GO_IMAGE} AS caddy
@@ -26,14 +32,26 @@ RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
       --with github.com/xcaddyplugins/caddy-trusted-cloudfront@${CLOUDFRONT_VERSION} \
       --output /out/caddy
 
-# --- production dependencies: the web app and the indexer packages it loads at run time ----------------
+# --- the server: the Spring Boot jar --------------------------------------------------------------------
+# The Maven wrapper is script-only and downloads Maven from Maven Central; the image needs curl or wget for that.
+FROM --platform=linux/arm64 ${JDK_IMAGE} AS server
+WORKDIR /repo/repohive-server
+COPY repohive-server ./
+RUN command -v curl >/dev/null || command -v wget >/dev/null \
+ && ./mvnw -B -DskipTests package \
+ && test -f target/repohive-server.jar
+
+# --- the Java runtime the box runs the jar with (no Java is installed on the box) ----------------------
+FROM --platform=linux/arm64 ${JRE_IMAGE} AS jre
+
+# --- production dependencies of the pre-check: the indexer package and what it loads at run time -------
 FROM --platform=linux/arm64 ${NODE_IMAGE} AS prod-modules
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages ./packages
-RUN npm ci --omit=dev --ignore-scripts --workspace @repohive/web --include-workspace-root
+RUN npm ci --omit=dev --ignore-scripts --workspace @repohive/indexer --include-workspace-root
 
-# --- the app: compile the engine packages, then the Next.js standalone build -----------------------------
+# --- the viewer and the engine packages: compile the workspaces, then the static export ----------------
 FROM --platform=linux/arm64 ${NODE_IMAGE} AS app
 WORKDIR /repo
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -50,26 +68,28 @@ WORKDIR /repo
 COPY --from=app /repo/packages /repo/packages
 COPY --from=prod-modules /repo/node_modules /prod-modules
 COPY --from=caddy /out/caddy /out/bin/caddy
-COPY deploy/box/Caddyfile deploy/box/logrotate-repohive deploy/box/amazon-cloudwatch-agent.json /out/box/
+COPY --from=jre /opt/java/openjdk /out/java
+COPY --from=server /repo/repohive-server/target/repohive-server.jar /out/server/repohive-server.jar
+COPY deploy/box/Caddyfile deploy/box/spa.caddy deploy/box/logrotate-repohive deploy/box/amazon-cloudwatch-agent.json /out/box/
 COPY deploy/box/systemd /out/box/systemd
 COPY deploy/box/bin /out/box/bin
 COPY deploy/box/verify-app-tree.sh /verify-app-tree.sh
 
+# web/ is the static export, served by Caddy. indexer/ is what `node dist/precheck-cli.js` needs: the package, its
+# compiled code and production dependencies, with the workspace links replaced by copies of the compiled packages
+# (the same layout as the indexer image).
 RUN set -eux; \
     cp /usr/local/bin/node /out/bin/node; \
-    mkdir -p /out/app; \
-    cp -a packages/web/.next/standalone/. /out/app/; \
-    mkdir -p /out/app/packages/web/.next; \
-    cp -a packages/web/.next/static /out/app/packages/web/.next/static; \
-    if [ -d packages/web/public ]; then cp -a packages/web/public /out/app/packages/web/public; fi; \
-    cp -a packages/web/src packages/web/scripts packages/web/package.json /out/app/packages/web/; \
-    mkdir -p /out/app/node_modules; \
-    cp -a -n /prod-modules/. /out/app/node_modules/; \
-    for p in shared parser core engine views indexer; do \
-      rm -rf "/out/app/node_modules/@repohive/$p"; \
-      mkdir -p "/out/app/node_modules/@repohive/$p"; \
-      cp -r "packages/$p/package.json" "packages/$p/dist" "/out/app/node_modules/@repohive/$p/"; \
+    mkdir -p /out/web /out/indexer; \
+    cp -a packages/web/out/. /out/web/; \
+    cp -r packages/indexer/package.json packages/indexer/dist /out/indexer/; \
+    cp -a /prod-modules /out/indexer/node_modules; \
+    for p in shared parser core engine views; do \
+      rm -rf "/out/indexer/node_modules/@repohive/$p"; \
+      mkdir -p "/out/indexer/node_modules/@repohive/$p"; \
+      cp -r "packages/$p/package.json" "packages/$p/dist" "/out/indexer/node_modules/@repohive/$p/"; \
     done; \
+    rm -rf /out/indexer/node_modules/@repohive/indexer; \
     printf '%s\n' "${GIT_SHA}" > /out/VERSION; \
     sh /verify-app-tree.sh /out
 

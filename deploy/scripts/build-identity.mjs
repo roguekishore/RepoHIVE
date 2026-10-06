@@ -1,23 +1,17 @@
 // Prints the three build values that go into every snapshot id (layout: engineVersion, viewsVersion,
 // configDigest) as one JSON line. verify-release.sh copies this file into the indexer image (/var/task) and into the
-// release tree (app/packages/web) and runs it in both: the web app computes a job's snapshot id and the job refuses
-// one that its own build would not compute, so the two must print the same line.
+// release tree's indexer directory (indexer/) and runs it in both: the pre-check the server runs from the bundle
+// computes a job's snapshot id and the worker in the image refuses one that its own build would not compute, so the
+// two must print the same line.
 //
-// Bare imports resolve from where this file is placed, so it must be run from inside each tree.
+// Bare imports resolve from where this file is placed, and `./dist/hosted-options.js` is the indexer's own compiled
+// code beside it, so it must be run from inside each tree. Both trees have the same layout: dist/ and node_modules/
+// with the compiled packages.
 import { engineVersion } from "@repohive/engine";
 import { getViewsVersion } from "@repohive/views";
 
-async function hostedConfigDigest() {
-  try {
-    // The release tree carries the indexer as a package.
-    return (await import("@repohive/indexer")).hostedConfigDigest();
-  } catch (error) {
-    if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
-    // The indexer image is the indexer itself: its dist/ sits beside this file.
-    return (await import(new URL("./dist/hosted-options.js", import.meta.url).href)).hostedConfigDigest();
-  }
-}
+const { hostedConfigDigest } = await import(new URL("./dist/hosted-options.js", import.meta.url).href);
 
 process.stdout.write(
-  `${JSON.stringify({ engineVersion, viewsVersion: getViewsVersion(), configDigest: await hostedConfigDigest() })}\n`,
+  `${JSON.stringify({ engineVersion, viewsVersion: getViewsVersion(), configDigest: hostedConfigDigest() })}\n`,
 );

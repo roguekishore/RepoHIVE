@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Removes everything RepoHIVE created in one account (runbook "Teardown"), for an account whose deploy.env says
-# PROTECT=false: a test account. It deletes data for good: the SQLite volume, the ledger, every snapshot, the release
-# bundles, the images and the Terraform state. A production account (PROTECT=true) is refused.
+# PROTECT=false: a test account. It deletes data for good: the SQLite volume (accounts and the job ledger), every
+# snapshot, the release bundles, the images and the Terraform state. A production account (PROTECT=true) is refused.
 #
 #   REPOHIVE_ACCOUNT=<name> deploy/scripts/teardown.sh --confirm <12-digit account id>
 #
 # Order: the main root is applied once with protection off and then destroyed, except the data volume (prevent_destroy),
-# which is taken out of the state and deleted directly; then the GitHub token parameter; then the bootstrap root the same
+# which is taken out of the state and deleted directly; then the GitHub token and admin token parameters; then the bootstrap root the same
 # way, except the state bucket (prevent_destroy), which is emptied of every version and deleted directly; last the
 # account's GitHub environment. Each step can be run again after a failure. DNS records stay: remove them in Netlify.
 set -euo pipefail
@@ -88,9 +88,12 @@ else
   printf '== main: no resources in its state, nothing to destroy\n'
 fi
 
-if aws_cli ssm delete-parameter --name /repohive/github-token >/dev/null 2>&1; then
-  printf 'deleted the parameter /repohive/github-token\n'
-fi
+# The two parameters the owner stores by script; Terraform owns (and destroys) the origin and internal secrets.
+for parameter in /repohive/github-token /repohive/admin-token; do
+  if aws_cli ssm delete-parameter --name "${parameter}" >/dev/null 2>&1; then
+    printf 'deleted the parameter %s\n' "${parameter}"
+  fi
+done
 
 # --- bootstrap root -----------------------------------------------------------------------------------------------
 if [[ -f "${ACCOUNT_DIR}/bootstrap.tfstate" ]] && state_has_resources bootstrap; then

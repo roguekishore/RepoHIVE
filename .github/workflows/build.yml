@@ -1,5 +1,6 @@
-# Builds the hosted indexer image and the app release bundle natively on linux/arm64 from the tagged commit, tests the
-# bundle against the image (deploy/scripts/verify-release.sh), and for an account tag pushes both into that account.
+# Tests the Spring Boot server (./mvnw -B verify), builds the hosted indexer image and the app release bundle natively
+# on linux/arm64 from the tagged commit, tests the bundle against the image (deploy/scripts/verify-release.sh), and for
+# an account tag pushes both into that account.
 # Only these tags start it; deploy/scripts/build-in-github.sh pushes them:
 #
 #   build-<account>-<sha>   build, test, then push the image to the account's ECR and the bundle to its ops bucket.
@@ -70,6 +71,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The server's tests run here, on the runner (Java 21 and the Node it already has: the tests start fake children
+      # with `node -e`), not inside the release build; the release build packages the jar of this same commit.
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Test the server
+        working-directory: repohive-server
+        run: ./mvnw -B verify
 
       - name: Build the indexer image
         run: deploy/scripts/build-indexer-image.sh
