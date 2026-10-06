@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
@@ -31,8 +32,13 @@ public final class AppConfigFactory {
             "REPOHIVE_QUOTA_IP_DAY",
             "REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR",
             "REPOHIVE_QUOTA_PRECHECK_IP_HOUR",
+            "REPOHIVE_GLOBAL_INFLIGHT_CAP",
+            "REPOHIVE_SIGNUP_IP_DAY",
             "REPOHIVE_INTERNAL_SECRET",
             "REPOHIVE_INTERNAL_SECRET_PARAMETER",
+            "REPOHIVE_ADMIN_TOKEN",
+            "REPOHIVE_ADMIN_TOKEN_PARAMETER",
+            "REPOHIVE_ADMIN_ORIGINS",
             "REPOHIVE_INDEXER_DIR",
             "REPOHIVE_NODE",
             "REPOHIVE_SERVER_URL",
@@ -45,11 +51,14 @@ public final class AppConfigFactory {
     private final Path cwd;
     private final Function<String, String> parameterReader;
 
+    /** The shortest admin token accepted: it is the only thing between the internet and the limits. */
+    static final int ADMIN_TOKEN_MIN_LENGTH = 24;
+
     /**
      * @param lookup variable name to raw value (null when unset)
      * @param cwd base for relative paths
      * @param parameterReader reads an SSM SecureString by name; only called when
-     *     REPOHIVE_INTERNAL_SECRET_PARAMETER is used (hosted)
+     *     REPOHIVE_INTERNAL_SECRET_PARAMETER or REPOHIVE_ADMIN_TOKEN_PARAMETER is used (hosted)
      */
     public AppConfigFactory(Function<String, String> lookup, Path cwd, Function<String, String> parameterReader) {
         this.lookup = lookup;
@@ -199,8 +208,17 @@ public final class AppConfigFactory {
         if (usesParameter && !hosted) {
             throw new ConfigError("REPOHIVE_INTERNAL_SECRET_PARAMETER", "is only allowed in hosted mode");
         }
+        String adminToken = optional("REPOHIVE_ADMIN_TOKEN");
+        String adminParameter = optional("REPOHIVE_ADMIN_TOKEN_PARAMETER");
+        boolean adminUsesParameter = adminToken == null && adminParameter != null;
+        if (adminUsesParameter && !hosted) {
+            throw new ConfigError("REPOHIVE_ADMIN_TOKEN_PARAMETER", "is only allowed in hosted mode");
+        }
         if (awsRegion == null
-                && (store instanceof StoreConfig.S3 || orchestrator instanceof OrchestratorConfig.Sfn || usesParameter)) {
+                && (store instanceof StoreConfig.S3
+                        || orchestrator instanceof OrchestratorConfig.Sfn
+                        || usesParameter
+                        || adminUsesParameter)) {
             throw new ConfigError("AWS_REGION", "is not set");
         }
 
@@ -210,24 +228,30 @@ public final class AppConfigFactory {
                     hosted ? "or REPOHIVE_INTERNAL_SECRET_PARAMETER is not set" : "is not set");
         }
         if (usesParameter) {
-            try {
-                secret = parameterReader.apply(secretParameter);
-            } catch (ConfigError e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new ConfigError("REPOHIVE_INTERNAL_SECRET_PARAMETER", "could not be read from SSM");
-            }
-            if (secret == null || secret.isBlank()) {
-                throw new ConfigError("REPOHIVE_INTERNAL_SECRET_PARAMETER", "is empty in SSM");
-            }
+            secret = readParameter("REPOHIVE_INTERNAL_SECRET_PARAMETER", secretParameter);
         }
+
+        if (adminUsesParameter) {
+            adminToken = readParameter("REPOHIVE_ADMIN_TOKEN_PARAMETER", adminParameter);
+        }
+        String adminVariable = adminUsesParameter ? "REPOHIVE_ADMIN_TOKEN_PARAMETER" : "REPOHIVE_ADMIN_TOKEN";
+        if (adminToken != null && adminToken.length() < ADMIN_TOKEN_MIN_LENGTH) {
+            throw new ConfigError(adminVariable, "must be at least " + ADMIN_TOKEN_MIN_LENGTH + " characters");
+        }
+        if (adminToken != null && adminToken.equals(secret)) {
+            // The worker's secret sits in the Lambda and Fargate environments; the admin token must not.
+            throw new ConfigError(adminVariable, "must differ from the internal secret");
+        }
+        List<String> adminOrigins = adminOrigins();
 
         QuotaLimits d = QuotaLimits.DEFAULTS;
         QuotaLimits quota = new QuotaLimits(
                 positiveInt("REPOHIVE_QUOTA_ACCOUNT_DAY", d.acceptedPerAccountPerDay()),
                 positiveInt("REPOHIVE_QUOTA_IP_DAY", d.acceptedPerIpPerDay()),
                 positiveInt("REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR", d.prechecksPerAccountPerHour()),
-                positiveInt("REPOHIVE_QUOTA_PRECHECK_IP_HOUR", d.prechecksPerIpPerHour()));
+                positiveInt("REPOHIVE_QUOTA_PRECHECK_IP_HOUR", d.prechecksPerIpPerHour()),
+                positiveInt("REPOHIVE_GLOBAL_INFLIGHT_CAP", d.inFlightCap()),
+                positiveInt("REPOHIVE_SIGNUP_IP_DAY", d.signUpsPerIpPerDay()));
 
         String indexer = optional("REPOHIVE_INDEXER_DIR");
         Path indexerDir = resolve(indexer == null ? "../packages/indexer" : indexer);
@@ -253,6 +277,43 @@ public final class AppConfigFactory {
                 indexerDir,
                 node == null ? "node" : node,
                 serverUrl,
-                webDir == null ? null : resolve(webDir));
+                webDir == null ? null : resolve(webDir),
+                adminToken,
+                adminOrigins);
+    }
+
+    /** An SSM SecureString read at start-up; the error names the variable, never the value. */
+    private String readParameter(String variable, String parameterName) {
+        String value;
+        try {
+            value = parameterReader.apply(parameterName);
+        } catch (ConfigError e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ConfigError(variable, "could not be read from SSM");
+        }
+        if (value == null || value.isBlank()) {
+            throw new ConfigError(variable, "is empty in SSM");
+        }
+        return value;
+    }
+
+    /** Comma-separated exact origins; unset means none. */
+    private List<String> adminOrigins() {
+        String text = optional("REPOHIVE_ADMIN_ORIGINS");
+        if (text == null) {
+            return List.of();
+        }
+        List<String> origins = new ArrayList<>();
+        for (String part : text.split(",", -1)) {
+            String origin = exactOrigin(part.strip());
+            if (origin == null) {
+                throw new ConfigError("REPOHIVE_ADMIN_ORIGINS", "must be a comma-separated list of origins such as https://example.com");
+            }
+            if (!origins.contains(origin)) {
+                origins.add(origin);
+            }
+        }
+        return List.copyOf(origins);
     }
 }

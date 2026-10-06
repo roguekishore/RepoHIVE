@@ -1,6 +1,5 @@
 package com.repohive.service;
 
-import com.repohive.config.AppConfig;
 import com.repohive.config.QuotaLimits;
 import com.repohive.model.QuotaRejectCode;
 import com.repohive.model.QuotaResult;
@@ -17,13 +16,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class QuotaService {
 
     private final QuotaRepository repository;
-    private final QuotaLimits limits;
+    private final RuntimeLimits runtimeLimits;
     private final Clock clock;
     private final TransactionTemplate tx;
 
-    public QuotaService(QuotaRepository repository, AppConfig config, Clock clock, PlatformTransactionManager txManager) {
+    public QuotaService(
+            QuotaRepository repository, RuntimeLimits runtimeLimits, Clock clock, PlatformTransactionManager txManager) {
         this.repository = repository;
-        this.limits = config.quota();
+        this.runtimeLimits = runtimeLimits;
         this.clock = clock;
         this.tx = new TransactionTemplate(txManager);
     }
@@ -48,6 +48,7 @@ public class QuotaService {
     /** One pre-check attempt against the hourly account then IP limits; all or nothing. */
     public QuotaResult recordPrecheckAttempt(String accountId, String ip) {
         String hour = TimeFormat.utcHour(clock.instant());
+        QuotaLimits limits = runtimeLimits.current();
         return tx.execute(status -> {
             if (!incrementPrecheckBucket(bucketKey("account", accountId, hour), limits.prechecksPerAccountPerHour())) {
                 status.setRollbackOnly();
@@ -63,6 +64,7 @@ public class QuotaService {
 
     public RemainingQuota remaining(String accountId, String ip) {
         String day = TimeFormat.utcDay(clock.instant());
+        QuotaLimits limits = runtimeLimits.current();
         int accountUsed = repository.countAccountCharges(accountId, day);
         int ipUsed = repository.countIpCharges(ip, day);
         return new RemainingQuota(
@@ -79,6 +81,7 @@ public class QuotaService {
     public QuotaResult reserveCharge(String accountId, String ip, String jobId) {
         Instant now = clock.instant();
         String day = TimeFormat.utcDay(now);
+        QuotaLimits limits = runtimeLimits.current();
         if (repository.hasAccountInflight(accountId)) {
             return QuotaResult.rejected(QuotaRejectCode.INFLIGHT);
         }

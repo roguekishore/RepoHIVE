@@ -88,7 +88,9 @@ class AppConfigFactoryTest {
         assertThat(config.orchestrator()).isEqualTo(new OrchestratorConfig.Local());
         assertThat(config.clientIpHeader()).isNull();
         assertThat(config.githubToken()).isNull();
-        assertThat(config.quota()).isEqualTo(new QuotaLimits(5, 10, 20, 40));
+        assertThat(config.quota()).isEqualTo(new QuotaLimits(5, 10, 20, 40, 5, 3));
+        assertThat(config.adminToken()).isNull();
+        assertThat(config.adminOrigins()).isEmpty();
         assertThat(config.internalSecret()).isEqualTo("local-secret");
         assertThat(config.indexerDir()).isEqualTo(abs("/srv/packages/indexer"));
         assertThat(config.node()).isEqualTo("node");
@@ -170,6 +172,57 @@ class AppConfigFactoryTest {
         expectRejected(with(local(), "REPOHIVE_ORCHESTRATOR", "sfn:not-an-arn"), "REPOHIVE_ORCHESTRATOR");
     }
 
+    private static final String ADMIN_TOKEN = "an-admin-token-of-32-characters-xx";
+
+    @Test
+    void theAdminApiIsOffUntilATokenIsSetAndTheTokenIsChecked() {
+        Map<String, String> env = with(local(), "REPOHIVE_ADMIN_TOKEN", ADMIN_TOKEN);
+        assertThat(parse(env).adminToken()).isEqualTo(ADMIN_TOKEN);
+        assertThat(parse(env).adminOrigins()).isEmpty();
+
+        expectRejected(with(local(), "REPOHIVE_ADMIN_TOKEN", "too-short"), "REPOHIVE_ADMIN_TOKEN");
+        // The worker's secret is in the Lambda and Fargate environments; it must not open the admin API.
+        Map<String, String> reused = with(local(), "REPOHIVE_INTERNAL_SECRET", ADMIN_TOKEN);
+        reused.put("REPOHIVE_ADMIN_TOKEN", ADMIN_TOKEN);
+        expectRejected(reused, "REPOHIVE_ADMIN_TOKEN");
+
+        String shortToken = "short-token-dont-print";
+        assertThat(failure(with(local(), "REPOHIVE_ADMIN_TOKEN", shortToken)).getMessage()).doesNotContain(shortToken);
+    }
+
+    @Test
+    void theAdminTokenCanComeFromSsmInHostedMode() {
+        Map<String, String> env = hosted();
+        env.put("REPOHIVE_ADMIN_TOKEN_PARAMETER", "/repohive/admin-token");
+        AppConfig config = new AppConfigFactory(env::get, CWD, name -> {
+            assertThat(name).isEqualTo("/repohive/admin-token");
+            return ADMIN_TOKEN;
+        }).parse();
+        assertThat(config.adminToken()).isEqualTo(ADMIN_TOKEN);
+
+        Map<String, String> localParameter = local();
+        localParameter.put("REPOHIVE_ADMIN_TOKEN_PARAMETER", "/x");
+        expectRejected(localParameter, "REPOHIVE_ADMIN_TOKEN_PARAMETER");
+
+        assertThatThrownBy(() -> new AppConfigFactory(env::get, CWD, name -> {
+                    throw new IllegalStateException("boom");
+                }).parse())
+                .isInstanceOf(ConfigError.class)
+                .hasMessageStartingWith("REPOHIVE_ADMIN_TOKEN_PARAMETER");
+        assertThatThrownBy(() -> new AppConfigFactory(env::get, CWD, name -> " ").parse())
+                .isInstanceOf(ConfigError.class)
+                .hasMessageStartingWith("REPOHIVE_ADMIN_TOKEN_PARAMETER");
+    }
+
+    @Test
+    void adminOriginsAreExactOriginsAndDefaultToNone() {
+        Map<String, String> env = with(local(), "REPOHIVE_ADMIN_ORIGINS", "https://a.example, https://b.example:8443 ,https://a.example");
+        assertThat(parse(env).adminOrigins()).containsExactly("https://a.example", "https://b.example:8443");
+        for (String bad : List.of("*", "https://a.example/", "https://a.example/path", "a.example", "https://A.example", "https://a.example,")) {
+            expectRejected(with(local(), "REPOHIVE_ADMIN_ORIGINS", bad), "REPOHIVE_ADMIN_ORIGINS");
+        }
+    }
+
     @Test
     void quotaSettingsMustBePositiveIntegers() {
         Map<String, String> env = local();
@@ -177,10 +230,12 @@ class AppConfigFactoryTest {
         env.put("REPOHIVE_QUOTA_IP_DAY", "11");
         env.put("REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR", "21");
         env.put("REPOHIVE_QUOTA_PRECHECK_IP_HOUR", "41");
-        assertThat(parse(env).quota()).isEqualTo(new QuotaLimits(7, 11, 21, 41));
+        env.put("REPOHIVE_GLOBAL_INFLIGHT_CAP", "6");
+        env.put("REPOHIVE_SIGNUP_IP_DAY", "4");
+        assertThat(parse(env).quota()).isEqualTo(new QuotaLimits(7, 11, 21, 41, 6, 4));
         for (String variable : List.of(
                 "REPOHIVE_QUOTA_ACCOUNT_DAY", "REPOHIVE_QUOTA_IP_DAY", "REPOHIVE_QUOTA_PRECHECK_ACCOUNT_HOUR",
-                "REPOHIVE_QUOTA_PRECHECK_IP_HOUR")) {
+                "REPOHIVE_QUOTA_PRECHECK_IP_HOUR", "REPOHIVE_GLOBAL_INFLIGHT_CAP", "REPOHIVE_SIGNUP_IP_DAY")) {
             for (String bad : List.of("0", "-1", "1.5", "abc")) {
                 expectRejected(with(local(), variable, bad), variable);
             }

@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.repohive.model.PrecheckResult;
 import com.repohive.support.Http;
 import com.repohive.support.Seed;
+import com.repohive.service.RuntimeLimits;
 import com.repohive.service.TimeFormat;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -129,6 +131,23 @@ class IntakeTest extends JobTestBase {
         assertThat(charges()).isEqualTo(before);
         assertThat(dispatch.started).isEmpty();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM job_executions", Integer.class)).isEqualTo(5);
+    }
+
+    @Test
+    void theInFlightCapIsTheSavedValueNotACompiledOne() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            Seed.job(jdbc, clock.instant(), Seed.account(jdbc), "github.com/x/r" + i, "S");
+        }
+        runtimeLimits.update(Map.of(RuntimeLimits.Limit.IN_FLIGHT_CAP, 2), "test");
+        Http.Resp busy = post(BODY);
+        assertThat(busy.getStatus()).isEqualTo(503);
+        assertThat(busy.getContentAsString()).isEqualTo("{\"status\":\"busy\",\"retryAfterSeconds\":120}");
+        assertThat(dispatch.started).isEmpty();
+
+        // Raised above the old fixed five, with two open: accepted.
+        runtimeLimits.update(Map.of(RuntimeLimits.Limit.IN_FLIGHT_CAP, 3), "test");
+        assertThat(post(BODY).getStatus()).isEqualTo(202);
+        assertThat(dispatch.started).hasSize(1);
     }
 
     @Test

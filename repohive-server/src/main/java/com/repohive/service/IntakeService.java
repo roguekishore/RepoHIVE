@@ -17,7 +17,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class IntakeService {
 
-    public static final int GLOBAL_CAP = 5;
     public static final int BUSY_RETRY_SECONDS = 120;
 
     public sealed interface Outcome {
@@ -44,6 +43,7 @@ public class IntakeService {
 
     private final PrecheckRunner precheck;
     private final QuotaService quota;
+    private final RuntimeLimits limits;
     private final JobRepository jobs;
     private final IndexedRepoRepository repos;
     private final JobService jobService;
@@ -54,6 +54,7 @@ public class IntakeService {
     public IntakeService(
             PrecheckRunner precheck,
             QuotaService quota,
+            RuntimeLimits limits,
             JobRepository jobs,
             IndexedRepoRepository repos,
             JobService jobService,
@@ -63,6 +64,7 @@ public class IntakeService {
         this.clock = clock;
         this.precheck = precheck;
         this.quota = quota;
+        this.limits = limits;
         this.jobs = jobs;
         this.repos = repos;
         this.jobService = jobService;
@@ -143,7 +145,7 @@ public class IntakeService {
                 status.setRollbackOnly();
                 return new Reservation.QuotaRejected(reserved.rejection());
             }
-            if (jobs.countOpen() >= GLOBAL_CAP) {
+            if (jobs.countOpen() >= limits.current().inFlightCap()) {
                 status.setRollbackOnly();
                 return new Reservation.AtCap();
             }

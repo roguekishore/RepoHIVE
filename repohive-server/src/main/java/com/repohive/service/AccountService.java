@@ -29,6 +29,7 @@ public class AccountService {
     private final SessionRepository sessions;
     private final SignInFailureRepository failures;
     private final PasswordHasher hasher;
+    private final RuntimeLimits limits;
     private final Clock clock;
     private final TransactionTemplate tx;
 
@@ -37,12 +38,14 @@ public class AccountService {
             SessionRepository sessions,
             SignInFailureRepository failures,
             PasswordHasher hasher,
+            RuntimeLimits limits,
             Clock clock,
             PlatformTransactionManager txManager) {
         this.accounts = accounts;
         this.sessions = sessions;
         this.failures = failures;
         this.hasher = hasher;
+        this.limits = limits;
         this.clock = clock;
         this.tx = new TransactionTemplate(txManager);
     }
@@ -60,7 +63,7 @@ public class AccountService {
 
         Instant now = clock.instant();
         String day = TimeFormat.utcDay(now);
-        if (accounts.countSignUpsFromIp(ip, day) >= SIGNUP_MAX_PER_IP_PER_DAY) {
+        if (accounts.countSignUpsFromIp(ip, day) >= limits.current().signUpsPerIpPerDay()) {
             return new AuthOutcome.Rejected(AuthRejectCode.SIGNUP_IP_LIMIT, SIGN_UP_IP_LIMIT_MESSAGE);
         }
 
