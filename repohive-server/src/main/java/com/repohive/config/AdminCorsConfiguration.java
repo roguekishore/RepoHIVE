@@ -25,7 +25,7 @@ public class AdminCorsConfiguration implements WebMvcConfigurer {
         }
         registry.addMapping("/api/admin/**")
                 .allowedOrigins(config.adminOrigins().toArray(String[]::new))
-                .allowedMethods("GET", "PUT")
+                .allowedMethods("GET", "PUT", "DELETE")
                 .allowedHeaders("Authorization", "Content-Type")
                 .allowCredentials(false)
                 .maxAge(600);

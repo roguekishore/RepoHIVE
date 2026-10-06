@@ -3,7 +3,6 @@ package com.repohive.controller;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.repohive.config.AppConfig;
 import com.repohive.repository.SettingsRepository.AuditRow;
 import com.repohive.service.ClientIpResolver;
 import com.repohive.service.RuntimeLimits;
@@ -11,9 +10,6 @@ import com.repohive.service.RuntimeLimits.Limit;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -25,12 +21,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Read and change the runtime limits. A bearer token of its own (not the worker's secret), no session, no origin
- * check: a browser page on an allow-listed origin may call it cross-origin (AdminCorsConfiguration). With no token
- * configured every method answers 404, as if the route did not exist.
+ * Read and change the runtime limits. Behind {@link AdminGate}; no session, no origin check: a browser page on an
+ * allow-listed origin may call it cross-origin (AdminCorsConfiguration).
  */
 @RestController
-public class AdminLimitsController {
+class AdminLimitsController {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     static final String PATH = "/api/admin/limits";
@@ -51,57 +46,26 @@ public class AdminLimitsController {
             AuditBody lastChange,
             List<AuditBody> recent) {}
 
-    private final byte[] tokenDigest;
+    private final AdminGate gate;
     private final RuntimeLimits limits;
     private final ClientIpResolver clientIp;
 
-    public AdminLimitsController(AppConfig config, RuntimeLimits limits, ClientIpResolver clientIp) {
-        this.tokenDigest = config.adminToken() == null ? null : sha256(config.adminToken());
+    AdminLimitsController(AdminGate gate, RuntimeLimits limits, ClientIpResolver clientIp) {
+        this.gate = gate;
         this.limits = limits;
         this.clientIp = clientIp;
     }
 
-    private static byte[] sha256(String text) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private boolean authorized(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
-            return false;
-        }
-        return MessageDigest.isEqual(sha256(header.substring("Bearer ".length())), tokenDigest);
-    }
-
-    /** True when the request may go on: the API is on and the caller holds the token. */
-    private boolean admit(HttpServletRequest request, HttpServletResponse response) {
-        response.setHeader("Cache-Control", "no-store");
-        if (tokenDigest == null) {
-            JsonResponses.error(response, HttpStatus.NOT_FOUND, "NOT_FOUND", "Not found.");
-            return false;
-        }
-        if (!authorized(request)) {
-            response.setHeader("WWW-Authenticate", "Bearer");
-            JsonResponses.error(response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unauthorized.");
-            return false;
-        }
-        return true;
-    }
-
     @GetMapping(PATH)
     public void get(HttpServletRequest request, HttpServletResponse response) {
-        if (admit(request, response)) {
+        if (gate.admit(request, response)) {
             JsonResponses.json(response, HttpStatus.OK, body(null, null));
         }
     }
 
     @PutMapping(PATH)
     public void put(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        if (!admit(request, response)) {
+        if (!gate.admit(request, response)) {
             return;
         }
         byte[] raw = request.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
