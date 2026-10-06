@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; form-action 'none'">
+<title>RepoHIVE limits</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5b6573; --line: #d8dde4;
+    --accent: #0b5fff; --accent-ink: #ffffff; --ok: #12703a; --warn: #8a5a00; --bad: #b3261e;
+    --chip: #e8edf5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --card: #1a1f26; --ink: #e8ebef; --muted: #98a2b0; --line: #2d3541;
+      --accent: #6d9bff; --accent-ink: #0b1220; --ok: #5fd08a; --warn: #f0b94a; --bad: #ff8a80;
+      --chip: #263042;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  p.lede { margin: 0 0 20px; color: var(--muted); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 620px) { .row { grid-template-columns: 1fr; } }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; }
+  #status { min-height: 1.4em; margin: 0; font-size: 14px; }
+  #status.ok { color: var(--ok); } #status.warn { color: var(--warn); } #status.bad { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-top: 0; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  td input { width: 96px; text-align: right; }
+  .name { font-weight: 600; }
+  .key { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+  .chip { display: inline-block; font-size: 12px; background: var(--chip); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
+  .changed input { border-color: var(--accent); }
+  #limits, #history { display: none; }
+  .shown { display: block !important; }
+  @media (max-width: 620px) {
+    .hide-narrow { display: none; }
+    section { padding: 12px; }
+    th, td { padding: 10px 4px; }
+    td input { width: 72px; padding: 8px 6px; }
+    td button { padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>RepoHIVE limits</h1>
+  <p class="lede">Change the quotas and caps of a running server. A saved value takes effect immediately and survives restarts; resetting a limit puts back the value the server was started with.</p>
+
+  <section aria-labelledby="connect-title">
+    <h2 id="connect-title">Server</h2>
+    <div class="row">
+      <div>
+        <label for="server">Server address</label>
+        <input id="server" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://repohive.dev">
+      </div>
+      <div>
+        <label for="token">Admin token</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <p class="hint">The token is kept for this browser tab only. This page must be served from an origin listed in the server's <code>REPOHIVE_ADMIN_ORIGINS</code>.</p>
+    <div class="actions">
+      <button id="load" class="primary" type="button">Load limits</button>
+      <button id="forget" type="button">Forget token</button>
+    </div>
+  </section>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section id="limits" aria-labelledby="limits-title">
+    <h2 id="limits-title">Limits</h2>
+    <table>
+      <thead>
+        <tr><th scope="col">Limit</th><th scope="col" class="num">Value</th><th scope="col" class="num hide-narrow">Default</th><th scope="col" class="num hide-narrow">Allowed</th><th scope="col"><span class="sr" style="position:absolute;left:-9999px">Reset</span></th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="actions">
+      <button id="save" class="primary" type="button" disabled>Save changes</button>
+      <button id="discard" type="button" disabled>Discard edits</button>
+    </div>
+  </section>
+
+  <section id="history" aria-labelledby="history-title">
+    <h2 id="history-title">Recent changes</h2>
+    <p id="last" class="hint"></p>
+    <table>
+      <thead><tr><th scope="col">When</th><th scope="col">Limit</th><th scope="col" class="num">Change</th><th scope="col" class="hide-narrow">From</th></tr></thead>
+      <tbody id="audit"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var LABELS = {
+    acceptedPerAccountPerDay: ['Index requests per account, per day', 'What one account may start in a UTC day.'],
+    acceptedPerIpPerDay: ['Index requests per IP address, per day', 'Across every account behind one address.'],
+    prechecksPerAccountPerHour: ['Pre-checks per account, per hour', 'Each request runs a pre-check first, even one that is rejected.'],
+    prechecksPerIpPerHour: ['Pre-checks per IP address, per hour', 'Across every account behind one address.'],
+    inFlightCap: ['Indexes queued or running at once', 'All accounts together. Over it, a request is told to retry.'],
+    signUpsPerIpPerDay: ['Sign-ups per IP address, per day', 'New accounts from one address in a UTC day.']
+  };
+
+  var el = function (id) { return document.getElementById(id); };
+  var serverInput = el('server'), tokenInput = el('token'), statusLine = el('status');
+  var loaded = null; // the last response body
+
+  // Per-tab and per-browser conveniences: every access is guarded, the page works without them.
+  function store(area, key, value) {
+    try {
+      if (value === undefined) { return window[area].getItem(key); }
+      if (value === null) { window[area].removeItem(key); } else { window[area].setItem(key, value); }
+    } catch (e) { /* storage blocked */ }
+    return null;
+  }
+
+  function say(text, kind) {
+    statusLine.textContent = text;
+    statusLine.className = kind || '';
+  }
+
+  function base() {
+    var text = serverInput.value.trim().replace(/\/+$/, '');
+    var url;
+    try { url = new URL(text); } catch (e) { return null; }
+    var local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) { return null; }
+    if (url.pathname !== '/' || url.search || url.hash) { return null; }
+    return url.origin;
+  }
+
+  function call(method, payload) {
+    var origin = base();
+    if (!origin) { return Promise.reject(new Error('Enter the server address as https://host (http only for localhost).')); }
+    var token = tokenInput.value.trim();
+    if (!token) { return Promise.reject(new Error('Enter the admin token.')); }
+    var init = { method: method, headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', credentials: 'omit' };
+    if (payload) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(payload); }
+    return fetch(origin + '/api/admin/limits', init).then(function (response) {
+      return response.text().then(function (text) {
+        var body = null;
+        try { body = JSON.parse(text); } catch (e) { /* not JSON */ }
+        if (response.status === 401) { throw new Error('The server did not accept that token.'); }
+        if (response.status === 404) { throw new Error('The server has no admin API (no admin token is configured on it).'); }
+        if (!response.ok) { throw new Error((body && body.message) || ('The server answered ' + response.status + '.')); }
+        if (!body || !Array.isArray(body.limits)) { throw new Error('The server answered something this page does not understand.'); }
+        return body;
+      });
+    }, function () {
+      throw new Error('Could not reach the server. Check the address, and that this page\'s origin (' + location.origin + ') is in REPOHIVE_ADMIN_ORIGINS.');
+    });
+  }
+
+  function when(iso) {
+    var date = new Date(iso);
+    return isNaN(date) ? iso : date.toLocaleString();
+  }
+
+  function labelOf(key) { return (LABELS[key] || [key, ''])[0]; }
+
+  function cell(tag, text, className) {
+    var node = document.createElement(tag);
+    node.textContent = text;
+    if (className) { node.className = className; }
+    return node;
+  }
+
+  function render(body) {
+    loaded = body;
+    var rows = el('rows');
+    rows.textContent = '';
+    body.limits.forEach(function (limit) {
+      var tr = document.createElement('tr');
+      tr.dataset.key = limit.key;
+
+      var name = document.createElement('td');
+      var title = cell('div', labelOf(limit.key), 'name');
+      if (limit.overridden) { title.appendChild(cell('span', 'saved', 'chip')); }
+      name.appendChild(title);
+      name.appendChild(cell('div', (LABELS[limit.key] || ['', ''])[1], 'hint'));
+      name.appendChild(cell('div', limit.key, 'key'));
+      tr.appendChild(name);
+
+      var valueCell = document.createElement('td');
+      valueCell.className = 'num';
+      var input = document.createElement('input');
+      input.type = 'number'; input.step = '1'; input.min = String(limit.min); input.max = String(limit.max);
+      input.value = String(limit.value);
+      input.setAttribute('aria-label', labelOf(limit.key));
+      input.addEventListener('input', refresh);
+      valueCell.appendChild(input);
+      tr.appendChild(valueCell);
+
+      tr.appendChild(cell('td', String(limit.defaultValue), 'num hide-narrow'));
+      tr.appendChild(cell('td', limit.min + ' to ' + limit.max, 'num hide-narrow'));
+
+      var resetCell = document.createElement('td');
+      var reset = document.createElement('button');
+      reset.type = 'button'; reset.textContent = 'Reset';
+      reset.title = 'Use the default, ' + limit.defaultValue;
+      reset.setAttribute('aria-label', 'Use the default for ' + labelOf(limit.key));
+      reset.disabled = !limit.overridden;
+      reset.addEventListener('click', function () {
+        input.value = String(limit.defaultValue);
+        tr.dataset.reset = '1';
+        refresh();
+      });
+      resetCell.appendChild(reset);
+      tr.appendChild(resetCell);
+      rows.appendChild(tr);
+    });
+
+    var audit = el('audit');
+    audit.textContent = '';
+    (body.recent || []).forEach(function (change) {
+      var tr = document.createElement('tr');
+      tr.appendChild(cell('td', when(change.changedAt)));
+      tr.appendChild(cell('td', labelOf(change.key)));
+      tr.appendChild(cell('td', change.oldValue + ' → ' + change.newValue, 'num'));
+      tr.appendChild(cell('td', change.fromIp, 'hide-narrow'));
+      audit.appendChild(tr);
+    });
+    var last = body.lastChange;
+    el('last').textContent = last
+      ? 'Last change: ' + labelOf(last.key) + ' ' + last.oldValue + ' → ' + last.newValue + ', ' + when(last.changedAt) + ', from ' + last.fromIp + '.'
+      : 'No change has been saved yet; every limit is at the value the server started with.';
+    el('limits').classList.add('shown');
+    el('history').classList.add('shown');
+    refresh();
+  }
+
+  // What the form would send: a number for an edited limit, null for one put back to its default.
+  function pending() {
+    var changes = {};
+    if (!loaded) { return changes; }
+    Array.prototype.forEach.call(el('rows').children, function (tr) {
+      var limit = loaded.limits.filter(function (l) { return l.key === tr.dataset.key; })[0];
+      var input = tr.querySelector('input');
+      var typed = input.value.trim() === '' ? NaN : Number(input.value);
+      var edited = !(typed === limit.value);
+      if (tr.dataset.reset === '1' && typed === limit.defaultValue) {
+        if (limit.overridden) { changes[limit.key] = null; }
+      } else if (edited) {
+        changes[limit.key] = typed;
+      }
+      tr.classList.toggle('changed', limit.key in changes);
+    });
+    return changes;
+  }
+
+  function refresh() {
+    // A reset marker only holds while the box still shows the default.
+    Array.prototype.forEach.call(el('rows').children, function (tr) {
+      var limit = loaded.limits.filter(function (l) { return l.key === tr.dataset.key; })[0];
+      if (tr.dataset.reset === '1' && Number(tr.querySelector('input').value) !== limit.defaultValue) { delete tr.dataset.reset; }
+    });
+    var changes = pending();
+    var count = Object.keys(changes).length;
+    el('save').disabled = count === 0;
+    el('discard').disabled = count === 0;
+  }
+
+  function validate(changes) {
+    for (var key in changes) {
+      var value = changes[key];
+      if (value === null) { continue; }
+      var limit = loaded.limits.filter(function (l) { return l.key === key; })[0];
+      if (!Number.isInteger(value) || value < limit.min) {
+        return labelOf(key) + ' must be a whole number of at least ' + limit.min + '.';
+      }
+    }
+    return null;
+  }
+
+  function load() {
+    say('Loading…');
+    el('load').disabled = true;
+    call('GET').then(function (body) {
+      store('sessionStorage', 'repohive-admin-token', tokenInput.value.trim());
+      store('localStorage', 'repohive-admin-server', base());
+      render(body);
+      say('Loaded.', 'ok');
+    }).catch(function (error) { say(error.message, 'bad'); }).then(function () { el('load').disabled = false; });
+  }
+
+  function save() {
+    var changes = pending();
+    var problem = validate(changes);
+    if (problem) { say(problem, 'bad'); return; }
+    say('Saving…');
+    el('save').disabled = true;
+    call('PUT', { limits: changes }).then(function (body) {
+      render(body);
+      var clamped = body.clamped || [];
+      var written = (body.changes || []).length;
+      if (clamped.length) {
+        say('Saved. ' + clamped.map(labelOf).join(', ') + ' was above its maximum and was set to the maximum.', 'warn');
+      } else {
+        say(written ? 'Saved. It is in force now.' : 'Nothing needed changing.', 'ok');
+      }
+    }).catch(function (error) { say(error.message, 'bad'); refresh(); });
+  }
+
+  el('load').addEventListener('click', load);
+  el('save').addEventListener('click', save);
+  el('discard').addEventListener('click', function () { if (loaded) { render(loaded); say(''); } });
+  el('forget').addEventListener('click', function () {
+    tokenInput.value = '';
+    store('sessionStorage', 'repohive-admin-token', null);
+    loaded = null;
+    el('limits').classList.remove('shown');
+    el('history').classList.remove('shown');
+    say('Token forgotten.');
+  });
+  [serverInput, tokenInput].forEach(function (input) {
+    input.addEventListener('keydown', function (event) { if (event.key === 'Enter') { load(); } });
+  });
+
+  serverInput.value = store('localStorage', 'repohive-admin-server') || '';
+  tokenInput.value = store('sessionStorage', 'repohive-admin-token') || '';
+  if (serverInput.value && tokenInput.value) { load(); }
+})();
+</script>
+</body>
+</html>
