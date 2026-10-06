@@ -127,10 +127,8 @@ AGPL-3.0-or-later remains a hard rule.
 
 ## Deploy tree (`deploy/`)
 
-Run against an AWS account with that account's credentials in the profile `repohive` (see the scripts below). **The
-tree has not been updated for the redesign** (see `architecture.md`, "Deploy tree"): its release build, `verify-release.sh`,
-`smoke.sh`, workflow and runbook still assume the Next.js server and the DynamoDB ledger, and its release image has
-no Java runtime. Exact pins:
+Run against an AWS account with that account's credentials in the profile `repohive` (see the scripts below). The tree
+describes the current stack (see `architecture.md`, "Deploy tree"); none of it has been applied to AWS yet. Exact pins:
 
 | Tool | Pin | Licence note |
 |------|-----|--------------|
@@ -142,8 +140,9 @@ no Java runtime. Exact pins:
 | `xcaddy` | v0.4.7 | Apache-2.0 |
 | `github.com/mholt/caddy-ratelimit` | v0.1.0 | Apache-2.0 |
 | `github.com/xcaddyplugins/caddy-trusted-cloudfront` | v0.0.0-20240604042247-0a0864e80f1c (commit 0a0864e, no tagged release) | MIT |
-| Node on the box and in the release build | 24.21.0, the binary of `node:24.21.0-bookworm-slim` | MIT |
-| Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.26-bookworm@sha256:a688600c…` (index digests read from Docker Hub) | Node MIT; Go BSD-3-Clause |
+| Node on the box and in the release build | 24.21.0, the binary of `node:24.21.0-bookworm-slim` (the box needs it only for the server's pre-check child) | MIT |
+| Java on the box and in the release build | Temurin 21: the JRE copied from `eclipse-temurin:21-jre-jammy`, the jar built with `eclipse-temurin:21-jdk-jammy` | GPL-2.0 with Classpath Exception |
+| Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.26-bookworm@sha256:a688600c…` (index digests read from Docker Hub), `eclipse-temurin:21-jdk-jammy@sha256:e0c60c48…` and `21-jre-jammy@sha256:f04fb34e…` (read 2026-10-06) | Node MIT; Go BSD-3-Clause; Temurin as above |
 | Box OS | Amazon Linux 2023 arm64, newest AMI from the public SSM parameter at first apply (`ami` is not tracked afterwards) | |
 
 The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by digest yet.
@@ -160,34 +159,36 @@ loads its `deploy.env` and stops unless `aws sts get-caller-identity` matches it
 | Script | Effect |
 |--------|--------|
 | `put-github-token.sh` | stores `/repohive/github-token` (token from a hidden prompt or a piped file) |
+| `put-admin-token.sh [--generate]` | stores `/repohive/admin-token`, which switches on the server's `/api/admin/**` (limits page); `--generate` shows a new token once and only on a terminal |
 | `build-in-github.sh [--verify-only]` | pushes the tag `build-<account>-<sha>` (or `verify-<sha>`) and follows the `build.yml` run; creates the account's GitHub environment first |
 | `github-environment.sh` | creates or updates the GitHub environment `<account>`: tags `build-<account>-*` only, variables `AWS_ACCOUNT_ID`, `SITE_DOMAIN` |
 | `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the 12-character git SHA; refuses uncommitted changes under `packages/` |
 | `push-indexer-image.sh [tag]` | logs in to ECR, pushes (or keeps an existing tag), prints the digest |
 | `run-indexer-image-locally.sh [cli\|lambda\|fargate\|all]` | runs the built image locally; no AWS |
-| `build-app-release.sh` | builds the release bundle in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS |
-| `verify-release.sh [version]` | on Linux arm64: the bundle and the image compute the same snapshot inputs, the web server answers `/healthz`, the worker runs, Caddy validates; no AWS |
+| `build-app-release.sh` | builds the release bundle (server jar and JRE, static export, indexer and Node, Caddy) in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS; refuses uncommitted changes under `packages/`, `repohive-server/` or `deploy/box/` |
+| `verify-release.sh [version]` | on Linux arm64: the bundle and the image compute the same snapshot inputs, the bundle's server starts on its own Java, answers `/healthz`, serves the viewer and has its pre-check child answer, the bundle's Caddy serves the viewer with the host mapping (`check-spa-mapping.mjs`) and validates its file; no AWS |
+| `check-spa-mapping.mjs <caddy> <web root> [port]` | runs `deploy/box/spa.caddy` under any Caddy 2 binary and checks the host mapping of `packages/web/README.md` request by request against the static export |
 | `upload-app-release.sh [version]` | uploads the bundle and its SHA-256 to the ops bucket |
 | `deploy-app.sh [version]` | activates a release on the box through SSM Run Command (uploads it first if it was built here) |
 | `rollback-app.sh` | switches the box to the previous release |
 | `apply.sh <bootstrap\|main> [--plan-only\|--apply-saved\|--destroy-plan] [plan args]` | `init` and `plan -out` with every `-var` from `deploy.env`; prints and stops, applies the saved plan, or (no mode) asks for `apply` |
 | `deploy.sh <build\|image\|infra [mode]\|app\|smoke\|all>` | the one deploy command; each stage runs alone; `infra` reads the image digest from ECR |
 | `tf-output.sh <root> [name]` | prints a root's outputs from the account's state |
-| `smoke.sh [repo]` | checks the live site through the site domain (healthz, view headers, closed prefixes, origin refusal); no AWS calls |
+| `smoke.sh [repo]` | checks the live site through the site domain (healthz, the closed internal and admin doors, the viewer's pages, snapshot object headers from `/artifacts/`, closed `private/` and `backup/`, origin refusal); no AWS calls |
 | `teardown.sh --confirm <account id>` | removes everything from an account whose `deploy.env` says `PROTECT=false` |
 | `check.sh` | the offline checks: `terraform fmt -check`, `validate` and the offline plan test per root, `shellcheck`, `bash -n` |
 
-The build runs in GitHub Actions (`.github/workflows/build.yml`) on `ubuntu-24.04-arm`, started only by those tags.
-Actions are pinned by commit: `actions/checkout` v7.0.1 (`3d3c42e5…`), `aws-actions/configure-aws-credentials` v6.3.0
-(`e1253824…`). It assumes `repohive-github-build` (bootstrap root) through GitHub's OIDC provider; the role trusts only
+The build runs in GitHub Actions (`.github/workflows/build.yml`) on `ubuntu-24.04-arm`, started only by those tags; it runs the
+server's tests (`./mvnw -B verify`, Java 21) before it builds. Actions are pinned by commit: `actions/checkout` v7.0.1
+(`3d3c42e5…`), `actions/setup-java` v6.0.1 (`de7274f0…`), `aws-actions/configure-aws-credentials` v6.3.0 (`e1253824…`). It assumes `repohive-github-build` (bootstrap root) through GitHub's OIDC provider; the role trusts only
 `repo:<owner>/<repo>:environment:<account>` and can only push to `repohive/indexer` and put under `releases/`.
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false`, then `validate`, then `test`; `shellcheck` on every script under
 `deploy/`. `deploy/scripts/check.sh` runs them all. The `test` step (`tests/plan.tftest.hcl` in each root) plans the
 whole root with the real AWS provider, placeholder credentials and fixed values for the data sources that would call
-AWS, and asserts cross-file contracts (user data under 16 KB, rendered state machine, bucket and repository names,
-the S3 list grant). It cannot check what AWS validates server-side: the provider validates the state machine
+AWS, and asserts cross-file contracts (user data under 16 KB, rendered state machine, no DynamoDB grant, the object
+prefixes each role may write, the CloudFront behaviours, the S3 list grant). It cannot check what AWS validates server-side: the provider validates the state machine
 definition by an API call at plan time, so the offline test skips that resource's plan and the first real plan
 does it.
 
