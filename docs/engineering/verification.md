@@ -147,8 +147,9 @@ them). On Linux, 2026-10-03, before the web cutover: `parser` 236 / 236, `core` 
 Run in `repohive-server/`. It compiles, runs the whole JUnit suite and builds the jar; the gate is **every test passing
 and the jar built**. Read the Surefire summary (`Tests run: N, Failures: 0, Errors: 0`), not the exit code alone.
 Measured 2026-10-04: **156 / 156** on Windows 11 with JDK 23.0.2, and on Linux x64 with OpenJDK 21.0.12 (Maven 3.9.16 from
-the wrapper), both before the last portability commit; after it, 156 / 156 again on Windows only. Warm, with the Maven
-repository already populated.
+the wrapper), both before the last portability commit; after it, 156 / 156 again on Windows only. After the runtime
+limits control (admin API, `V3`), 176 / 176 on Windows 11, JDK 23.0.2, 2026-10-06; Linux was not re-run. Warm, with the
+Maven repository already populated.
 
 - **JDK.** The server needs Java 21 or newer. Set `JAVA_HOME` before running; the wrapper uses whatever `java` it finds.
   A machine whose default `java` is older fails with a compiler error about release 21, which is a missing

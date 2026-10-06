@@ -147,7 +147,7 @@ did. The views version is a build-time hash of the `views` `dist/`, written by
 ## Server (`repohive-server/`)
 
 Spring Boot 3 on Java 21, built with Maven (the wrapper is script-only, so no binary jar is committed). It owns all
-application state in one SQLite database (Flyway migrations `V1` accounts and quota, `V2` repositories and jobs) and
+application state in one SQLite database (Flyway migrations `V1` accounts and quota, `V2` repositories and jobs, `V3` runtime settings and their audit trail) and
 serves the JSON API under `/api`, `/healthz`, and, in local mode, `/artifacts/**` and optionally the exported viewer
 (`REPOHIVE_WEB_DIR`). Data access is plain JDBC (`JdbcTemplate`), not JPA, and there is no Spring Security: the cookie,
 origin check, lockouts and scrypt (BouncyCastle) are written out to match the behaviour the Next.js server had.
@@ -167,6 +167,21 @@ backup), `repository` (SQL), `dispatch`, `store`, `config`, `model`.
   timeout. This replaces the old state machine's decide-and-fail-open states.
 - **Internal API**, `/api/internal/**`, bearer secret compared in constant time: `jobs/progress`, `jobs/complete`,
   `repos/<owner>/<repo>/active`. The secret is `REPOHIVE_INTERNAL_SECRET` locally and an SSM SecureString hosted.
+- **Runtime limits.** Six limits are changeable while the server runs: the four quota values, the cap on queued or
+  running jobs across all accounts, and sign-ups per IP per day. `RuntimeLimits` is the one place services read them
+  (`QuotaService`, `IntakeService`, `AccountService` call `current()` per decision). The environment
+  (`REPOHIVE_QUOTA_*`, `REPOHIVE_GLOBAL_INFLIGHT_CAP`, `REPOHIVE_SIGNUP_IP_DAY`) gives the defaults; a value saved in the
+  `settings` table overrides its default, survives restarts, and is cached for 5 s (a save refreshes the cache at once).
+  `GET` and `PUT /api/admin/limits` read and change them: a separate bearer token (`REPOHIVE_ADMIN_TOKEN`, or
+  `REPOHIVE_ADMIN_TOKEN_PARAMETER` for an SSM SecureString; at least 24 characters, and never the internal secret),
+  no session, no origin guard. Without a token every method answers 404. `REPOHIVE_ADMIN_ORIGINS` (exact origins,
+  default none) is the CORS allow-list for a browser page; any other cross-origin call gets 403. A `PUT` takes
+  `{"limits": {<key>: <integer or null>}}`: a number above a limit's maximum is clamped to it and reported in
+  `clamped`, null removes the override, anything invalid (below 1, not an integer, unknown key) rejects the whole
+  request, and each real change writes a row to `settings_audit` (old and new value, time, caller's address). The
+  page for it is the single file `repohive-server/admin/quota.html`, hosted by the owner, not by the server. Routing
+  consequence for `deploy/`: the CDN and Caddy must pass `OPTIONS` and `PUT` on `/api/admin/*`, forward
+  `Authorization`, and not cache `/api/*`. There are no per-account overrides.
 - **Pre-check stays TypeScript.** `ProcessPrecheckRunner` runs `packages/indexer/dist/precheck-cli.js` under Node
   (`REPOHIVE_NODE`, `REPOHIVE_INDEXER_DIR`), because the pre-check depends on the parser's selection policy and on
   `engineVersion`, and a Java port could drift. The box therefore keeps a Node runtime.
