@@ -58,20 +58,28 @@ Exact pins in `packages/indexer/package.json`.
 ## Viewer dependencies
 
 In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
-(hosted store, ledger and Step Functions orchestrator); `next ~15.5.21`, `react ^19.0.0`, `react-dom ^19.0.0`, Tailwind 4
-(`@tailwindcss/postcss ^4.0.0`), `swr ^2.2.5`, `nuqs ^2.2.0`, `lucide-react ^1.7.0`, `next-themes ^0.4.6`, `geist ^1.3.0`,
-the Radix primitives the UI uses (`react-dialog`, `react-slot`, `react-tooltip`), `class-variance-authority`,
-`tailwind-merge ^3.5.0`, `@tanstack/react-virtual`, and for the flat baseline `sigma ^3.0.3`, `graphology ^0.26.0`
-and `graphology-layout-forceatlas2`.
-Tests: **Vitest** (`^4.1.5`, in two projects: `server` on Node for `src/server` and the middleware, `client` on jsdom
-for components, features, lib and styles) with Testing Library. `@types/node` is `20.19.9` at the root and `^22` in `web`.
+(hosted store, ledger and Step Functions orchestrator); `@repohive/design`, `next ~15.5.21`, `react ^19.0.0`,
+`react-dom ^19.0.0` and `geist ^1.3.0` (Geist Mono). Host Grotesk is loaded through `next/font/google`, so a build needs
+network. That is the whole runtime list: the UI rewrite removed Tailwind, the Radix primitives, `swr`, `nuqs`,
+`lucide-react`, `next-themes`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@tanstack/react-virtual`, `sigma`,
+`graphology` and `graphology-layout-forceatlas2` from `web`. `graphology` is still used by the engine.
 
-The root also carries `shadcn ^4.12.0` in `devDependencies` with a root `components.json`.
+In `packages/design`: `@repohive/views` (types only) and `react` and `react-dom` as peer dependencies. It has no
+styling, icon, state or canvas library; the icons, components and canvases are its own code.
+Tests: **Vitest** (`^4.1.5`) with Testing Library. In `web` it runs two projects: `server` on Node for `src/server` and
+the middleware, `client` on jsdom for the rest. `design` runs on jsdom after `tsc --noEmit`. `@types/node` is `20.19.9` at the root and `^22` in `web`.
+
+The root still lists `shadcn ^4.12.0` in `devDependencies`, but its `components.json` is gone and nothing imports it, so
+it is a leftover to drop.
 
 ## Tool choices with history
 
-**Next.js stays for `packages/web`.** Most of `components/` and `features/` import nothing from `next/*`, so the
+**Next.js stays for `packages/web`.** The UI lives in `packages/design`, which imports nothing from `next/*`, so the
 choice is not forced by the UI code; treat it as one to revisit deliberately.
+
+**No styling or component library.** `packages/design` uses plain CSS custom properties (`tokens.css`) and its own
+components. A gate fails any literal colour or font outside the tokens file, which a utility-class framework would
+defeat.
 
 **MySQL is not used.** Removed as the wrong fit for graph data, and absent from every manifest today.
 

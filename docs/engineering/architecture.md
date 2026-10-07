@@ -106,7 +106,8 @@ packages/
   engine/       parse then group in one call (`indexProject`), progress, snapshot-id inputs
   views/        the viewer's response bodies as pure functions of a parsed index (ecosystem)
   indexer/      the hosted indexing job: pre-check, tarball fetch, run, views, publish (ecosystem)
-  web/          Next.js 15 app: the six repository views, accounts, index requests, the worker (ecosystem)
+  design/       tokens, components, screens, canvases and the contract every screen receives (ecosystem)
+  web/          Next.js 15 app: the host for the design package, the server code and the worker (ecosystem)
 ```
 
 `shared` is the leaf dependency. `parser` and `core` depend only on `shared`; `engine` depends on
@@ -132,40 +133,67 @@ Published objects have URL-shaped keys under `s/<snapshotId>/` (public, immutabl
 `engineVersion`, the views version and `configDigest`. The views version is a build-time hash of the `views`
 `dist/`, written by `packages/views/scripts/write-views-version.mjs` after `tsc -b`.
 
+## Design package (`packages/design`)
+
+`@repohive/design` draws everything the user sees: the Kernel · Moss tokens, the components, the mark, the app
+frame, every screen, and every canvas (the Map, Hierarchy, Architecture, Baseline, Circles and the landing film). It
+is TypeScript source and CSS with no build step; a host compiles it (`transpilePackages` in Next.js). It imports
+nothing from Next.js and fetches nothing itself.
+
+- **The contract** (`src/contracts`) is the set of shapes a screen receives (session, quota, repository list item,
+  snapshot state, job and its events, index-request result, the view bodies) plus `ContractClient`, the interface a
+  host implements. View bodies are type-only imports from `@repohive/views`. `contracts.test-d.ts` pins the contract to
+  the types the servers and the view builders use.
+- **Screens take data as props.** The host loads data and passes it in, together with the injected client for actions
+  and lazy reads (`DesignProvider`: `Link`, `navigate`, `client`). A screen does not know which host it runs on.
+- **Tokens are one file**, `src/styles/tokens.css`. A gate fails on any literal colour, font family or font size
+  outside it. Canvases read tokens at run time through one palette resolver and repaint on a theme change.
+- **Routes** are one map, `src/routes.ts`, shared by both hosts.
+
+The package must be byte-identical on the TS branch (`server-ts-own-id`) and on the Java branch. Only the host's
+translation layer and route shells differ between them. How to change the design system is in
+`packages/design/README.md`.
+
 ## Web app (`packages/web`)
 
-One Next.js 15 package holds the viewer, the account and index-request routes, and the background worker. The
-UI components and types that used to be separate packages live inside it.
+One Next.js 15 package is the TS host: it mounts the design package's screens, translates this server's responses onto
+the design contract, and holds the server code (accounts, quota, intake, jobs, the worker).
 
 ```
 src/
-  app/          routes only: pages and route handlers
-  components/   ui/ (Radix primitives), layout/ (navigation, theme), shared/ (page shell, loading state, table)
-  features/     one folder per surface; see below
-  lib/          small client helpers: cn, theme tokens, site origin
+  app/          routes only. (own)/ is the app frame; (bare)/ is the landing and the sign-in and sign-up pages;
+                api/, r/, s/ and healthz/ are route handlers
+  features/     host/ (the translation layer and shells), canvas-views/ (the route components for the five
+                canvas views), repository/ (URL parsing, the default view, snapshot-store helpers)
+  lib/          site origin
   server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting (config, clients),
-                telemetry, health, repositories, views (adapter tests)
-  styles/       globals.css (design tokens) and the token drift test
+                telemetry, health, repositories, host (the translation-contract test), views (adapter tests)
 ```
 
-`features/`: `structure-map` (the knowledge-graph page's canvas engine, panels and blast-radius worker),
-`hierarchy`, `decisions` (the shared decision model and marks, with the audit page's parts), `architecture`,
-`adaptivity`, `flat-baseline` (a purpose-built Sigma view of `views/graph.json`), `repository` (URL parsing, the
-snapshot session, breadcrumb, repository list) and `account` (sign-in and sign-up, index request, quota).
+**The translation layer** is `features/host`. `browser-client.ts` is one `ContractClient` over this server's real
+endpoints (session and account actions, quota, index request, a job and its event stream, the two repository
+resources, the snapshot pointer, the manifest and every view). `snapshot-state.ts` resolves a page's `SnapshotState`
+through it. `design-host.tsx` wires Next's link and router into `DesignProvider`, and `own-shell.tsx` loads the session,
+the allowance and the palette's repositories around the app frame.
+`server/host/translation-contract.test.ts` runs the client against the real route handlers in process.
 
-Pages: `/`, `/request`, `/quota`, `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`, `/jobs/[jobId]`, and the six
-repository views under `/repos/[owner]/[repo]/`: `knowledge-graph` (the structure map), `hierarchy`,
-`decision-audit`, `architecture`, `flat-baseline`, `adaptivity`. The middleware redirects `/repos/[owner]/[repo]`
-to the structure map and lowercases the repository in the URL.
+Pages: `/` (the landing with the film), `/repos` (the dashboard), `/activity`, `/method`, `/account`,
+`/auth/sign-in`, `/auth/sign-up`, `/jobs/[jobId]`, and under `/repos/[owner]/[repo]/`: `overview` (the default),
+`knowledge-graph` (the Map), `hierarchy`, `decision-audit`, `architecture`, `flat-baseline`, `adaptivity`, `circles`.
+The middleware redirects `/repos/[owner]/[repo]` to `DEFAULT_REPO_VIEW` (`overview`, one constant shared with the job
+link) and lowercases the repository in the URL.
 
 Route handlers: `/api/auth/{session,sign-in,sign-up,sign-out}`, `/api/index`, `/api/jobs/[jobId]` and
-`/api/jobs/[jobId]/events`, `/api/quota`, `/healthz`, and `/r/*` and `/s/*`, which serve published snapshot objects
-from the local store in local mode (CloudFront serves them from the artifact bucket when hosted).
+`/api/jobs/[jobId]/events`, `/api/quota`, `/api/repos` (a paged list) and `/api/repos/[owner]/[repo]`,
+`/api/account/jobs` (the signed-in account's jobs, for Activity), `/healthz`, and `/r/*` and `/s/*`, which serve
+published snapshot objects from the local store in local mode (CloudFront serves them from the artifact bucket when
+hosted).
 
 The repository views do not read `index/`. They resolve one snapshot per page session from
 `/r/github.com/<owner>/<repo>/latest.json` and then fetch `/s/<snapshotId>/views/*.json`, which `packages/views`
-built at index time. Snapshot objects under `s/` are public and immutable by design. Layout is computed
-client-side; the blast-radius traversal runs in a Web Worker over `views/blast-radius.json`.
+built at index time. Snapshot objects under `s/` are public and immutable by design. The canvases lay out client-side
+with a seeded, stable algorithm (`packages/design/src/canvas`). The client can fetch `views/blast-radius.json`, but no
+screen reads it yet.
 
 Two long-standing descriptions of the renderer are recorded here but **not confirmed against the
 current code**: that the per-level node budget is about 20, and that client-side layout is
@@ -195,7 +223,6 @@ fixtures/            sample-java-project (its sources are tracked even though .g
 deploy/              AWS deployment as code (Terraform, box files, scripts, runbook); not a workspace
 docs/engineering/    these documents
 tsconfig.base.json   shared compiler options
-components.json      shadcn component configuration
 LICENSE / NOTICE     AGPL-3.0-or-later plus upstream attribution
 README.md
 .editorconfig

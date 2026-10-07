@@ -1,40 +1,34 @@
 # RepoHIVE web
 
-The Next.js 15 app: the hierarchical repository viewer, the account and index-request routes, and the background
-worker. It is the only frontend package; there are no separate UI, types or client packages.
+The Next.js 15 app that hosts RepoHIVE: it mounts the screens from `@repohive/design`, translates this server's
+responses onto the design package's contract, and holds the server code (accounts, quota, index requests, the
+background worker). Everything the user sees is drawn by `packages/design`; this package has no components of its own.
 
 ## Tech stack
 
 | Layer | Technology |
 |-------|------------|
 | Framework | Next.js 15 (App Router), React 19, TypeScript |
-| Styling | Tailwind CSS v4 (CSS-first), design tokens in `src/styles/globals.css` |
-| Components | Radix primitives with class-variance-authority, in `src/components/ui` |
-| Data fetching | SWR over published snapshot objects |
-| URL state | nuqs |
-| Flat baseline | Sigma, Graphology, ForceAtlas2 |
-| Icons, fonts | Lucide React, Geist Sans and Mono |
+| UI | `@repohive/design`: tokens, components, screens and canvases (plain CSS custom properties, no CSS framework) |
+| Fonts | Host Grotesk through `next/font/google` (a build needs network), Geist Mono from the `geist` package |
+| Data | The browser client in `src/features/host` over this server's endpoints and the published `/r` and `/s` objects |
 
-Dark-first. Every visual token is a CSS custom property in `src/styles/globals.css`.
+Light and dark follow the system and can be overridden. To change the look, edit the design package's tokens file; see
+`packages/design/README.md`.
 
 ## Layout
 
 ```
 src/
-  app/          routes only: pages and route handlers
-  components/   ui/ primitives, layout/ (navigation, theme), shared/ (page shell, loading state, table)
-  features/     one folder per surface
-                structure-map  knowledge-graph page: canvas engine, panels, blast-radius worker
-                hierarchy      sunburst of the group tree
-                decisions      decision model and marks, the audit page's parts
-                architecture   level flow, group matrix, determinism panel
-                adaptivity     preserve/reconstruct comparison
-                flat-baseline  the whole repository as one unstructured graph
-                repository     URL parsing, snapshot session, breadcrumb, repository list
-                account        sign-in and sign-up, sidebar account panel, index request, quota dialog
-  lib/          cn, theme tokens, site origin
-  server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting, telemetry, health
-  styles/       globals.css
+  app/          routes only
+                (own)/    the app frame: dashboard, activity, method, account, jobs, repository views
+                (bare)/   the landing at / and the sign-in and sign-up pages, without the frame
+                api/, r/, s/, healthz/   route handlers
+  features/     host/ (translation layer: browser client, snapshot state, shells), canvas-views/ (route components
+                for the five canvas views), repository/ (URL parsing, default view, store helpers)
+  lib/          site origin
+  server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting, telemetry, health,
+                repositories, host (translation contract test), views (adapter tests)
 scripts/        local launcher, seed, worker entry, end-to-end script
 config/         local.env
 ```
@@ -46,13 +40,19 @@ middleware, and `client` (jsdom) for everything else.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Dashboard: request an index, indexed repositories as cards |
+| `/` | Landing page with the film |
+| `/repos` | Dashboard: request an index, indexed repositories as cards |
+| `/activity` | The signed-in account's jobs |
+| `/method` | How RepoHIVE decides, in long form |
+| `/account` | Session and allowance |
 | `/jobs/[jobId]` | Follow an index job |
-| `/auth/sign-in`, `/auth/sign-up` | Standalone account pages (no sidebar); quota and sign-out live in the sidebar |
-| `/repos/[owner]/[repo]/knowledge-graph` | Structure map (the default view) |
+| `/auth/sign-in`, `/auth/sign-up` | Standalone account pages (no frame) |
+| `/repos/[owner]/[repo]` | Redirects to `overview` (`DEFAULT_REPO_VIEW`) |
+| `/repos/[owner]/[repo]/overview` | The repository in figures (the default view) |
+| `/repos/[owner]/[repo]/knowledge-graph` | The Map |
 | `/repos/[owner]/[repo]/hierarchy`, `decision-audit`, `architecture` | The built hierarchy and its recorded decisions |
-| `/repos/[owner]/[repo]/flat-baseline`, `adaptivity` | The flat comparison and the preserve rate |
-| `/api/auth/*`, `/api/index`, `/api/jobs/*`, `/api/quota`, `/healthz` | Route handlers |
+| `/repos/[owner]/[repo]/flat-baseline`, `adaptivity`, `circles` | The flat comparison, the preserve rate, the circle graph |
+| `/api/auth/*`, `/api/index`, `/api/jobs/*`, `/api/quota`, `/api/repos`, `/api/repos/[owner]/[repo]`, `/api/account/jobs`, `/healthz` | Route handlers |
 | `/r/*`, `/s/*` | Published snapshot objects (local store in local mode; CloudFront when hosted) |
 
 ## Background worker and SQLite backup

@@ -120,6 +120,30 @@ The `ui`, `types` and `api-client` packages are gone; their surviving code and t
 `parser` 235 pass and 1 skipped (236), `engine` 76 / 76, `indexer` 192 / 192. The numbers in the two paragraphs above
 no longer apply to `web`.
 
+Re-measured 2026-10-07 21:03 on `server-ts-own-id`, Windows 11, Node v24.21.0, warm, after the old viewer UI was
+removed: `@repohive/design` 492 / 492 in 41 files (`tsc --noEmit`, then Vitest; it includes the tokens-only gate),
+`@repohive/web` 209 passed and 2 skipped in 30 files (it includes the end-to-end script, "e2e: all passed"),
+and `npm run type-check --workspace @repohive/web` exit 0. `next build` was not re-run in that session.
+
+### Gates for the design package
+
+- **`npm test --workspace @repohive/design`** runs `tsc --noEmit` (which checks the type tests that pin the contract to
+  the servers' and view builders' types) and then Vitest. It needs the root build first, because the contract imports
+  types from the `dist/` of `@repohive/views` and `@repohive/indexer`.
+- **The tokens-only gate** (`src/gates/tokens-only.test.ts`) fails on a literal colour, font family or font size
+  outside `src/styles/tokens.css`. A failure is a defect in the change, not a test to loosen.
+- **jsdom cannot show what a browser does.** It has no layout and no CSS custom properties, so OKLCH tokens, the
+  canvas colour resolver and real layout are covered only by the browser checks below.
+
+### Browser checks (UI changes)
+
+A passing suite is not evidence that a screen looks right. For a change to a screen, build and start the app, then open
+it in headless Chrome at 1440 wide and at 390 wide, in light and dark, in each state the screen has (empty, loading,
+error, selected). Read the captures; do not only take them. The side-by-side comparison against the reference
+artifacts and the list of accepted differences are kept in `context/specs/own-identity/deviations.md`. A difference
+that is not listed there is a defect. State which repository the capture used: the earlier captures used the
+38-node `sample-java-project`, not Broadleaf, so no screen has been seen on a large repository.
+
 ### Known failures. Confirm these are the only ones
 
 1. **`parser` → `src/source-collector.test.ts` → "a path that cannot become a node id is reported and

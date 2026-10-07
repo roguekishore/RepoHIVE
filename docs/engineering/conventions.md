@@ -32,6 +32,23 @@ that needs an explicit decision recorded in `context/decisions/`.
 Consumers join groups to decisions via `regionId` / `ordinal` / `groupIds`. Never reconstruct that
 relationship from paths or package prefixes.
 
+## Design
+
+Applies to `packages/design`.
+
+- **Tokens only.** Every colour, font family, size, radius, spacing step and motion value is a custom property in
+  `src/styles/tokens.css`. `src/gates/tokens-only.test.ts` fails on a literal anywhere else. Change the design system
+  by editing that file, not a component.
+- **Canvases are deterministic.** Layout is seeded and stable: no `Math.random`, no clock, and ties broken by a hash of
+  the item's key, never input order. Identical input gives identical pixels. Colours come from the palette at run
+  time (`useCanvasPalette`) and repaint on a theme change.
+- **Show recorded values only.** Never display a number the engine did not record, and never compute a metric in the
+  browser to fill a gap. A field the host cannot supply is optional in the contract and the screen hides it.
+- **Kept versus rebuilt is never colour alone.** Kept is a solid outline, rebuilt a dashed outline in plum, and
+  unassessed a third neutral state.
+- **Dependency direction.** `packages/web` imports `@repohive/design`, never the reverse, and `design` imports nothing
+  from Next.js.
+
 ## Package boundaries
 
 Engine (`parser`, `core`, `shared`) must not import from ecosystem packages (`web`, `views`,
