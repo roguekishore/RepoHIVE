@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_REPO_VIEW } from "@/features/repository/default-view";
 import { config, middleware } from "./middleware";
 
 function run(url: string) {
@@ -34,11 +35,11 @@ describe("repo URL rules", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it("redirects the repo root to the default surface, keeping the query", () => {
+  it("redirects the repo root to the default view, keeping the query", () => {
     const response = run("http://localhost:3000/repos/owner/repo?snapshot=0123456789abcdef0123456789abcdef");
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/repos/owner/repo/knowledge-graph?snapshot=0123456789abcdef0123456789abcdef",
+      `http://localhost:3000/repos/owner/repo/${DEFAULT_REPO_VIEW}?snapshot=0123456789abcdef0123456789abcdef`,
     );
   });
 
