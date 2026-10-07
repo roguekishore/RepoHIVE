@@ -131,3 +131,20 @@ export function sortCards(
     return a.time === b.time ? byId(a, b) : a.time < b.time ? 1 : -1;
   });
 }
+
+/** Cards drawn at once. A thousand cards, each reading its own snapshot, made the page lag. */
+export const DASHBOARD_PAGE_SIZE = 24;
+
+export interface CardPage<T> {
+  /** The page shown, 1 based and clamped into `1..pageCount`. */
+  readonly page: number;
+  readonly pageCount: number;
+  readonly items: readonly T[];
+}
+
+/** One page of a list; a page past the end shows the last one, and an empty list is one empty page. */
+export function paginate<T>(items: readonly T[], page: number, size: number = DASHBOARD_PAGE_SIZE): CardPage<T> {
+  const pageCount = Math.max(1, Math.ceil(items.length / size));
+  const current = Math.min(Math.max(1, Math.floor(Number.isFinite(page) ? page : 1)), pageCount);
+  return { page: current, pageCount, items: items.slice((current - 1) * size, current * size) };
+}

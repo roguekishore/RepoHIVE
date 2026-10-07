@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { Dashboard, useClient, type JobList, type RepositoryListItem } from "@repohive/design";
 import { PageFrame } from "@/features/host/frame-slot";
 
-/** Reads every page of the repository list (50 a page), then the signed-in account's jobs when there is a session. */
+/**
+ * Reads every page of the repository list (50 a page, the rest after the first in parallel), then the signed-in
+ * account's jobs when there is a session. The list rows are small; the dashboard draws them a page at a time.
+ */
 export function DashboardRoute() {
   const client = useClient();
   const [repositories, setRepositories] = useState<readonly RepositoryListItem[] | undefined>();
@@ -16,10 +19,10 @@ export function DashboardRoute() {
     void (async () => {
       try {
         const first = await client.listRepositories(1);
-        const items = [...first.items];
-        for (let page = 2; page <= first.totalPages; page += 1) {
-          items.push(...(await client.listRepositories(page)).items);
-        }
+        const rest = await Promise.all(
+          Array.from({ length: Math.max(0, first.totalPages - 1) }, (_, index) => client.listRepositories(index + 2)),
+        );
+        const items = [...first.items, ...rest.flatMap((next) => next.items)];
         if (live) setRepositories(items);
       } catch (cause) {
         if (live) setError(cause instanceof Error ? cause.message : "The repository list could not be read.");

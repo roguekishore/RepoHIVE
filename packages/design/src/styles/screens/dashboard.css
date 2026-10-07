@@ -42,6 +42,14 @@
   grid-column: 1 / -1;
 }
 
+.rh-root .rh-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rh-space-4);
+  padding-top: var(--rh-space-4);
+}
+
 .rh-root .rh-rcard {
   position: relative;
   display: flex;
