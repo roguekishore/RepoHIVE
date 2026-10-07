@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Runs on the box as repohive-env.service. Renders the environment files
+# of the app and Caddy under /run/repohive/ (tmpfs, mode 0600) from the non-secret settings in
+# /etc/repohive/box.env and the SecureString parameters under /repohive/. A secret is never printed, never an
+# argument, and never written anywhere but those files.
+set -euo pipefail
+umask 077
+
+BOX_ENV=/etc/repohive/box.env
+OUT_DIR=/run/repohive
+
+# box.env is KEY=VALUE lines written by cloud-init from Terraform; it is read, not sourced.
+declare -A box
+while IFS= read -r line || [[ -n "${line}" ]]; do
+  [[ -z "${line}" || "${line}" == \#* ]] && continue
+  box["${line%%=*}"]="${line#*=}"
+done <"${BOX_ENV}"
+
+need() {
+  [[ -n "${box[$1]:-}" ]] || {
+    printf 'repohive-env: %s is not set in %s\n' "$1" "${BOX_ENV}" >&2
+    exit 1
+  }
+}
+for key in AWS_REGION SITE_DOMAIN ORIGIN_DOMAIN ARTIFACT_BUCKET LEDGER_TABLE STATE_MACHINE_ARN \
+  RATE_LIMIT_PER_MINUTE RATE_LIMIT_API_POST_PER_MINUTE WEB_NODE_HEAP_MB WORKER_NODE_HEAP_MB; do
+  need "${key}"
+done
+
+# --with-decryption output goes into a variable, never to the terminal or the journal.
+read_parameter() {
+  aws --region "${box[AWS_REGION]}" ssm get-parameter --name "$1" --with-decryption \
+    --query Parameter.Value --output text
+}
+github_token="$(read_parameter /repohive/github-token)"
+origin_secret="$(read_parameter /repohive/origin-secret)"
+
+mkdir -p "${OUT_DIR}"
+
+# The settings the web configuration validates (packages/web/src/lib/hosting/config.ts).
+app_settings() {
+  printf '%s\n' \
+    "REPOHIVE_MODE=hosted" \
+    "REPOHIVE_SITE_ORIGIN=https://${box[SITE_DOMAIN]}" \
+    "REPOHIVE_DATA_DIR=/var/lib/repohive/data" \
+    "REPOHIVE_STORE=s3:${box[ARTIFACT_BUCKET]}" \
+    "REPOHIVE_LEDGER=dynamodb:${box[LEDGER_TABLE]}" \
+    "REPOHIVE_ORCHESTRATOR=sfn:${box[STATE_MACHINE_ARN]}" \
+    "REPOHIVE_CLIENT_IP_HEADER=X-RepoHIVE-Client-IP" \
+    "AWS_REGION=${box[AWS_REGION]}" \
+    "NODE_ENV=production"
+  printf 'REPOHIVE_GITHUB_TOKEN=%s\n' "${github_token}"
+}
+
+write_file() {
+  local name="$1" tmp
+  tmp="$(mktemp "${OUT_DIR}/.${name}.XXXXXX")"
+  cat >"${tmp}"
+  chmod 0600 "${tmp}"
+  mv -f "${tmp}" "${OUT_DIR}/${name}"
+}
+
+{
+  app_settings
+  printf '%s\n' "PORT=3000" "HOSTNAME=127.0.0.1" "NODE_OPTIONS=--max-old-space-size=${box[WEB_NODE_HEAP_MB]}"
+} | write_file web.env
+
+{
+  app_settings
+  printf '%s\n' "NODE_OPTIONS=--max-old-space-size=${box[WORKER_NODE_HEAP_MB]}"
+} | write_file worker.env
+
+printf '%s\n' \
+  "ORIGIN_DOMAIN=${box[ORIGIN_DOMAIN]}" \
+  "SITE_DOMAIN=${box[SITE_DOMAIN]}" \
+  "RATE_LIMIT_PER_MINUTE=${box[RATE_LIMIT_PER_MINUTE]}" \
+  "RATE_LIMIT_API_POST_PER_MINUTE=${box[RATE_LIMIT_API_POST_PER_MINUTE]}" \
+  "ORIGIN_SECRET=${origin_secret}" | write_file caddy.env
+
+printf 'repohive-env: wrote web.env, worker.env and caddy.env\n'
