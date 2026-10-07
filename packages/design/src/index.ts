@@ -11,6 +11,9 @@ export { domColorSource, luminance, mixColors, oklabToRgb, parseColor, readPalet
 export type { CanvasPalette, ColorSource, Rgba } from "./canvas/colors";
 export { useCanvasPalette } from "./canvas/use-canvas-palette";
 
+// Canvas base: camera, deterministic layout, hit testing, the controller and its hook (see canvas/index.ts)
+export * from "./canvas/index";
+
 // Theme, provider, toast
 export { THEME_STORAGE_KEY, ThemeProvider, applyTheme, isThemePreference, themeInitScript, useTheme } from "./theme/theme";
 export type { ThemePreference, ThemeStorage } from "./theme/theme";
