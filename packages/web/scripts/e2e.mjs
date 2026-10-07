@@ -8,6 +8,7 @@
  * refund (second server pass with `REPOHIVE_LOCAL_JOB_INJECT_FAILURE=system`).
  */
 import { spawn } from "node:child_process";
+import http from "node:http";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -136,6 +137,18 @@ async function jsonGet(pathname, cookie = "") {
   return { response, body };
 }
 
+/** A GET with exact request headers (fetch will not send a chosen Host), reporting the status and `Location`. */
+function rawGet(pathname, headers) {
+  return new Promise((resolve, reject) => {
+    const request = http.request({ host: "127.0.0.1", port: Number(port), path: pathname, method: "GET", headers }, (response) => {
+      response.resume();
+      response.on("end", () => resolve({ status: response.statusCode, location: response.headers.location }));
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 async function waitForJobTerminal(jobId, cookie, timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -237,6 +250,21 @@ async function runHappyPath(scratch) {
     );
     const missing = await jsonGet("/api/repos/local/never-indexed");
     assert(missing.response.status === 404 && missing.body.code === "NOT_FOUND", "unindexed repository is a 404");
+
+    // Repository URL redirects go to the host the visitor used (behind the proxy the server's own address is localhost).
+    const proxied = { Host: "repohive.test", "X-Forwarded-Proto": "https" };
+    const toDefault = await rawGet("/repos/local/sample-java-project", proxied);
+    assert(
+      toDefault.status === 307 && toDefault.location === "https://repohive.test/repos/local/sample-java-project/overview",
+      "the repository root must redirect to the overview on the visitor's host",
+      toDefault,
+    );
+    const toLower = await rawGet("/repos/Local/Sample-Java-Project/overview", proxied);
+    assert(
+      toLower.status === 308 && toLower.location === "https://repohive.test/repos/local/sample-java-project/overview",
+      "an uppercase repository URL must redirect to the lowercase one on the visitor's host",
+      toLower,
+    );
 
     // The account's job list: signed out is a 401; signed in holds the job just run, in the contract's shape.
     const jobsOut = await jsonGet("/api/account/jobs");

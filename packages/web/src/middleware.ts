@@ -17,12 +17,25 @@ import { needsLowercase, parseRepoParams } from "@/features/repository/repo-name
  * This replaces the old `/api/*` proxy middleware.
  */
 /**
- * A redirect with a relative `Location`. `NextResponse.redirect` needs an absolute URL, and behind the proxy the
- * standalone server builds `request.nextUrl` from its own bind address, so a cloned URL sent visitors to
- * `https://localhost:3000/...`. A relative `Location` is resolved by the browser against the host it used.
+ * The origin the visitor used. Behind the proxy the standalone server builds `request.nextUrl` from its own bind
+ * address, which sent visitors to `https://localhost:3000/...`. Caddy sets `Host` to the site domain itself, so it is
+ * not the visitor's to choose; `X-Forwarded-Host` is not read because CloudFront passes a visitor's copy through.
  */
+function publicOrigin(request: NextRequest): string {
+  const host = request.headers.get("host");
+  const forwarded = (request.headers.get("x-forwarded-proto") ?? "").split(",")[0]?.trim();
+  const protocol = forwarded === "http" || forwarded === "https" ? forwarded : request.nextUrl.protocol.replace(":", "");
+  if (host === null || host === "") return request.nextUrl.origin;
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return request.nextUrl.origin;
+  }
+}
+
+/** A redirect to another path on the same site, keeping the query. The middleware adapter needs an absolute `Location`. */
 function redirectTo(request: NextRequest, pathname: string, status: 307 | 308) {
-  return new NextResponse(null, { status, headers: { Location: `${pathname}${request.nextUrl.search}` } });
+  return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin(request)), status);
 }
 
 export function middleware(request: NextRequest) {
