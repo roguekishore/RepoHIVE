@@ -374,6 +374,10 @@
   min-width: 0;
 }
 
+.rh-panel-body-tight {
+  padding-block: var(--rh-space-1);
+}
+
 .rh-kv {
   display: grid;
   grid-template-columns: minmax(0, auto) minmax(0, 1fr);

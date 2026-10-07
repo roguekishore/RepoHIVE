@@ -213,15 +213,34 @@
 
 .rh-job-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--rh-space-4);
   align-items: start;
 }
 
-@media (max-width: 900px) {
+.rh-job-grid > .rh-job-stages {
+  grid-column: span 2;
+}
+
+@media (max-width: 1000px) {
   .rh-job-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .rh-job-grid > .rh-job-stages {
+    grid-column: auto;
+  }
+}
+
+.rh-job-figs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rh-space-4);
+}
+
+.rh-job-figs > div {
+  display: grid;
+  gap: var(--rh-space-1);
 }
 
 .rh-stepper {
@@ -280,14 +299,8 @@
 }
 
 .rh-step-fail .rh-step-ic {
-  border-color: var(--rh-fg);
-  background: var(--rh-fg);
-}
-
-.rh-step-fail .rh-step-ic::after {
-  content: "×";
-  color: var(--rh-surface);
-  font-size: var(--rh-fs-label);
+  border-color: var(--rh-err);
+  background: var(--rh-err);
 }
 
 .rh-stepper li.rh-step-pending {

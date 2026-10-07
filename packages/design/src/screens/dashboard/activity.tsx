@@ -78,7 +78,11 @@ function ProgressCell({ job }: { job: JobListItem }): ReactNode {
       </Text>
     );
   }
-  return <Text role="caption" tone="subtle">Published</Text>;
+  return (
+    <div className="rh-bar rh-act-bar">
+      <i className="rh-bar-kept" style={{ width: "100%" }} />
+    </div>
+  );
 }
 
 /**
@@ -113,7 +117,7 @@ export function Activity({ Frame, jobs, signedIn, error, now: nowProp }: Activit
       header: "State",
       render: (job) => <StatusTag tone={jobTone(job.state)}>{jobStateWord(job.state)}</StatusTag>,
     },
-    { key: "progress", header: "Progress", render: (job) => <ProgressCell job={job} /> },
+    { key: "progress", header: "Progress", width: "22%", render: (job) => <ProgressCell job={job} /> },
     {
       key: "files",
       header: "Files",
@@ -183,13 +187,15 @@ export function Activity({ Frame, jobs, signedIn, error, now: nowProp }: Activit
       </EmptyState>
     );
   } else {
+    const weekAgo = now.getTime() - 7 * 86_400_000;
+    const thisWeek = items.filter((job) => new Date(job.requestedAt).getTime() >= weekAgo).length;
     const finished = items.filter((job) => job.state === "succeeded").length;
     const active = items.filter(isInProgress).length;
     const failed = items.filter((job) => job.state === "failed").length;
     body = (
       <>
         <div className="rh-act-figs">
-          <Figure value={items.length} label="jobs listed" />
+          <Figure value={thisWeek} label="requests this week" />
           <Figure value={finished} label="finished" />
           <Figure value={active} label="in progress" />
           <Figure value={failed} label="failed" />
