@@ -8,6 +8,7 @@
  */
 import {
   JOB_STATES,
+  SIZE_TIERS,
   type ActionResult,
   type ApiError,
   type ArchitectureLevelView,
@@ -17,6 +18,8 @@ import {
   type Job,
   type JobEvent,
   type JobEventData,
+  type JobList,
+  type JobListItem,
   type JobProgress,
   type JobState,
   type Quota,
@@ -26,6 +29,7 @@ import {
   type RepositoryPage,
   type RepositorySummary,
   type Session,
+  type SizeTier,
   type SnapshotManifest,
   type SnapshotPointer,
   type ViewBodies,
@@ -128,6 +132,50 @@ function toJobBody(body: Json, fallbackRepo: string): Job | undefined {
           },
         }),
   };
+}
+
+function isSizeTier(value: unknown): value is SizeTier {
+  return typeof value === "string" && (SIZE_TIERS as readonly string[]).includes(value);
+}
+
+/** One entry of `GET /api/account/jobs`; an entry that is not understood is skipped by {@link toJobList}. */
+function toJobListItem(value: unknown): JobListItem | undefined {
+  if (!isRecord(value)) return undefined;
+  const jobId = str(value.jobId);
+  const repo = str(value.repo);
+  const requestedAt = str(value.requestedAt);
+  if (jobId === undefined || repo === undefined || requestedAt === undefined) return undefined;
+  if (!isJobState(value.state) || !isSizeTier(value.tier)) return undefined;
+  const endedAt = str(value.endedAt);
+  const progress = toProgress(value.progress);
+  const snapshotId = isRecord(value.result) ? str(value.result.snapshotId) : undefined;
+  const failureCode = isRecord(value.failure) ? str(value.failure.code) : undefined;
+  const failureMessage = isRecord(value.failure) ? str(value.failure.message) : undefined;
+  return {
+    jobId,
+    repo,
+    state: value.state,
+    tier: value.tier,
+    requestedAt,
+    ...(endedAt === undefined ? {} : { endedAt }),
+    ...(progress === undefined ? {} : { progress }),
+    ...(snapshotId === undefined ? {} : { result: { snapshotId } }),
+    ...(failureCode === undefined
+      ? {}
+      : {
+          failure: {
+            code: failureCode,
+            ...(failureMessage === undefined || failureMessage === failureCode ? {} : { message: failureMessage }),
+          },
+        }),
+  };
+}
+
+function toJobList(body: unknown): JobList {
+  if (isRecord(body) && Array.isArray(body.items)) {
+    return { items: body.items.map(toJobListItem).filter((item): item is JobListItem => item !== undefined) };
+  }
+  throw new Error("The job list is not understood.");
 }
 
 function toEventData(fallbackJobId: string, raw: unknown): JobEventData | undefined {
@@ -383,6 +431,13 @@ export function createBrowserClient(options: BrowserClientOptions = {}): Contrac
         onError(new Error("The progress stream was interrupted."));
       };
       return end;
+    },
+
+    async jobs(): Promise<JobList | undefined> {
+      const response = await doFetch("/api/account/jobs");
+      if (response.status === 401) return undefined;
+      if (!response.ok) throw new Error(apiError(await readJson(response)).message);
+      return toJobList(await readJson(response));
     },
 
     async listRepositories(page?: number): Promise<RepositoryPage> {

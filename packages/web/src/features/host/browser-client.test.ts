@@ -227,6 +227,51 @@ class FakeEventSource {
   }
 }
 
+describe("jobs", () => {
+  const entry = {
+    jobId: "j1",
+    repo: "github.com/acme/widgets",
+    state: "parsing",
+    tier: "M",
+    requestedAt: "2026-10-07T09:41:00.000Z",
+    progress: { stage: "parsing", completed: 10, total: 40 },
+  };
+
+  it("reads the account's jobs in the order given, with each recorded field", async () => {
+    const { client, calls } = clientFor({
+      "/api/account/jobs": () =>
+        json({
+          items: [
+            entry,
+            { ...entry, jobId: "j2", state: "succeeded", endedAt: "2026-10-07T09:50:00.000Z", result: { snapshotId: SNAPSHOT }, progress: undefined },
+            { ...entry, jobId: "j3", state: "failed", failure: { code: "CLONE_TIMEOUT", message: "CLONE_TIMEOUT" }, progress: undefined },
+          ],
+        }),
+    });
+    const list = await client.jobs();
+    expect(calls.map((call) => call.url)).toEqual(["/api/account/jobs"]);
+    expect(list?.items.map((item) => item.jobId)).toEqual(["j1", "j2", "j3"]);
+    expect(list?.items[0]).toEqual(entry);
+    expect(list?.items[1]).toMatchObject({ endedAt: "2026-10-07T09:50:00.000Z", result: { snapshotId: SNAPSHOT } });
+    // The ledger keeps the code only, so a message that repeats it is dropped.
+    expect(list?.items[2]?.failure).toEqual({ code: "CLONE_TIMEOUT" });
+  });
+
+  it("is undefined when signed out", async () => {
+    const { client } = clientFor({ "/api/account/jobs": () => json({ code: "UNAUTHENTICATED", message: "x" }, 401) });
+    expect(await client.jobs()).toBeUndefined();
+  });
+
+  it("skips an entry it does not understand and rejects a body that is not a list", async () => {
+    const some = clientFor({ "/api/account/jobs": () => json({ items: [entry, { ...entry, tier: "XXL" }, { ...entry, state: "done" }, 7] }) });
+    expect((await some.client.jobs())?.items).toHaveLength(1);
+    const bad = clientFor({ "/api/account/jobs": () => json({ nope: true }) });
+    await expect(bad.client.jobs()).rejects.toThrow("not understood");
+    const down = clientFor({ "/api/account/jobs": () => json({ code: "X", message: "Down." }, 500) });
+    await expect(down.client.jobs()).rejects.toThrow("Down.");
+  });
+});
+
 describe("watchJob", () => {
   function watch() {
     const source = { current: undefined as FakeEventSource | undefined };

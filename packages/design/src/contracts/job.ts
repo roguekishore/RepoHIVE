@@ -49,3 +49,30 @@ export interface JobEvent {
   readonly event: "progress" | "done";
   readonly data: JobEventData;
 }
+
+/** The size classes a job runs under, smallest first (the indexer's tiers). */
+export const SIZE_TIERS = ["S", "M", "L", "XL"] as const;
+
+export type SizeTier = (typeof SIZE_TIERS)[number];
+
+/** One job in the signed-in account's list: the ledger's record of it, in the shapes the other job types use. */
+export interface JobListItem {
+  readonly jobId: string;
+  /** `github.com/<owner>/<repo>`, lowercase, as in {@link Job.repo}. */
+  readonly repo: string;
+  readonly state: JobState;
+  /** The size class the request was admitted under. */
+  readonly tier: SizeTier;
+  /** ISO-8601 UTC: when the job was recorded. */
+  readonly requestedAt: string;
+  /** ISO-8601 UTC: present once the job has ended. */
+  readonly endedAt?: string;
+  readonly progress?: JobProgress;
+  readonly result?: { readonly snapshotId: string };
+  readonly failure?: JobFailure;
+}
+
+/** `GET /api/account/jobs`: the signed-in account's jobs, newest first. Signed out answers 401, and the client `undefined`. */
+export interface JobList {
+  readonly items: readonly JobListItem[];
+}

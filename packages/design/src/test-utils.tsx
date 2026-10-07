@@ -49,6 +49,7 @@ export function stubClient(overrides: Partial<ContractClient> = {}): ContractCli
     requestIndex: reject("requestIndex"),
     job: reject("job"),
     watchJob: () => () => undefined,
+    jobs: reject("jobs"),
     listRepositories: reject("listRepositories"),
     repository: reject("repository"),
     snapshotPointer: reject("snapshotPointer"),

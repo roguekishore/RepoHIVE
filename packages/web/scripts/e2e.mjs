@@ -237,6 +237,25 @@ async function runHappyPath(scratch) {
     );
     const missing = await jsonGet("/api/repos/local/never-indexed");
     assert(missing.response.status === 404 && missing.body.code === "NOT_FOUND", "unindexed repository is a 404");
+
+    // The account's job list: signed out is a 401; signed in holds the job just run, in the contract's shape.
+    const jobsOut = await jsonGet("/api/account/jobs");
+    assert(jobsOut.response.status === 401 && jobsOut.body.code === "UNAUTHENTICATED", "signed-out job list must be a 401");
+    const jobs = await jsonGet("/api/account/jobs", cookie);
+    assert(jobs.response.status === 200, "job list status", { status: jobs.response.status, body: jobs.body });
+    assert(jobs.response.headers.get("cache-control") === "no-store", "job list must not be cached");
+    const mine = Array.isArray(jobs.body.items) ? jobs.body.items.find((entry) => entry.jobId === jobId) : undefined;
+    assert(mine !== undefined, "the job just run is missing from /api/account/jobs", { body: jobs.body });
+    assert(
+      mine.state === "succeeded" &&
+        mine.repo.endsWith("local/sample-java-project") &&
+        /^(S|M|L|XL)$/.test(mine.tier) &&
+        typeof mine.requestedAt === "string" &&
+        typeof mine.endedAt === "string" &&
+        /^[0-9a-f]{32}$/.test(mine.result?.snapshotId ?? ""),
+      "job list item shape",
+      { mine },
+    );
   } finally {
     stack.stop();
     await sleep(2000);
