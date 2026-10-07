@@ -19,6 +19,8 @@ const SERVER_RUNTIME_PACKAGES = new Set(["@repohive/indexer", "@repohive/engine"
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // `@repohive/design` ships TypeScript source and CSS, so Next compiles it with the app.
+  transpilePackages: ["@repohive/design"],
   async headers() {
     return [{ source: "/:path*", headers: [...APP_SECURITY_HEADERS] }];
   },

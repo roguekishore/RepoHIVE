@@ -23,6 +23,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@repohive/core": "*",
+    "@repohive/design": "*",
     "@repohive/indexer": "*",
     "@repohive/views": "*",
     "@tanstack/react-virtual": "^3.13.12",

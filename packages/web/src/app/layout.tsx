@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Lora } from "next/font/google";
+import { Host_Grotesk, Lora } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/theme-provider";
@@ -12,6 +12,15 @@ import "@/styles/globals.css";
 
 // Serif display face for the docs/wiki reading surfaces (--font-serif token).
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap" });
+
+// The face of the new identity (`@repohive/design`; its tokens.css reads `--font-host-grotesk`). The mono face is Geist
+// Mono from the `geist` package above, which sets `--font-geist-mono`.
+const hostGrotesk = Host_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-host-grotesk",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -27,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${lora.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${lora.variable} ${hostGrotesk.variable}`}
     >
       <body className="bg-[var(--color-bg-root)] text-[var(--color-text-primary)] antialiased">
         <ThemeProvider>
