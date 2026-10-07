@@ -3,6 +3,7 @@ import { GeistMono } from "geist/font/mono";
 import { Host_Grotesk } from "next/font/google";
 import { themeInitScript } from "@repohive/design";
 import "./reset.css";
+import "@repohive/design/styles.css";
 
 // The face of the identity (`@repohive/design`; its tokens.css reads `--font-host-grotesk`). The mono face is Geist
 // Mono from the `geist` package, which sets `--font-geist-mono`.
