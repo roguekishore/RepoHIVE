@@ -1,0 +1,77 @@
+# syntax=docker/dockerfile:1
+#
+# The app release bundle: everything the box runs, built for linux/arm64.
+# Built from the repository root by deploy/scripts/build-app-release.sh, which exports the `release` stage
+# as a directory and tars it:
+#
+#   docker buildx build --platform linux/arm64 --provenance=false -f deploy/box/Dockerfile.release \
+#     --target release --build-arg GIT_SHA=<sha> --output type=local,dest=<dir> .
+#
+# The images below are the multi-arch index digests read from Docker Hub. This file has never
+# been built; the first build is the first Linux check of the standalone output (see verify-app-tree.sh).
+
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+ARG GO_IMAGE=golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d
+
+# --- Caddy: 2.11.6 with its two modules, built by a pinned xcaddy -------------------
+FROM --platform=linux/arm64 ${GO_IMAGE} AS caddy
+ARG XCADDY_VERSION=v0.4.7
+ARG CADDY_VERSION=v2.11.6
+ARG RATELIMIT_VERSION=v0.1.0
+ARG CLOUDFRONT_VERSION=v0.0.0-20240604042247-0a0864e80f1c
+ENV CGO_ENABLED=0
+RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
+ && xcaddy build ${CADDY_VERSION} \
+      --with github.com/mholt/caddy-ratelimit@${RATELIMIT_VERSION} \
+      --with github.com/xcaddyplugins/caddy-trusted-cloudfront@${CLOUDFRONT_VERSION} \
+      --output /out/caddy
+
+# --- production dependencies: the web app and the indexer packages it loads at run time ----------------
+FROM --platform=linux/arm64 ${NODE_IMAGE} AS prod-modules
+WORKDIR /repo
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages ./packages
+RUN npm ci --omit=dev --ignore-scripts --workspace @repohive/web --include-workspace-root
+
+# --- the app: compile the engine packages, then the Next.js standalone build -----------------------------
+FROM --platform=linux/arm64 ${NODE_IMAGE} AS app
+WORKDIR /repo
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages ./packages
+RUN npm ci --ignore-scripts \
+ && npm run build \
+ && npm run build --workspace @repohive/web
+
+# --- assemble the bundle -------------------------------------------------------------------------------------------
+FROM --platform=linux/arm64 ${NODE_IMAGE} AS assemble
+ARG GIT_SHA=unknown
+WORKDIR /repo
+COPY --from=app /repo/packages /repo/packages
+COPY --from=prod-modules /repo/node_modules /prod-modules
+COPY --from=caddy /out/caddy /out/bin/caddy
+COPY deploy/box/Caddyfile deploy/box/logrotate-repohive deploy/box/amazon-cloudwatch-agent.json /out/box/
+COPY deploy/box/systemd /out/box/systemd
+COPY deploy/box/bin /out/box/bin
+COPY deploy/box/verify-app-tree.sh /verify-app-tree.sh
+
+RUN set -eux; \
+    cp /usr/local/bin/node /out/bin/node; \
+    mkdir -p /out/app; \
+    cp -a packages/web/.next/standalone/. /out/app/; \
+    mkdir -p /out/app/packages/web/.next; \
+    cp -a packages/web/.next/static /out/app/packages/web/.next/static; \
+    if [ -d packages/web/public ]; then cp -a packages/web/public /out/app/packages/web/public; fi; \
+    cp -a packages/web/src packages/web/scripts packages/web/package.json /out/app/packages/web/; \
+    mkdir -p /out/app/node_modules; \
+    cp -a -n /prod-modules/. /out/app/node_modules/; \
+    for p in shared parser core engine views indexer; do \
+      rm -rf "/out/app/node_modules/@repohive/$p"; \
+      mkdir -p "/out/app/node_modules/@repohive/$p"; \
+      cp -r "packages/$p/package.json" "packages/$p/dist" "/out/app/node_modules/@repohive/$p/"; \
+    done; \
+    printf '%s\n' "${GIT_SHA}" > /out/VERSION; \
+    sh /verify-app-tree.sh /out
+
+FROM scratch AS release
+COPY --from=assemble /out /
