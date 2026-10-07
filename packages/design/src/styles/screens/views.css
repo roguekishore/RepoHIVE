@@ -474,3 +474,85 @@
   flex-wrap: wrap;
   gap: var(--rh-space-2);
 }
+
+/* ---------- Adaptivity ---------- */
+
+.rh-ad-stack {
+  display: grid;
+  gap: var(--rh-space-4);
+  align-content: start;
+}
+
+.rh-ad-rebuilt-bar {
+  fill: var(--rh-rebuilt);
+  fill-opacity: 0.55;
+  stroke: var(--rh-rebuilt);
+  stroke-width: var(--rh-border);
+  stroke-dasharray: 3 2;
+}
+
+.rh-ad-cover {
+  display: flex;
+  height: var(--rh-space-3);
+  background: var(--rh-sunken);
+  border-radius: var(--rh-radius);
+  overflow: hidden;
+}
+
+.rh-ad-cover i {
+  display: block;
+  height: 100%;
+}
+
+.rh-ad-cover-assessed {
+  background: var(--rh-fg-2);
+}
+
+.rh-ad-cover-small {
+  background: transparent;
+  border: var(--rh-border) dashed var(--rh-line-strong);
+}
+
+.rh-ad-compare {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.rh-ad-compare li {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) 64px;
+  gap: var(--rh-space-3);
+  align-items: center;
+  padding-block: var(--rh-space-2);
+  border-top: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-ad-compare li:first-child {
+  border-top: 0;
+}
+
+.rh-ad-axis {
+  display: block;
+  height: var(--rh-space-3);
+  background: var(--rh-sunken);
+  border-radius: var(--rh-radius);
+  overflow: hidden;
+}
+
+.rh-ad-axis i {
+  display: block;
+  height: 100%;
+  background: var(--rh-fg-2);
+}
+
+@media (max-width: 640px) {
+  .rh-ad-compare li {
+    grid-template-columns: minmax(0, 1fr) 64px;
+  }
+
+  .rh-ad-axis {
+    grid-column: 1 / -1;
+  }
+}
