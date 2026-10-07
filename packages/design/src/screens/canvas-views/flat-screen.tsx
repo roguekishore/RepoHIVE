@@ -9,6 +9,7 @@ import { Button } from "../../components/button";
 import { KeyValueList } from "../../components/panel";
 import { StatusLine, Workspace } from "../../frame/workspace";
 import { Icon } from "../../icons/icons";
+import type { DashboardFrame } from "../dashboard/frame-prop";
 import type { ColorToken } from "../../tokens/names";
 import { fitText } from "../../canvas/text";
 import { FLAT_WORLD, buildFlatGraph, placeFlatGraph } from "./flat-model";
@@ -20,7 +21,17 @@ export interface FlatScreenProps {
   readonly data: GraphBody;
   /** Where the canvas reads its colours from; tests only, a page leaves it out. */
   readonly colors?: ColorSource;
+  /** The host's frame slot: the zoom buttons go to the header through it. Without one they render in place. */
+  readonly Frame?: DashboardFrame;
 }
+
+/** Without a host frame the controls render in place. */
+const InlineFrame: DashboardFrame = ({ actions, children }) => (
+  <>
+    {actions}
+    {children}
+  </>
+);
 
 const FIT_FILL = 0.94;
 const ZOOM_STEP = 1.5;
@@ -31,24 +42,26 @@ interface Lengths {
   readonly hairline: number;
   readonly emphasis: number;
   readonly radius: number;
+  /** The corner of the hover label. */
+  readonly label: number;
 }
 
 function readLengths(): Lengths {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string): number => Number.parseFloat(style.getPropertyValue(name)) || 0;
-  return { hairline: read("--rh-border"), emphasis: read("--rh-border-accent"), radius: read("--rh-radius") };
+  return { hairline: read("--rh-border"), emphasis: read("--rh-border-accent"), radius: read("--rh-radius"), label: read("--rh-radius-sm") };
 }
 
 /**
  * The Baseline: every file and every import as one flat graph, with no hierarchy, so the hierarchy has something to be
  * compared with. The layout is seeded by the recorded graph; hovering a file lights its links, a click pins it.
  */
-export function FlatScreen({ data, colors }: FlatScreenProps) {
+export function FlatScreen({ data, colors, Frame = InlineFrame }: FlatScreenProps) {
   const graph = useMemo(() => buildFlatGraph(data), [data]);
   const placement = useMemo(() => placeFlatGraph(graph), [graph]);
   const [selected, setSelected] = useState(-1);
   const [hovered, setHovered] = useState(-1);
-  const [lengths, setLengths] = useState<Lengths>({ hairline: 0, emphasis: 0, radius: 0 });
+  const [lengths, setLengths] = useState<Lengths>({ hairline: 0, emphasis: 0, radius: 0, label: 0 });
   const [active, setActive] = useState(false);
 
   useEffect(() => setLengths(readLengths()), []);
@@ -121,7 +134,8 @@ export function FlatScreen({ data, colors }: FlatScreenProps) {
           ctx.strokeStyle = colour("line-strong");
           ctx.lineWidth = lengths.hairline;
           ctx.beginPath();
-          ctx.rect(x - w / 2, y - 20, w, 20);
+          if (typeof ctx.roundRect === "function") ctx.roundRect(x - w / 2, y - 20, w, 20, lengths.label);
+          else ctx.rect(x - w / 2, y - 20, w, 20);
           ctx.fill();
           ctx.stroke();
           ctx.fillStyle = order === 0 ? colour("accent") : colour("fg");
@@ -158,8 +172,22 @@ export function FlatScreen({ data, colors }: FlatScreenProps) {
     return [...(graph.adjacent[selected] ?? [])].sort((a, b) => (graph.adjacent[b]?.length ?? 0) - (graph.adjacent[a]?.length ?? 0) || a - b).slice(0, LINKED_SHOWN);
   }, [graph, selected]);
 
-  return (
+  const actions = (
     <>
+      <Button type="button" size="sm" icon aria-label="Zoom out" onClick={() => view.zoomBy(1 / ZOOM_STEP)}>
+        <Icon name="minus" size={14} />
+      </Button>
+      <Button type="button" size="sm" icon aria-label="Zoom in" onClick={() => view.zoomBy(ZOOM_STEP)}>
+        <Icon name="plus" size={14} />
+      </Button>
+      <Button type="button" size="sm" icon aria-label="Fit to view" onClick={() => view.fit()}>
+        <Icon name="fit" size={14} />
+      </Button>
+    </>
+  );
+
+  return (
+    <Frame actions={actions} fill>
       <Workspace
         inspector={
           selected < 0 ? undefined : (
@@ -191,17 +219,6 @@ export function FlatScreen({ data, colors }: FlatScreenProps) {
         }
       >
         <canvas ref={view.canvasRef} tabIndex={0} aria-label="Flat dependency graph of the repository's files. Click to focus, scroll to zoom, drag to pan, arrow keys pan, Escape clears." />
-        <div className="rh-flat-zoom" role="group" aria-label="Zoom">
-          <Button type="button" size="sm" icon aria-label="Zoom out" onClick={() => view.zoomBy(1 / ZOOM_STEP)}>
-            <Icon name="minus" size={14} />
-          </Button>
-          <Button type="button" size="sm" icon aria-label="Zoom in" onClick={() => view.zoomBy(ZOOM_STEP)}>
-            <Icon name="plus" size={14} />
-          </Button>
-          <Button type="button" size="sm" icon aria-label="Fit to view" onClick={() => view.fit()}>
-            <Icon name="fit" size={14} />
-          </Button>
-        </div>
       </Workspace>
       <footer className="rh-statusbar">
         <StatusLine
@@ -214,6 +231,6 @@ export function FlatScreen({ data, colors }: FlatScreenProps) {
           }
         />
       </footer>
-    </>
+    </Frame>
   );
 }

@@ -30,7 +30,7 @@ describe("MapScreen", () => {
     expect(canvas).toHaveAttribute("tabindex", "0");
     expect(canvas?.getAttribute("aria-label")).toMatch(/Scroll to zoom/);
     expect(screen.getByRole("textbox", { name: "Find a card" })).toBeInTheDocument();
-    for (const name of ["Zoom in", "Zoom out", "Fit the whole map"]) expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    for (const name of ["Zoom in", "Zoom out", "Fit to view"]) expect(screen.getByRole("button", { name })).toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Selection" })).toBeNull();
     expect(screen.getByText("kept")).toBeInTheDocument();
     expect(screen.getByText("rebuilt")).toBeInTheDocument();
@@ -43,7 +43,8 @@ describe("MapScreen", () => {
     const inspector = screen.getByRole("complementary", { name: "Selection" });
     expect(within(inspector).getByRole("heading", { name: "web" })).toBeInTheDocument();
     expect(within(inspector).getByText("Uses")).toBeInTheDocument();
-    expect(within(inspector).getByText("7")).toBeInTheDocument();
+    expect(within(inspector).getByText("Used by")).toBeInTheDocument();
+    expect(within(inspector).getByText("Files")).toBeInTheDocument();
   });
 
   it("clears the selection from the inspector and says so when nothing matches", async () => {
@@ -54,6 +55,6 @@ describe("MapScreen", () => {
     expect(screen.queryByRole("complementary", { name: "Selection" })).toBeNull();
     await user.clear(screen.getByRole("textbox", { name: "Find a card" }));
     await user.type(screen.getByRole("textbox", { name: "Find a card" }), "zzz{Enter}");
-    expect(screen.getByText("Nothing is named like that.")).toBeInTheDocument();
+    expect(screen.getByText('No card named "zzz"')).toBeInTheDocument();
   });
 });

@@ -21,6 +21,10 @@ export interface Crumb {
   readonly href?: string;
   /** A count or note after the label, in the quiet mono style. */
   readonly aside?: string;
+  /** Makes the crumb a button that runs this instead of a link. Keep it stable: a crumb is compared by its text. */
+  readonly onSelect?: () => void;
+  /** Quiet text, such as the ellipsis that stands for crumbs left out. */
+  readonly subtle?: boolean;
 }
 
 export interface AppFrameProps {
@@ -188,8 +192,12 @@ export function AppFrame({
               return (
                 <span key={`${position}-${crumb.label}`} className="rh-crumb">
                   {position === 0 ? null : <span className="rh-crumb-sep">/</span>}
-                  {crumb.href === undefined || last ? (
-                    <span className={cx(last && "rh-cur")} aria-current={last ? "page" : undefined}>
+                  {crumb.onSelect !== undefined ? (
+                    <button type="button" className={cx(last && "rh-cur")} aria-current={last ? "page" : undefined} onClick={crumb.onSelect}>
+                      {crumb.label}
+                    </button>
+                  ) : crumb.href === undefined || last ? (
+                    <span className={cx(last && "rh-cur", crumb.subtle && "rh-fg3")} aria-current={last ? "page" : undefined}>
                       {crumb.label}
                     </span>
                   ) : (

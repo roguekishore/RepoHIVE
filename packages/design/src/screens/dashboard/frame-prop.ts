@@ -8,6 +8,8 @@ import type { Crumb } from "../../frame/app-frame";
 export interface DashboardFrameProps {
   readonly crumbs?: readonly Crumb[];
   readonly actions?: ReactNode;
+  /** A canvas view fills the column instead of scrolling. */
+  readonly fill?: boolean;
   readonly children?: ReactNode;
 }
 
