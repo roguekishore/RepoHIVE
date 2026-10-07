@@ -23,8 +23,8 @@ export interface OwnShellProps {
 
 /**
  * The app frame for the TS host. It loads what the frame itself shows (the session, the allowance, the repositories for
- * the palette) through the client, so a route shell passes only its crumbs and its screen. Activity stays out of the
- * navigation: TS serves no job list yet.
+ * the palette) through the client, so a route shell passes only its crumbs and its screen. Activity is in the
+ * navigation: the job list it reads is served at `/api/account/jobs`.
  */
 export function OwnShell({ crumbs, actions, status, fill, children }: OwnShellProps) {
   const pathname = usePathname();
@@ -85,6 +85,7 @@ export function OwnShell({ crumbs, actions, status, fill, children }: OwnShellPr
       status={status}
       fill={fill}
       signedIn={session?.signedIn === true}
+      showActivity
       quota={quota}
       paletteGroups={paletteGroups}
     >

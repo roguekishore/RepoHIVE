@@ -116,14 +116,14 @@ describe("OwnShell", () => {
     expect(screen.getByText("the screen")).toBeInTheDocument();
   });
 
-  it("lists no Activity: this host serves no job list", async () => {
+  it("lists Activity: this host serves the account's job list", async () => {
     serve(SIGNED_IN);
     shell();
     await screen.findByText("2 of 5 indexes today");
     const global = screen.getByRole("navigation", { name: "Global" });
     expect(global).toHaveTextContent("Repositories");
     expect(global).toHaveTextContent("Method");
-    expect(global).not.toHaveTextContent("Activity");
+    expect(global).toHaveTextContent("Activity");
   });
 
   it("adds the repository's views to the sidebar inside a repository", async () => {
