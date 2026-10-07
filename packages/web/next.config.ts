@@ -24,9 +24,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: [...APP_SECURITY_HEADERS] }];
   },
-  experimental: {
-    optimizePackageImports: ["lucide-react"],
-  },
   webpack(config, { isServer }) {
     if (isServer) {
       const runtimeExternal = (

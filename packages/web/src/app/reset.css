@@ -1,0 +1,5 @@
+/* The page edge: the design package scopes everything under `.rh-root`, so the document itself needs no margin. */
+html,
+body {
+  margin: 0;
+}
