@@ -1,1 +1,37 @@
-/* The styles of the account screens. Values come from tokens.css only. */
+/* The account screens: sign in and sign up, Account, Method, the job page, and the error, not-found and loading pages.
+   Values come from tokens.css only. */
+
+/* ---------- Sign in and sign up ---------- */
+
+.rh-auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--rh-space-8) var(--rh-space-4);
+}
+
+.rh-auth-card {
+  width: min(100%, 360px);
+  display: grid;
+  gap: var(--rh-space-6);
+}
+
+.rh-auth-head {
+  display: grid;
+  gap: var(--rh-space-4);
+  justify-items: start;
+}
+
+.rh-auth-form {
+  display: grid;
+  gap: var(--rh-space-4);
+}
+
+.rh-auth-label {
+  display: grid;
+  gap: var(--rh-space-2);
+}
+
+.rh-auth-submit {
+  height: var(--rh-input-height);
+}
