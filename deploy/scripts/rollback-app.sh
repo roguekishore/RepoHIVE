@@ -3,7 +3,7 @@
 # forward: through SSM Run Command, running the activation script with --rollback. Stops unless the
 # credentials are for the configured account.
 #
-#   deploy/scripts/rollback-app.sh
+#   REPOHIVE_ACCOUNT=<name> deploy/scripts/rollback-app.sh
 set -euo pipefail
 # shellcheck source=deploy/scripts/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
