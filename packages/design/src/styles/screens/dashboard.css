@@ -1,1 +1,205 @@
-/* The styles of the dashboard screens. Values come from tokens.css only. */
+/* The dashboard, Activity and the index dialog . Values come from tokens.css only. */
+
+.rh-root .rh-dash-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-2);
+  align-items: center;
+}
+
+.rh-root .rh-dash-tools .rh-dash-search {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.rh-root .rh-vr {
+  width: var(--rh-border);
+  height: var(--rh-space-4);
+  background: var(--rh-line);
+}
+
+.rh-root .rh-dash-tools .rh-dash-sort {
+  margin-left: auto;
+}
+
+.rh-root .rh-dash-count {
+  margin-right: var(--rh-space-2);
+}
+
+.rh-root .rh-dash-index-form {
+  display: grid;
+  gap: var(--rh-space-3);
+}
+
+/* ---------- Repository cards ---------- */
+
+.rh-root .rh-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--rh-space-4);
+}
+
+.rh-root .rh-cards > .rh-empty {
+  grid-column: 1 / -1;
+}
+
+.rh-root .rh-rcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: var(--rh-border) solid var(--rh-line);
+  background: var(--rh-surface);
+  border-radius: var(--rh-radius);
+  overflow: hidden;
+  min-height: 144px;
+}
+
+.rh-root .rh-rcard:hover {
+  border-color: var(--rh-fg-3);
+}
+
+.rh-root .rh-rcard:focus-within {
+  border-color: var(--rh-accent);
+}
+
+.rh-root .rh-rc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--rh-space-4);
+  padding: var(--rh-space-4) var(--rh-space-4) 0;
+}
+
+.rh-root .rh-rc-title {
+  min-width: 0;
+  display: grid;
+}
+
+/* The whole card is the link: the name's box is stretched over it. */
+.rh-root .rh-rc-name {
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.rh-root .rh-rc-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.rh-root .rh-rc-name:focus-visible {
+  outline: none;
+}
+
+.rh-root .rh-rc-print {
+  flex: none;
+  width: 64px;
+  height: 44px;
+}
+
+.rh-root .rh-rc-print rect {
+  fill: none;
+  stroke-width: var(--rh-border);
+  vector-effect: non-scaling-stroke;
+}
+
+.rh-root .rh-rc-print .rh-pr-kept {
+  stroke: var(--rh-fg-3);
+}
+
+.rh-root .rh-rc-print .rh-pr-rebuilt {
+  stroke: var(--rh-rebuilt);
+  stroke-dasharray: 3 2;
+}
+
+.rh-root .rh-rc-print .rh-pr-frame {
+  stroke: var(--rh-line-strong);
+}
+
+.rh-root .rh-rc-stats {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rh-space-1) var(--rh-space-4);
+  padding: var(--rh-space-4);
+  color: var(--rh-fg-3);
+}
+
+.rh-root .rh-rc-stats b {
+  font-family: var(--rh-font-mono);
+  font-weight: var(--rh-weight-medium);
+  color: var(--rh-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-root .rh-rc-stats .rh-rc-status {
+  margin-left: auto;
+  color: var(--rh-fg-3);
+}
+
+.rh-root .rh-rcard .rh-rc-bar {
+  height: var(--rh-space-1);
+}
+
+.rh-root .rh-rcard.rh-is-failed .rh-rc-name,
+.rh-root .rh-rcard.rh-is-failed .rh-fg3 {
+  color: var(--rh-fg-3);
+}
+
+/* ---------- Activity ---------- */
+
+.rh-root .rh-act-figs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: var(--rh-border) solid var(--rh-line-strong);
+  border-bottom: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-root .rh-act-figs > div {
+  padding: var(--rh-space-4) var(--rh-space-4) var(--rh-space-4) 0;
+  display: grid;
+  gap: var(--rh-space-1);
+}
+
+.rh-root .rh-act-figs > div + div {
+  padding-left: var(--rh-space-4);
+  border-left: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-root .rh-act-bar {
+  height: 6px;
+}
+
+.rh-root .rh-act-name {
+  display: inline-block;
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.rh-root .rh-act-none {
+  padding: var(--rh-space-4);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .rh-root .rh-act-figs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rh-root .rh-act-figs > div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .rh-root .rh-act-figs > div:nth-child(even) {
+    padding-left: var(--rh-space-4);
+    border-left: var(--rh-border) solid var(--rh-line);
+  }
+}
