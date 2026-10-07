@@ -4,6 +4,7 @@
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { brotliDecompressSync } from "node:zlib";
 import {
   latestKey,
   viewKey,
@@ -73,7 +74,10 @@ async function readLocalFixtureFromStore(
   const scaleObject = await store.get(viewKey(pointer.snapshotId, VIEW_FILES.hierarchyScale));
   if (scaleObject !== undefined) {
     try {
-      const scale = JSON.parse(new TextDecoder().decode(scaleObject.body)) as HierarchyScaleBody;
+      // Views are stored brotli-compressed; the stored headers say so.
+      const bytes =
+        scaleObject.headers.contentEncoding === "br" ? brotliDecompressSync(scaleObject.body) : scaleObject.body;
+      const scale = JSON.parse(new TextDecoder().decode(bytes)) as HierarchyScaleBody;
       if (typeof scale.totalNodes === "number" && scale.totalNodes >= 0) {
         nodeCount = scale.totalNodes;
       }
