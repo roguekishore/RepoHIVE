@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
-# Applies one Terraform root: init, plan to a file, then apply of that exact file
-# once the owner types "apply". Stops unless the credentials are for the configured account and the root's
-# prod.tfvars names the same account.
+# Applies one Terraform root for one account: init, plan to a file, then apply of that
+# exact file. Stops unless the credentials are for the account in deploy/accounts/<name>/deploy.env.
 #
-#   AWS_PROFILE=<owner profile> deploy/scripts/apply.sh <bootstrap|main> [extra terraform plan arguments]
+#   REPOHIVE_ACCOUNT=<name> deploy/scripts/apply.sh <bootstrap|main> [mode] [extra terraform plan arguments]
 #
-# The main root needs deploy/terraform/main/backend.hcl (copy backend.hcl.example). Extra arguments go to
-# `terraform plan`, for example -var=indexer_image_digest=sha256:... (deploy.sh does this). The plan file can
-# hold secrets, so it lives in the git-ignored deploy/out/ and is removed after the apply.
+# Modes:
+#   (none)          plan, print it, and apply it once someone types "apply" (a person at a terminal)
+#   --plan-only     plan to <account folder>/out/<root>.tfplan, print the plan and a summary, and stop
+#   --apply-saved   apply <account folder>/out/<root>.tfplan exactly as planned, then remove it; Terraform refuses a
+#                   plan that is stale (the state changed since)
+#   --destroy-plan  like --plan-only, for a destroy (teardown.sh uses it)
+#
+# Every value Terraform needs comes from the account's deploy.env, passed as -var: the account id, the site domain,
+# OWNER_TAG, PROTECT, and ALERT_EMAIL (main) or the GitHub repository and OIDC provider (bootstrap). An optional
+# <account folder>/<root>.tfvars adds tuning (prod.tfvars.example lists them). The bootstrap state, each root's
+# working directory and the plans live in the account folder, so two accounts never share any of them. Extra
+# arguments go to `terraform plan`, for example -var=indexer_image_digest=sha256:... (deploy.sh does this). A plan
+# file can hold secrets; it stays in the git-ignored account folder.
 set -euo pipefail
 # shellcheck source=deploy/scripts/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -15,40 +24,55 @@ set -euo pipefail
 root="${1:-}"
 case "${root}" in
   bootstrap | main) shift ;;
-  *) die "usage: apply.sh <bootstrap|main> [extra terraform plan arguments]" ;;
+  *) die "usage: apply.sh <bootstrap|main> [--plan-only|--apply-saved|--destroy-plan] [extra terraform plan arguments]" ;;
+esac
+mode="interactive"
+case "${1:-}" in
+  --plan-only | --apply-saved | --destroy-plan)
+    mode="${1#--}"
+    shift
+    ;;
 esac
 
 load_deploy_env
 account_guard
-command -v terraform >/dev/null 2>&1 || die "terraform is not installed"
+tf_root_setup "${root}"
 
-tf_dir="${DEPLOY_DIR}/terraform/${root}"
-var_file="${tf_dir}/prod.tfvars"
-[[ -f "${var_file}" ]] || die "${var_file} not found; copy prod.tfvars.example and fill it in"
+# Relative to the root directory for terraform, absolute for this script.
+plan_file="${ACCOUNT_DIR_FROM_ROOT}/out/${root}.tfplan"
+plan_path="${ACCOUNT_DIR}/out/${root}.tfplan"
 
-tfvars_account="$(sed -n 's/^[[:space:]]*aws_account_id[[:space:]]*=[[:space:]]*"\([0-9]*\)".*/\1/p' "${var_file}")"
-[[ "${tfvars_account}" == "${AWS_ACCOUNT_ID}" ]] ||
-  die "aws_account_id in ${var_file} (${tfvars_account:-unset}) is not the configured account ${AWS_ACCOUNT_ID}"
+summarise() {
+  printf '\n== summary (%s, account %s) ==\n' "${root}" "${REPOHIVE_ACCOUNT}"
+  terraform -chdir="${tf_dir}" show -no-color "${plan_file}" | grep -E '^  # |^Plan:|^No changes' || true
+}
 
-mkdir -p "${DEPLOY_DIR}/out"
-plan_file="${DEPLOY_DIR}/out/${root}.tfplan"
-
-init_args=(-input=false)
-if [[ "${root}" == "main" ]]; then
-  backend_file="${tf_dir}/backend.hcl"
-  [[ -f "${backend_file}" ]] || die "${backend_file} not found; copy backend.hcl.example and fill it in"
-  init_args+=("-backend-config=${backend_file}")
+if [[ "${mode}" == "apply-saved" ]]; then
+  [[ -f "${plan_path}" ]] || die "no saved plan at ${plan_path}; run apply.sh ${root} --plan-only first"
+  terraform -chdir="${tf_dir}" init "${init_args[@]}" >/dev/null
+  terraform -chdir="${tf_dir}" apply -input=false "${plan_file}"
+  rm -f -- "${plan_path}"
+  exit 0
 fi
 
 terraform -chdir="${tf_dir}" init "${init_args[@]}"
-terraform -chdir="${tf_dir}" plan -input=false "-var-file=${var_file}" "-out=${plan_file}" "$@"
+plan_args=(-input=false "${plan_vars[@]}" "-out=${plan_file}")
+[[ "${mode}" == "destroy-plan" ]] && plan_args+=(-destroy)
+terraform -chdir="${tf_dir}" plan "${plan_args[@]}" "$@"
+
+if [[ "${mode}" == "plan-only" || "${mode}" == "destroy-plan" ]]; then
+  summarise
+  printf '\nSaved: %s\nApply it with: REPOHIVE_ACCOUNT=%s deploy/scripts/apply.sh %s --apply-saved\n' \
+    "${plan_path}" "${REPOHIVE_ACCOUNT}" "${root}"
+  exit 0
+fi
 
 printf '\nRead the plan above. Type "apply" to apply it, anything else to stop: '
 read -r answer
 if [[ "${answer}" != "apply" ]]; then
-  rm -f -- "${plan_file}"
+  rm -f -- "${plan_path}"
   die "not applied"
 fi
 
 terraform -chdir="${tf_dir}" apply -input=false "${plan_file}"
-rm -f -- "${plan_file}"
+rm -f -- "${plan_path}"

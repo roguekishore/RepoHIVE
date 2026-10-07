@@ -1,21 +1,16 @@
-# Copy to prod.tfvars (git-ignored) and replace every placeholder.
-aws_account_id = "123456789012"
-owner_tag      = "owner@example.com"
-site_domain    = "app.repohive.dev"
-alert_email    = "owner@example.com"
+# Optional tuning of the main root. Copy what you change to deploy/accounts/<name>/main.tfvars (git-ignored); apply.sh
+# passes that file when it exists. The required values (account id, owner tag, site domain, alert email, protect) come
+# from the account's deploy.env, and indexer_image_digest from ECR (deploy.sh infra): do not set them here.
+# Defaults shown.
 
-# The digest push-indexer-image.sh prints after the image is pushed:
-indexer_image_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-
-# Optional (default shown):
-# log_retention_days = 14
-# lambda_memory_mb           = 3008
-# lambda_timeout_seconds     = 300
+# log_retention_days          = 14
+# lambda_memory_mb            = 3008
+# lambda_timeout_seconds      = 300
 # lambda_ephemeral_storage_mb = 512
-# fargate_cpu_units          = 8192
-# fargate_memory_mb          = 16384
+# fargate_cpu_units           = 8192
+# fargate_memory_mb           = 16384
 
-# Alarms and budget (defaults shown; counts are totals per 5 minutes, heartbeat_bad_minutes is consecutive minutes):
+# Alarms and budget (counts are totals per 5 minutes, heartbeat_bad_minutes is consecutive minutes):
 # alarm_thresholds = {
 #   executions_failed     = 1
 #   executions_timed_out  = 1
@@ -28,11 +23,11 @@ indexer_image_digest = "sha256:0000000000000000000000000000000000000000000000000
 # monthly_budget_usd = 25
 
 # The box (all unmeasured defaults):
-# box_root_volume_gb          = 12
-# box_data_volume_gb          = 8
-# web_memory_max_mb           = 768
-# web_node_heap_mb            = 512
-# worker_memory_max_mb        = 256
-# worker_node_heap_mb         = 192
+# box_root_volume_gb                   = 12
+# box_data_volume_gb                   = 8
+# web_memory_max_mb                    = 768
+# web_node_heap_mb                     = 512
+# worker_memory_max_mb                 = 256
+# worker_node_heap_mb                  = 192
 # caddy_rate_limit_per_minute          = 300
 # caddy_rate_limit_api_post_per_minute = 30
