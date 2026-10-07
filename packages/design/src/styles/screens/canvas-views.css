@@ -1,1 +1,284 @@
-/* The styles of the canvas-views screens. Values come from tokens.css only. */
+/* The canvas views: Hierarchy, Architecture, Baseline and Circles. Values come from tokens.css only. */
+
+/* ---------- Hierarchy: the sunburst ---------- */
+
+.rh-sun-stage {
+  position: absolute;
+  inset: 0;
+}
+
+svg.rh-sun {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+svg.rh-sun:focus-visible {
+  outline: var(--rh-border-accent) solid var(--rh-accent);
+  outline-offset: calc(-1 * var(--rh-border-accent));
+}
+
+.rh-arc {
+  stroke: var(--rh-bg);
+  stroke-width: var(--rh-border);
+  cursor: pointer;
+}
+
+.rh-arc-wrapper {
+  fill: var(--rh-sunken);
+  stroke: var(--rh-line-strong);
+}
+
+.rh-arc-kept {
+  fill: var(--rh-fg-2);
+}
+
+/* The fill is the hatch pattern declared in the svg's defs: rebuilt differs from kept by texture, not colour alone. */
+.rh-arc-rebuilt {
+  fill: url(#rh-sun-hatch);
+}
+
+.rh-arc-unassessed {
+  fill: var(--rh-line-strong);
+}
+
+.rh-arc:hover {
+  stroke: var(--rh-fg);
+  stroke-width: 1.5px;
+}
+
+.rh-arc-on {
+  fill: none;
+  stroke: var(--rh-accent);
+  stroke-width: 2.5px;
+}
+
+.rh-sun-hatch-fill {
+  fill: var(--rh-rebuilt);
+}
+
+.rh-sun-hatch-line {
+  stroke: var(--rh-bg);
+  stroke-width: 2px;
+}
+
+.rh-sun-hub {
+  fill: var(--rh-surface);
+  stroke: var(--rh-line-strong);
+}
+
+.rh-sun-count {
+  font-family: var(--rh-font-mono);
+  font-size: var(--rh-fs-title);
+  font-weight: var(--rh-weight-medium);
+  fill: var(--rh-fg);
+}
+
+.rh-sun-unit {
+  font-family: var(--rh-font-sans);
+  font-size: var(--rh-fs-caption);
+  fill: var(--rh-fg-3);
+}
+
+/* ---------- Architecture ---------- */
+
+.rh-cv-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rh-space-4);
+}
+
+@media (max-width: 900px) {
+  .rh-cv-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rh-dsm-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--rh-space-6);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .rh-dsm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rh-dsm-col {
+  display: grid;
+  gap: var(--rh-space-3);
+  min-width: 0;
+  align-content: start;
+}
+
+.rh-dsm-wrap {
+  min-width: 0;
+}
+
+.rh-dsm-wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 760px;
+}
+
+.rh-dsm-wrap svg:focus-visible {
+  outline: var(--rh-border-accent) solid var(--rh-accent);
+}
+
+.rh-dsm-wrap rect.rh-dsm-cell {
+  fill: var(--rh-accent);
+}
+
+.rh-dsm-wrap rect.rh-dsm-blk {
+  fill: none;
+  stroke: var(--rh-fg-3);
+  stroke-width: var(--rh-border);
+}
+
+/* A rebuilt region is dashed as well as plum. */
+.rh-dsm-wrap rect.rh-dsm-blk.rh-r {
+  stroke: var(--rh-rebuilt);
+  stroke-dasharray: 3 2;
+}
+
+.rh-dsm-wrap rect.rh-dsm-frame {
+  fill: none;
+  stroke: var(--rh-line-strong);
+}
+
+.rh-dsm-wrap rect.rh-dsm-hl {
+  fill: none;
+  stroke: var(--rh-fg);
+  stroke-width: 1.5px;
+}
+
+.rh-dsm-wrap rect.rh-dsm-cross {
+  fill: var(--rh-fg);
+  opacity: 0.05;
+}
+
+.rh-dsm-wrap rect.rh-dsm-blk.rh-on {
+  stroke: var(--rh-accent);
+  stroke-width: var(--rh-border-accent);
+  stroke-dasharray: none;
+}
+
+.rh-blk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  max-height: 560px;
+  overflow: auto;
+  border-top: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-blk-list button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: var(--rh-space-2);
+  align-items: center;
+  min-height: var(--rh-control-height);
+  padding: var(--rh-space-1) var(--rh-space-2);
+  border-bottom: var(--rh-border) solid var(--rh-line);
+  cursor: pointer;
+  font-size: var(--rh-fs-caption);
+  line-height: var(--rh-lh-caption);
+}
+
+.rh-blk-list button span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-blk-list button:hover,
+.rh-blk-list button.rh-on {
+  background: var(--rh-sunken);
+}
+
+.rh-blk-list button.rh-on {
+  color: var(--rh-accent);
+}
+
+.rh-blk-list button:focus-visible {
+  outline: var(--rh-border-accent) solid var(--rh-accent);
+  outline-offset: calc(-1 * var(--rh-border-accent));
+}
+
+.rh-frag-row {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) 56px minmax(0, 1fr);
+  gap: var(--rh-space-3);
+  align-items: center;
+  padding-block: var(--rh-space-2);
+  border-top: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-frag-row:first-child {
+  border-top: 0;
+}
+
+.rh-frag-nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-frag-segs {
+  display: flex;
+  gap: 2px;
+  height: var(--rh-space-3);
+}
+
+.rh-frag-segs i {
+  display: block;
+  height: 100%;
+  border: var(--rh-border) dashed var(--rh-rebuilt);
+  min-width: 2px;
+}
+
+@media (max-width: 640px) {
+  .rh-frag-row {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+
+  .rh-frag-segs {
+    grid-column: 1 / -1;
+  }
+}
+
+.rh-cv-code {
+  font-family: var(--rh-font-mono);
+  background: var(--rh-sunken);
+  border-radius: var(--rh-radius);
+  padding: 2px var(--rh-space-2);
+  overflow-wrap: anywhere;
+}
+
+.rh-cv-bar-cell {
+  width: 28%;
+}
+
+.rh-cv-bar-cell .rh-bar {
+  height: 6px;
+}
+
+.rh-cv-bar-cell .rh-bar i {
+  background: var(--rh-fg-2);
+}
+
+/* A region that was never assessed: dotted, so it is neither the solid kept outline nor the dashed rebuilt one. */
+.rh-dsm-wrap rect.rh-dsm-blk.rh-u {
+  stroke: var(--rh-line-strong);
+  stroke-dasharray: 1 2;
+}
