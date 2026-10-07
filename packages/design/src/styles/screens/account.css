@@ -77,6 +77,34 @@
   }
 }
 
+.rh-usage-chart svg {
+  display: block;
+  max-width: 100%;
+}
+
+.rh-usage-svg text {
+  font-family: var(--rh-font-mono);
+  font-size: var(--rh-fs-caption);
+  fill: var(--rh-fg-3);
+}
+
+.rh-usage-axis {
+  stroke: var(--rh-line-strong);
+}
+
+.rh-usage-limit {
+  stroke: var(--rh-fg-3);
+  stroke-dasharray: 4 4;
+}
+
+.rh-usage-bar {
+  fill: var(--rh-fg-2);
+}
+
+.rh-usage-today {
+  fill: var(--rh-accent);
+}
+
 .rh-acct-actions {
   display: flex;
   flex-wrap: wrap;

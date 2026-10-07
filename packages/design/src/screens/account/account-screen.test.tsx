@@ -16,7 +16,7 @@ describe("AccountScreen", () => {
   it("shows the email and each allowance as the endpoint returned it", () => {
     renderWithDesign(<AccountScreen state={{ status: "ready", email: "me@example.com", quota: QUOTA }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Account" })).toBeInTheDocument();
-    expect(screen.getByText("me@example.com")).toBeInTheDocument();
+    expect(screen.getAllByText("me@example.com")).toHaveLength(2); // the header and the Profile panel
     const today = screen.getByRole("heading", { name: "Indexes today" }).closest("section")!;
     expect(within(today).getByText("2")).toBeInTheDocument();
     expect(within(today).getByText("of 5")).toBeInTheDocument();
@@ -27,6 +27,22 @@ describe("AccountScreen", () => {
     expect(within(network).getByText("of 20")).toBeInTheDocument();
     expect(screen.getByText("5 a day")).toBeInTheDocument();
     expect(screen.getByText("20 a day")).toBeInTheDocument();
+  });
+
+  it("draws the usage history and the three newest requests when the job list was read", () => {
+    const item = (jobId: string, state: "succeeded" | "failed", requestedAt: string) => ({ jobId, repo: "github.com/acme/widgets", state, tier: "S" as const, requestedAt });
+    const jobs = { items: [item("j_4", "succeeded", "2026-10-07T09:00:00.000Z"), item("j_3", "failed", "2026-10-07T08:00:00.000Z"), item("j_2", "succeeded", "2026-10-06T09:00:00.000Z"), item("j_1", "succeeded", "2026-10-05T09:00:00.000Z")] };
+    renderWithDesign(<AccountScreen state={{ status: "ready", email: "me@example.com", quota: QUOTA, jobs }} />);
+    expect(screen.getByRole("heading", { name: "Indexes, last 14 days" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent requests" })).toBeInTheDocument();
+    expect(within(screen.getByRole("table", { name: "Recent requests" })).getAllByRole("row")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /All activity/ })).toHaveAttribute("href", "/activity");
+  });
+
+  it("leaves the history and the recent list out when the job list could not be read", () => {
+    renderWithDesign(<AccountScreen state={{ status: "ready", email: "me@example.com", quota: QUOTA }} />);
+    expect(screen.queryByRole("heading", { name: "Indexes, last 14 days" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Recent requests" })).toBeNull();
   });
 
   it("says the allowance could not be read instead of showing zeros", () => {
@@ -55,7 +71,7 @@ describe("useAccountState", () => {
   it("reads the session and the allowance for a signed-in account", async () => {
     const quota = vi.fn(() => Promise.resolve(QUOTA));
     renderWithDesign(<Probe />, { client: stubClient({ session: () => Promise.resolve({ signedIn: true, email: "me@example.com" }), quota }) });
-    expect(await screen.findByText("me@example.com")).toBeInTheDocument();
+    expect((await screen.findAllByText("me@example.com")).length).toBeGreaterThan(0);
     expect(quota).toHaveBeenCalledTimes(1);
   });
 
@@ -70,7 +86,7 @@ describe("useAccountState", () => {
     renderWithDesign(<Probe />, {
       client: stubClient({ session: () => Promise.resolve({ signedIn: true, email: "me@example.com" }), quota: () => Promise.reject(new Error("x")) }),
     });
-    expect(await screen.findByText("me@example.com")).toBeInTheDocument();
+    expect((await screen.findAllByText("me@example.com")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/could not be read/)).toHaveLength(2);
   });
 
