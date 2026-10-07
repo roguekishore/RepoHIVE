@@ -11,9 +11,10 @@ import { Icon } from "../../icons/icons";
 import { useClient, useLink, useNavigate } from "../../provider/design-provider";
 import { useToast } from "../../provider/toast";
 import { routes } from "../../routes";
-import { formatBoundary, formatCount, formatDate, formatScore, formatShare, shortId } from "./format";
+import { formatCount, formatDate, formatScore, formatShare, shortId } from "./format";
 import { decisionsHref } from "./links";
-import { assessedRegions, closestToBoundary, decisionOf, largestRegions, type Region } from "./regions";
+import { commonNamePrefix, levelName, shortName } from "./names";
+import { assessedRegions, closestToBoundary, decisionOf, largestRegions, tallyByModule, type Region } from "./regions";
 import { Await, SnapshotGate } from "./snapshot-gate";
 import { useLoaded, useSnapshotViews } from "./use-views";
 
@@ -30,6 +31,7 @@ export interface OverviewViewProps extends RepositoryRef {
 
 const LARGEST_COUNT = 8;
 const CLOSE_CALL_COUNT = 6;
+const MODULE_COUNT = 6;
 
 /** The repository whose figures the page shows: the one named like this page's, else the first the view holds. */
 export function figuresFor(adaptivity: ViewBodies["adaptivity"], owner: string, name: string) {
@@ -71,14 +73,22 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
   const largest = largestRegions(assessed, LARGEST_COUNT);
   const closeCalls = closestToBoundary(assessed, regionDecisions.boundary, CLOSE_CALL_COUNT);
 
+  const prefix = commonNamePrefix(regionDecisions.regions.map((region) => region.displayName));
+  const regionName = (region: Region) => (
+    <span className="rh-v-name" title={region.displayName}>
+      {shortName(region.displayName, prefix)}
+    </span>
+  );
+  const modules = tallyByModule(regionDecisions.regions, prefix, MODULE_COUNT);
+  const moduleMax = Math.max(1, ...modules.map((module) => module.kept + module.rebuilt));
+
   const levelSizes = hierarchyScale.levels.map((level) => ({ level: level.level, nodes: level.groupNodeCount + level.leafNodeCount }));
   const levelMax = Math.max(0, ...levelSizes.map((level) => Math.log10(Math.max(1, level.nodes))));
 
   const indexedAt = summary !== undefined && summary.snapshotId === snapshotId ? formatDate(summary.indexedAt) : undefined;
-  const commit = manifest?.commitSha ?? summary?.commitSha;
 
   const columns: TableColumn<Region>[] = [
-    { key: "name", header: "Region", render: (region) => <span className="rh-v-name">{region.displayName}</span> },
+    { key: "name", header: "Region", render: regionName },
     { key: "files", header: "Files", numeric: true, render: (region) => formatCount(region.fileCount) },
     { key: "groups", header: "Groups", numeric: true, render: (region) => formatCount(region.groupIds.length) },
     { key: "cohesion", header: "Cohesion", numeric: true, render: (region) => formatScore(region.cohesion) },
@@ -99,12 +109,8 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
             <span>
               Snapshot <span className="rh-mono">{shortId(snapshotId)}</span>
             </span>
-            {commit === undefined ? null : (
-              <span>
-                Commit <span className="rh-mono">{shortId(commit, 7)}</span>
-              </span>
-            )}
             {indexedAt === undefined ? null : <span>Indexed {indexedAt}</span>}
+            <span>Java</span>
           </Text>
         </div>
       </header>
@@ -117,7 +123,7 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
         <Figure value={formatShare(figures.preserveShare)} label="kept, of assessed" />
       </div>
 
-      <div className="rh-v-grid-2">
+      <div className="rh-v-grid-3">
         <Panel
           title="Decisions"
           actions={
@@ -146,6 +152,41 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
         </Panel>
 
         <Panel
+          title="By module"
+          actions={
+            <Text role="caption" tone="subtle">
+              Assessed regions
+            </Text>
+          }
+        >
+          <div className="rh-v-mods">
+            {modules.map((module) => {
+              const total = module.kept + module.rebuilt;
+              return (
+                <div key={module.name} className="rh-v-mod">
+                  <span className="rh-fg2">{module.name}</span>
+                  <SplitBar
+                    className="rh-v-mod-bar"
+                    label={`${module.name}: ${module.kept} kept, ${module.rebuilt} rebuilt`}
+                    segments={[
+                      { kind: "kept", value: module.kept },
+                      { kind: "rebuilt", value: module.rebuilt },
+                    ]}
+                    width={(total / moduleMax) * 100}
+                  />
+                  <span className="rh-v-n rh-t-caption">
+                    {module.kept} / {total}
+                  </span>
+                </div>
+              );
+            })}
+            <Text role="caption" tone="subtle">
+              Kept out of assessed, per top-level module.
+            </Text>
+          </div>
+        </Panel>
+
+        <Panel
           title="Hierarchy depth"
           actions={
             <Text role="caption" tone="subtle">
@@ -156,7 +197,7 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
           <div className="rh-v-levels">
             {levelSizes.map((level) => (
               <div key={level.level} className="rh-v-level">
-                <span className="rh-fg2">Level {level.level}</span>
+                <span className="rh-fg2">{levelName(level.level, levelSizes.length)}</span>
                 <i style={{ width: `${levelMax === 0 ? 0 : (Math.log10(Math.max(1, level.nodes)) / levelMax) * 100}%` }} />
                 <span className="rh-v-n">{formatCount(level.nodes)}</span>
               </div>
@@ -171,7 +212,7 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
           padded={false}
           actions={
             <Text role="caption" tone="subtle">
-              Nearest the {formatBoundary(regionDecisions.boundary)} boundary
+              Smallest margin from the {String(regionDecisions.boundary)} boundary
             </Text>
           }
         >
@@ -179,7 +220,7 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
             {closeCalls.map((region) => (
               <li key={region.regionId}>
                 <Link href={decisionsHref(owner, name, region.regionId)} className="rh-v-row-link">
-                  <span className="rh-v-name">{region.displayName}</span>
+                  {regionName(region)}
                   <span className="rh-tag rh-t-caption">
                     <span className="rh-mono rh-fg2">{formatScore(region.score)}</span>
                     <DecisionTag decision={decisionOf(region)} />
@@ -201,10 +242,8 @@ export function OverviewView({ owner, name, snapshotId, views, summary, manifest
           <KeyValueList
             items={[
               { label: "Snapshot", value: <span className="rh-mono">{shortId(snapshotId)}</span> },
-              ...(commit === undefined ? [] : [{ label: "Commit", value: <span className="rh-mono">{shortId(commit, 7)}</span> }]),
-              ...(manifest === undefined ? [] : [{ label: "Index format", value: `Version ${manifest.indexFormatVersion}` }]),
-              ...(manifest === undefined ? [] : [{ label: "Engine", value: <span className="rh-mono">{manifest.engineVersion}</span> }]),
-              { label: "Boundary", value: <span className="rh-mono">{formatBoundary(regionDecisions.boundary)}</span> },
+              ...(manifest === undefined ? [] : [{ label: "Index format", value: `Version ${manifest.indexFormatVersion}, five files` }]),
+              { label: "Boundary", value: <span className="rh-mono">{String(regionDecisions.boundary)}</span> },
               ...(regionDecisions.seed === null ? [] : [{ label: "Seed", value: <span className="rh-mono">{regionDecisions.seed}</span> }]),
               ...(figures.config.maxGroupSize === null ? [] : [{ label: "Largest group", value: `${formatCount(figures.config.maxGroupSize)} files` }]),
               { label: "Depth", value: `${figures.depth} levels` },

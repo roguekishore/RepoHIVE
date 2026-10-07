@@ -41,14 +41,14 @@ describe("DecisionsView", () => {
 
   it("opens on the region named in the link and shows its recorded values", () => {
     renderView("pkg:app.data");
-    const working = screen.getByRole("heading", { level: 2, name: "app.data" });
+    const working = screen.getByRole("heading", { level: 2, name: "data" });
     expect(working).toBeInTheDocument();
     expect(screen.getByText("Overridden")).toBeInTheDocument();
   });
 
   it("falls back to the largest region when the link names one that is not there", () => {
     renderView("pkg:nothing");
-    expect(screen.getByRole("heading", { level: 2, name: "app.core" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "core" })).toBeInTheDocument();
   });
 
   it("filters the table by decision and by name", async () => {
@@ -66,7 +66,7 @@ describe("DecisionsView", () => {
   it("selects a region from its table row", async () => {
     const user = userEvent.setup();
     renderView();
-    await user.click(within(screen.getByRole("table", { name: "All regions" })).getByText("app.web"));
-    expect(screen.getByRole("heading", { level: 2, name: "app.web" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("table", { name: "All regions" })).getByText("web"));
+    expect(screen.getByRole("heading", { level: 2, name: "web" })).toBeInTheDocument();
   });
 });

@@ -82,3 +82,29 @@ export function tallyAssessed(regions: readonly Region[]): DecisionTally {
   }
   return { kept, rebuilt };
 }
+
+export interface ModuleTally {
+  readonly name: string;
+  readonly kept: number;
+  readonly rebuilt: number;
+}
+
+/**
+ * Recorded decisions of the assessed regions, tallied by top-level module: the first dotted segment of the name once
+ * `prefix` is removed. Largest module first, the name breaking ties. A tally of recorded actions; nothing is recomputed.
+ */
+export function tallyByModule(regions: readonly Region[], prefix: string, limit: number): ModuleTally[] {
+  const modules = new Map<string, { kept: number; rebuilt: number }>();
+  for (const region of assessedRegions(regions)) {
+    const shown = prefix !== "" && region.displayName.startsWith(prefix) ? region.displayName.slice(prefix.length) : region.displayName;
+    const name = shown.split(".")[0] ?? shown;
+    const entry = modules.get(name) ?? { kept: 0, rebuilt: 0 };
+    if (region.action === "preserve") entry.kept += 1;
+    else entry.rebuilt += 1;
+    modules.set(name, entry);
+  }
+  return [...modules.entries()]
+    .map(([name, tally]) => ({ name, ...tally }))
+    .sort((a, b) => b.kept + b.rebuilt - (a.kept + a.rebuilt) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .slice(0, limit);
+}

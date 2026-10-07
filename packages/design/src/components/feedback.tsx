@@ -42,13 +42,17 @@ export interface TextProps {
   /** The mono face with tabular figures, for numbers. */
   readonly figure?: boolean;
   readonly className?: string;
+  /** A tooltip, for text shown in a shortened form. */
+  readonly title?: string;
   readonly children: ReactNode;
 }
 
 /** Text in one of the eight type roles. There is no other way to choose a size. */
-export function Text({ role, as: Tag = "span", tone = "default", figure = false, className, children }: TextProps) {
+export function Text({ role, as: Tag = "span", tone = "default", figure = false, className, title, children }: TextProps) {
   return (
-    <Tag className={cx(`rh-t-${role}`, tone !== "default" && `rh-tone-${tone}`, figure && "rh-fig", className)}>{children}</Tag>
+    <Tag title={title} className={cx(`rh-t-${role}`, tone !== "default" && `rh-tone-${tone}`, figure && "rh-fig", className)}>
+      {children}
+    </Tag>
   );
 }
 

@@ -83,6 +83,30 @@
   }
 }
 
+.rh-v-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--rh-space-4);
+}
+
+@media (max-width: 1000px) {
+  .rh-v-grid-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rh-v-mods {
+  display: grid;
+  gap: var(--rh-space-3);
+}
+
+.rh-v-mod {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 64px;
+  gap: var(--rh-space-3);
+  align-items: center;
+}
+
 .rh-v-stack {
   display: grid;
   gap: var(--rh-space-4);

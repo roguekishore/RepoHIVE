@@ -13,6 +13,7 @@ import { routes } from "../../routes";
 import { formatBoundary, formatCount, formatScore } from "./format";
 import { assessedRegions, decisionOf, isCloseCall, tallyAssessed, type Region } from "./regions";
 import { Measured } from "./measured";
+import { commonNamePrefix, shortName } from "./names";
 import { Await, SnapshotGate } from "./snapshot-gate";
 import { useSnapshotViews } from "./use-views";
 
@@ -227,8 +228,18 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
 
   const onSort = (key: string) => setSort((current) => ({ key, direction: current.key === key && current.direction === "descending" ? "ascending" : key === "name" ? "ascending" : "descending" }));
 
+  const prefix = useMemo(() => commonNamePrefix(decisions.regions.map((region) => region.displayName)), [decisions.regions]);
   const columns: TableColumn<Region>[] = [
-    { key: "name", header: "Region", sortable: true, render: (region) => <span className="rh-v-name">{region.displayName}</span> },
+    {
+      key: "name",
+      header: "Region",
+      sortable: true,
+      render: (region) => (
+        <span className="rh-v-name" title={region.displayName}>
+          {shortName(region.displayName, prefix)}
+        </span>
+      ),
+    },
     { key: "files", header: "Files", numeric: true, sortable: true, render: (region) => formatCount(region.fileCount) },
     { key: "cohesion", header: "Cohesion", numeric: true, sortable: true, render: (region) => formatScore(region.cohesion) },
     { key: "coupling", header: "Coupling", numeric: true, sortable: true, render: (region) => formatScore(region.coupling) },
@@ -291,8 +302,8 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
           ) : (
             <div className="rh-dec-work">
               <div className="rh-dec-work-head">
-                <Text as="h2" role="lead" className="rh-dec-work-name">
-                  {selected.displayName}
+                <Text as="h2" role="lead" className="rh-dec-work-name" title={selected.displayName}>
+                  {shortName(selected.displayName, prefix)}
                 </Text>
                 <DecisionTag decision={decisionOf(selected)} />
               </div>

@@ -63,13 +63,15 @@ export interface SplitBarProps {
   /** What the bar says, in words: it is an image to assistive technology. */
   readonly label: string;
   readonly className?: string;
+  /** The bar's own width as a percentage of its container, when it is itself scaled against others. */
+  readonly width?: number;
 }
 
 /** A proportional bar, for the kept and rebuilt split or a progress fraction. Widths come from the values as given. */
-export function SplitBar({ segments, label, className }: SplitBarProps) {
+export function SplitBar({ segments, label, className, width }: SplitBarProps) {
   const total = segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
   return (
-    <div className={cx("rh-bar", className)} role="img" aria-label={label}>
+    <div className={cx("rh-bar", className)} role="img" aria-label={label} style={width === undefined ? undefined : { width: `${width}%` }}>
       {segments.map((segment) =>
         total === 0 || segment.value <= 0 ? null : (
           <i key={segment.kind} className={`rh-bar-${segment.kind}`} style={{ width: `${(segment.value / total) * 100}%` }} />
