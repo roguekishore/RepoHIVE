@@ -6,6 +6,7 @@ import { KeyValueList, Panel } from "../../components/panel";
 import { DecisionTag } from "../../components/status";
 import { formatBoundary, formatCount, formatShare } from "./format";
 import { scoreBins, type ScoreBin } from "./regions";
+import { Measured } from "./measured";
 import { Await, SnapshotGate } from "./snapshot-gate";
 import { figuresFor } from "./overview";
 import { useSnapshotViews } from "./use-views";
@@ -13,20 +14,19 @@ import { useSnapshotViews } from "./use-views";
 export type AdaptivityViews = Pick<ViewBodies, "adaptivity" | "regionDecisions">;
 
 const HIST = { height: 220, left: 32, bottom: 24, top: 8, right: 8 } as const;
-const HIST_WIDTH = 520;
 
 /** Assessed regions by recorded score, in bins of 0.05, kept and rebuilt stacked. The bars are tallies of recorded values. */
-function ScoreHistogram({ bins, boundary }: { readonly bins: readonly ScoreBin[]; readonly boundary: number }) {
+function ScoreHistogram({ bins, boundary, measured }: { readonly bins: readonly ScoreBin[]; readonly boundary: number; readonly measured: number }) {
   const { height, left, bottom, top, right } = HIST;
-  const width = HIST_WIDTH;
+  const width = Math.max(260, measured);
   const barWidth = (width - left - right) / bins.length;
   const tallest = Math.max(1, ...bins.map((bin) => bin.kept + bin.rebuilt));
-  const max = Math.ceil(tallest / 4) * 4;
+  const max = Math.ceil(tallest / 10) * 10;
   const Y = (value: number) => top + (1 - value / max) * (height - top - bottom);
   const ticks = [0, 1, 2, 3, 4].map((step) => (max / 4) * step);
   const boundaryX = left + boundary * bins.length * barWidth;
   return (
-    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Histogram of region scores">
+    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height}`} height={height} role="img" aria-label="Histogram of region scores">
       {ticks.map((tick) => (
         <g key={tick}>
           <line className="rh-dec-grid" x1={left} x2={width - right} y1={Y(tick)} y2={Y(tick)} />
@@ -106,9 +106,7 @@ export function AdaptivityView({ owner, name, views }: AdaptivityViewProps) {
             </Text>
           }
         >
-          <div className="rh-dec-viz">
-            <ScoreHistogram bins={bins} boundary={regionDecisions.boundary} />
-          </div>
+          <Measured>{(width) => <ScoreHistogram bins={bins} boundary={regionDecisions.boundary} measured={width} />}</Measured>
           <div className="rh-v-legend rh-t-caption">
             <DecisionTag decision="kept">kept</DecisionTag>
             <DecisionTag decision="rebuilt">rebuilt</DecisionTag>
