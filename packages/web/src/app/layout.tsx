@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Host_Grotesk, Lora } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/layout/theme-provider";
-import { AppShell } from "@/components/layout/app-shell";
 import { SWRProvider } from "@/components/layout/swr-provider";
 import "@/styles/globals.css";
 
@@ -49,9 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NuqsAdapter>
             <SWRProvider>
               <TooltipProvider delayDuration={300}>
-                <Suspense fallback={null}>
-                  <AppShell>{children}</AppShell>
-                </Suspense>
+                {children}
               </TooltipProvider>
             </SWRProvider>
           </NuqsAdapter>
