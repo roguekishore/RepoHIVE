@@ -8,7 +8,8 @@ import { getArtifactStore } from "@/server/hosting/clients";
 import { getAppConfig } from "@/server/hosting/config";
 import { listIndexedRepositories, paginateRepositories } from "@/server/repositories/list-indexed-repositories";
 
-export const metadata: Metadata = { title: "RepoHIVE" };
+// `absolute`: the page now sits below the root layout (inside `(legacy)`), so the title template would otherwise apply.
+export const metadata: Metadata = { title: { absolute: "RepoHIVE" } };
 
 export const dynamic = "force-dynamic";
 
