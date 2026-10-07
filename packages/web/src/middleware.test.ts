@@ -43,6 +43,10 @@ describe("repo URL rules", () => {
     );
   });
 
+  it("sends the repo root to the Overview", () => {
+    expect(run("http://localhost:3000/repos/owner/repo").headers.get("location")).toBe("http://localhost:3000/repos/owner/repo/overview");
+  });
+
   it("answers names GitHub would not allow with a 404", () => {
     for (const path of ["bad_owner/repo/hierarchy", "owner/bad%40name/hierarchy", "owner/bad%40name", "owner/../x"]) {
       expect(run(`http://localhost:3000/repos/${path}`).status, path).toBe(404);
