@@ -23,6 +23,7 @@ function client(overrides: Partial<ContractClient>): ContractClient {
     requestIndex: fail,
     job: fail,
     watchJob: () => () => undefined,
+    jobs: fail,
     listRepositories: fail,
     repository: fail,
     snapshotPointer: () => Promise.resolve({ snapshotId: SNAPSHOT }),
