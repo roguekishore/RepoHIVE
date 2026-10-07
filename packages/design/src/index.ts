@@ -56,3 +56,11 @@ export type { InspectorProps, WorkspaceProps } from "./frame/workspace";
 
 // Contracts are also available on their own at "@repohive/design/contracts".
 export * from "./contracts";
+
+// Screens: one line per screen group. Each group lives in its own folder under ./screens/<slug>.
+export * from "./screens/landing";
+export * from "./screens/dashboard";
+export * from "./screens/views";
+export * from "./screens/map";
+export * from "./screens/canvas-views";
+export * from "./screens/account";
