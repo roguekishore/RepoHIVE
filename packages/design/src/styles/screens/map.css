@@ -1,1 +1,56 @@
-/* The styles of the map screens. Values come from tokens.css only. */
+﻿/* The Map's tools over the stage and the inspector's lists. Values come from tokens.css only. */
+
+.rh-map-tools {
+  position: absolute;
+  top: var(--rh-space-3);
+  left: var(--rh-space-3);
+  right: var(--rh-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rh-space-2);
+  pointer-events: none;
+}
+
+.rh-map-tools > * {
+  pointer-events: auto;
+}
+
+.rh-map-tools .rh-field {
+  width: min(100%, 240px);
+}
+
+.rh-map-zoom {
+  display: flex;
+  gap: var(--rh-space-1);
+  margin-left: auto;
+}
+
+.rh-map-links {
+  list-style: none;
+  margin: var(--rh-space-1) 0 0;
+  padding: 0;
+  display: grid;
+}
+
+.rh-map-link {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rh-space-2);
+  width: 100%;
+  padding: var(--rh-space-1) 0;
+  background: none;
+  border: 0;
+  color: var(--rh-fg-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rh-map-link:hover {
+  color: var(--rh-fg);
+}
+
+.rh-map-path {
+  overflow-wrap: anywhere;
+}
