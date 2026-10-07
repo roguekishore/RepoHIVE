@@ -8,7 +8,7 @@ export interface NavItem {
 }
 
 /** Account actions (sign in, sign up, quota, sign out) live in the sidebar footer, not here. */
-export const GLOBAL_NAV: NavItem[] = [{ label: "Dashboard", href: "/", icon: LayoutDashboard, exact: true }];
+export const GLOBAL_NAV: NavItem[] = [{ label: "Repositories", href: "/repos", icon: LayoutDashboard, exact: true }];
 
 /** The views of one indexed repository. */
 export function repoNavItems(repoId: string): NavItem[] {

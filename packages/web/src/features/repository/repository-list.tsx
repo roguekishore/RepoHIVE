@@ -77,7 +77,7 @@ export function RepositoryList({
       {totalPages > 1 ? (
         <nav className="mt-6 flex items-center gap-3 text-sm" aria-label="Repository list pages">
           {page > 1 ? (
-            <Link href={page === 2 ? "/" : `/?page=${page - 1}`} className="underline">
+            <Link href={page === 2 ? "/repos" : `/repos?page=${page - 1}`} className="underline">
               Previous
             </Link>
           ) : null}
@@ -85,7 +85,7 @@ export function RepositoryList({
             Page {page} of {totalPages}
           </span>
           {page < totalPages ? (
-            <Link href={`/?page=${page + 1}`} className="underline">
+            <Link href={`/repos?page=${page + 1}`} className="underline">
               Next
             </Link>
           ) : null}

@@ -23,7 +23,7 @@ export function NeverIndexedNotice({ repoId }: { repoId: string }) {
             Sign in
           </Link>{" "}
           to request an index for this repository, or{" "}
-          <Link href="/" className="text-[var(--color-accent-primary)] hover:underline">
+          <Link href="/repos" className="text-[var(--color-accent-primary)] hover:underline">
             browse indexed repositories
           </Link>
           .

@@ -16,7 +16,7 @@ export function RepoBreadcrumb({ repoId }: { repoId: string }) {
       aria-label="Breadcrumb"
       className="flex items-center gap-1 border-b border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-2 text-sm sm:px-6"
     >
-      <Link href="/" className="text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
+      <Link href="/repos" className="text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
         Dashboard
       </Link>
       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-tertiary)]" />
