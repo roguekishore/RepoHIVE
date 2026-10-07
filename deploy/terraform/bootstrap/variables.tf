@@ -27,3 +27,33 @@ variable "site_domain" {
     error_message = "site_domain must be repohive.dev or a lower-case name under it."
   }
 }
+
+variable "protect" {
+  type        = bool
+  description = "Keep true for production. False lets a destroy delete the ops bucket and the ECR repository with their contents (a test account that teardown.sh removes). The state bucket keeps prevent_destroy either way."
+  default     = true
+}
+
+variable "account_name" {
+  type        = string
+  description = "The deploy/accounts/<name> folder of this account, which is also the GitHub environment the build workflow runs in for it."
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{0,19}$", var.account_name))
+    error_message = "account_name must be lower-case letters and digits, starting with a letter, at most 20 characters."
+  }
+}
+
+variable "github_repository" {
+  type        = string
+  description = "owner/repo of the GitHub repository whose build workflow may push the image and the release (apply.sh reads it from the origin remote)."
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.github_repository))
+    error_message = "github_repository must be owner/repo."
+  }
+}
+
+variable "github_oidc_provider_arn" {
+  type        = string
+  description = "An existing token.actions.githubusercontent.com OIDC provider in this account, if there is one (an account holds at most one per URL). Empty: this root creates it."
+  default     = ""
+}
