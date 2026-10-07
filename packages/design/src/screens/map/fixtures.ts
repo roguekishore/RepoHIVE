@@ -32,8 +32,8 @@ export function zoomMap(): ZoomMap {
     truncated: false,
     nodes: [
       node({ id: "root", parent_id: null, level: 0, kind: "system", name: "widgets", children: ["g_core", "g_web"], metrics: files(6) }),
-      node({ id: "g_core", parent_id: "root", level: 1, kind: "group", name: "core", children: ["f_a", "f_b"], metrics: files(4), decision: "preserve", summary: "preserve, quality 0.62" }),
-      node({ id: "g_web", parent_id: "root", level: 1, kind: "group", name: "web", children: ["f_c"], metrics: files(2), decision: "reconstruct" }),
+      node({ id: "g_core", parent_id: "root", level: 1, kind: "group", name: "core", children: ["f_a", "f_b"], metrics: files(4), importance: 4, sibling_rank: 0, decision: "preserve", summary: "preserve, quality 0.62" }),
+      node({ id: "g_web", parent_id: "root", level: 1, kind: "group", name: "web", children: ["f_c"], metrics: files(2), importance: 2, sibling_rank: 1, decision: "reconstruct" }),
       node({ id: "f_a", parent_id: "g_core", level: 2, kind: "file", name: "Account.java", path: "core/Account.java" }),
       node({ id: "f_b", parent_id: "g_core", level: 2, kind: "file", name: "Order.java", path: "core/Order.java" }),
       node({ id: "f_c", parent_id: "g_web", level: 2, kind: "file", name: "Page.java", path: "web/Page.java" }),

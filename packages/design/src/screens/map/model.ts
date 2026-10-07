@@ -1,10 +1,10 @@
 /**
  * The Map's data model: the recorded zoom map turned into an indexed tree with a stable layout. Every value on a card
  * is read from the view body (names, file counts, the recorded decision, the recorded relations); the layout only
- * decides where a card sits and how big it is drawn (seeded, so the same index gives the same map).
+ * decides where a card sits and how big it is drawn (no randomness, so the same index gives the same map).
  */
 import type { Rect } from "../../canvas/camera";
-import { squarify } from "../../canvas/layout";
+import { packCards } from "../../canvas/layout";
 import type { ZoomMap, ZoomNode } from "@repohive/views";
 
 export type MapKind = ZoomNode["kind"];
@@ -57,20 +57,6 @@ function decisionOf(node: ZoomNode): MapDecision {
   return null;
 }
 
-/** Space kept inside a card around its children, and the strip for its title, as fractions of the card. */
-const PAD = 0.035;
-const HEAD = 0.1;
-
-/** The area inside `rect` that holds its children. */
-export function innerRect(rect: Rect): Rect {
-  const pad = Math.min(rect.w, rect.h) * PAD;
-  const head = rect.h * HEAD;
-  return { x: rect.x + pad, y: rect.y + pad + head, w: Math.max(rect.w - 2 * pad, 0), h: Math.max(rect.h - 2 * pad - head, 0) };
-}
-
-/** The share of a card's height the title strip takes when it is open. */
-export const TITLE_STRIP = HEAD;
-
 export function buildMapModel(map: ZoomMap): MapModel {
   const byId = new Map<string, ZoomNode>(map.nodes.map((node) => [node.id, node]));
   const root = byId.get(map.root_id) ?? map.nodes[0];
@@ -106,20 +92,22 @@ export function buildMapModel(map: ZoomMap): MapModel {
     summary: node.summary,
   }));
 
-  // The layout: a squarified treemap of each card's children inside its inner rectangle. A card's area follows the
-  // square root of its recorded file count, so a very large region does not shrink its neighbours to slivers.
+  // The layout: each card's children are packed with space between them (the ref's masonry pack), sized by the
+  // recorded importance and ordered by the recorded sibling rank, so the gaps carry the relation lines.
   const rects: Rect[] = new Array<Rect>(nodes.length);
   rects[0] = { x: 0, y: 0, w: 1, h: 1 };
-  const seed = map.root_id;
+  const key = (i: number): string => String(i).padStart(9, "0");
   for (const node of nodes) {
-    const rect = rects[node.i];
-    if (rect === undefined || node.kids.length === 0) continue;
-    const placed = squarify(
-      node.kids.map((kid) => ({ key: String(kid), weight: Math.sqrt(Math.max(1, nodes[kid]?.files ?? 1)) })),
-      innerRect(rect),
-      `${seed}\u0000${node.id}`,
+    const parent = rects[node.i];
+    if (parent === undefined || node.kids.length === 0) continue;
+    const placed = packCards(
+      node.kids.map((kid) => ({ key: key(kid), rank: order[kid]?.sibling_rank ?? 0, importance: order[kid]?.importance ?? 0 })),
+      parent.h > 0 ? parent.w / parent.h : 1,
     );
-    for (const item of placed) rects[Number(item.key)] = item.rect;
+    for (const kid of node.kids) {
+      const local = placed.get(key(kid));
+      if (local !== undefined) rects[kid] = { x: parent.x + local.x * parent.w, y: parent.y + local.y * parent.h, w: local.w * parent.w, h: local.h * parent.h };
+    }
   }
 
   const relations = new Map<number, MapRelation[]>();

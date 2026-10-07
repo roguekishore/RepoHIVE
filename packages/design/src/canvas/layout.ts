@@ -97,6 +97,94 @@ export function squarify(items: readonly WeightedItem[], rect: Rect, seed: numbe
   return placed;
 }
 
+export interface PackChild {
+  readonly key: string;
+  /** Placement order, most important first. */
+  readonly rank: number;
+  /** How central the card is; larger importance, larger card. */
+  readonly importance: number;
+}
+
+export interface PackOptions {
+  /** Whitespace between cards, in card-height units. */
+  readonly gutter?: number;
+  /** Card height for the least and the most important sibling. */
+  readonly sizeMin?: number;
+  readonly sizeMax?: number;
+  /** Below 1 lifts small cards so minor ones stay readable. */
+  readonly gamma?: number;
+  /** Card width to height. */
+  readonly aspect?: number;
+}
+
+const PACK_DEFAULTS = { gutter: 0.3, sizeMin: 0.58, sizeMax: 1, gamma: 0.7, aspect: 1.5 } as const;
+
+/**
+ * A masonry pack: cards sized by importance, row-packed with a gutter into centred rows, then fitted (aspect kept)
+ * into the unit square. Unlike a treemap it leaves space between cards, which is where relation lines are drawn.
+ * `parentAspect` is the width to height of the box the result is stretched onto, so cards keep one shape at any depth.
+ * Order is by rank, then key; there is no randomness.
+ */
+export function packCards(children: readonly PackChild[], parentAspect: number, options: PackOptions = {}): Map<string, Rect> {
+  const { gutter, sizeMin, sizeMax, gamma, aspect: base } = { ...PACK_DEFAULTS, ...options };
+  const out = new Map<string, Rect>();
+  if (children.length === 0) return out;
+  const aspect = Math.min(8, Math.max(0.2, base / (parentAspect || 1)));
+  const ordered = [...children].sort((a, b) => a.rank - b.rank || compareKeys(a.key, b.key));
+  const value = (c: PackChild): number => (Number.isFinite(c.importance) ? c.importance : 0);
+  const lo = Math.min(...ordered.map(value));
+  const span = Math.max(...ordered.map(value)) - lo;
+  const cards = ordered.map((c) => {
+    const norm = span > 1e-9 ? (value(c) - lo) / span : 1;
+    const h = sizeMin + (sizeMax - sizeMin) * Math.pow(norm, gamma);
+    return { key: c.key, w: h * aspect, h };
+  });
+
+  // Aim for the column count whose shape follows the parent, so the cluster fits with little slack.
+  const wanted = Math.min(6, Math.max(1 / 6, parentAspect || 1));
+  const count = cards.length;
+  const rowsGuess = Math.ceil(count / Math.min(count, Math.max(1, Math.round(Math.sqrt(count * wanted)))));
+  const cols = count === 1 ? 1 : Math.ceil(count / rowsGuess);
+  const avgW = cards.reduce((sum, c) => sum + c.w, 0) / count;
+  const target = cols * avgW + Math.max(0, cols - 1) * gutter;
+
+  type Card = (typeof cards)[number];
+  const rows: Card[][] = [];
+  let row: Card[] = [];
+  let rowWidth = 0;
+  for (const card of cards) {
+    const add = (row.length > 0 ? gutter : 0) + card.w;
+    if (row.length > 0 && rowWidth + add > target) {
+      rows.push(row);
+      row = [];
+      rowWidth = 0;
+    }
+    rowWidth += (row.length > 0 ? gutter : 0) + card.w;
+    row.push(card);
+  }
+  if (row.length > 0) rows.push(row);
+
+  const widthOf = (r: Card[]): number => r.reduce((sum, c) => sum + c.w, 0) + Math.max(0, r.length - 1) * gutter;
+  const heightOf = (r: Card[]): number => r.reduce((max, c) => Math.max(max, c.h), 0);
+  const maxW = Math.max(...rows.map(widthOf));
+  const totalH = rows.reduce((sum, r) => sum + heightOf(r), 0) + Math.max(0, rows.length - 1) * gutter;
+  const scale = Math.min(1 / maxW, 1 / totalH);
+  const offX = (1 - maxW * scale) / 2;
+  const offY = (1 - totalH * scale) / 2;
+
+  let y = 0;
+  for (const r of rows) {
+    const h = heightOf(r);
+    let x = (maxW - widthOf(r)) / 2;
+    for (const c of r) {
+      out.set(c.key, { x: offX + x * scale, y: offY + (y + (h - c.h) / 2) * scale, w: c.w * scale, h: c.h * scale });
+      x += c.w + gutter;
+    }
+    y += h + gutter;
+  }
+  return out;
+}
+
 export interface ForceNode {
   readonly id: string;
 }
