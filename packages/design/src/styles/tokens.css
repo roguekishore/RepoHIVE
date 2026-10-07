@@ -64,6 +64,7 @@
 
   /* ---- Shape ---- */
   --rh-radius: 4px;
+  --rh-radius-sm: 3px;
   --rh-radius-lg: 6px;
   --rh-radius-xl: 8px;
   --rh-border: 1px;

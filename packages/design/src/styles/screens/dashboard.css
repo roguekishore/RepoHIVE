@@ -22,10 +22,6 @@
   margin-left: auto;
 }
 
-.rh-root .rh-dash-count {
-  margin-right: var(--rh-space-2);
-}
-
 .rh-root .rh-dash-index-form {
   display: grid;
   gap: var(--rh-space-3);

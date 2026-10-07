@@ -64,7 +64,7 @@
 }
 
 .rh-root .rh-btn-ghost:hover {
-  background: transparent;
+  background: var(--rh-sunken);
   color: var(--rh-fg);
 }
 
@@ -101,7 +101,7 @@
   line-height: var(--rh-lh-label);
   border: var(--rh-border) solid var(--rh-line-strong);
   border-bottom-width: var(--rh-border-accent);
-  border-radius: var(--rh-radius);
+  border-radius: var(--rh-radius-sm);
   padding: 0 var(--rh-space-1);
   color: var(--rh-fg-3);
   background: var(--rh-surface);
@@ -492,11 +492,6 @@
   display: grid;
   gap: var(--rh-space-2);
   justify-items: center;
-}
-
-.rh-empty strong {
-  color: var(--rh-fg);
-  font-weight: var(--rh-weight-semibold);
 }
 
 /* ---------- Page column ---------- */

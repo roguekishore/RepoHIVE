@@ -523,3 +523,9 @@
 .rh-ld-film .rh-ld-film-frame {
   aspect-ratio: 780 / 820;
 }
+
+/* The landing keeps a transparent ghost hover (the app fills it). */
+.rh-root .rh-ld .rh-btn-ghost:hover,
+.rh-ld .rh-btn-ghost:hover {
+  background: transparent;
+}

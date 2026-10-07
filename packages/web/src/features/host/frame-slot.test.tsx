@@ -48,10 +48,9 @@ describe("defaultCrumbs", () => {
     expect(defaultCrumbs("/method/")).toEqual([{ label: "Method" }]);
   });
 
-  it("walks from Repositories to the view, using the navigation's word for the view", () => {
+  it("names the repository, then the view, using the navigation's word for the view", () => {
     expect(defaultCrumbs("/repos/acme/widgets/decision-audit")).toEqual([
-      { label: "Repositories", href: "/repos" },
-      { label: "acme/widgets", href: "/repos/acme/widgets" },
+      { label: "widgets", href: "/repos/acme/widgets/overview" },
       { label: "Decisions" },
     ]);
   });

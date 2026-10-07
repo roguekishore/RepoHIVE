@@ -203,19 +203,12 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   const loaded = repositories !== undefined;
   const actions = useMemo(
     () => (
-      <>
-        {loaded ? (
-          <span className="rh-fg3 rh-mono rh-num rh-dash-count" aria-label={`${count} repositories`}>
-            {count}
-          </span>
-        ) : null}
-        <Button variant="primary" onClick={() => setDialog(true)}>
-          <Icon name="plus" size={14} />
-          <span className="rh-hide-sm">Index a repository</span>
-        </Button>
-      </>
+      <Button variant="primary" onClick={() => setDialog(true)}>
+        <Icon name="plus" size={14} />
+        <span className="rh-hide-sm">Index a repository</span>
+      </Button>
     ),
-    [loaded, count],
+    [],
   );
 
   let body;
@@ -294,7 +287,7 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   }
 
   return (
-    <Frame crumbs={[{ label: "Repositories" }]} actions={actions}>
+    <Frame crumbs={[{ label: "Repositories", aside: loaded ? count : undefined }]} actions={actions}>
       <Page>{body}</Page>
       <IndexRequestDialog open={dialog} onClose={() => setDialog(false)} />
     </Frame>

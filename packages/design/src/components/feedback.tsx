@@ -28,8 +28,8 @@ export interface EmptyStateProps {
 export function EmptyState({ title, children, action }: EmptyStateProps) {
   return (
     <div className="rh-empty">
-      <strong>{title}</strong>
-      {children === undefined ? null : <p>{children}</p>}
+      <span className="rh-t-lead rh-fg2">{title}</span>
+      {children === undefined ? null : <span className="rh-t-caption">{children}</span>}
       {action}
     </div>
   );
