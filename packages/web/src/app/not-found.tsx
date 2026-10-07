@@ -6,8 +6,8 @@ import { OwnFrame } from "@/features/host/frame-slot";
 
 /**
  * The 404 for a URL no page matches (and for the middleware's rewrite of a repository name GitHub would not allow).
- * It sits outside every route group, so it brings the design host and the frame itself; pages inside `(legacy)` use
- * that group's own `not-found.tsx` until the group is empty.
+ * It sits outside every route group, so it brings the design host and the frame itself; a page inside the app group
+ * has its own `not-found.tsx`.
  */
 export default function RootNotFound() {
   return (
