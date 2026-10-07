@@ -38,6 +38,12 @@ variable "alert_email" {
   }
 }
 
+variable "protect" {
+  type        = bool
+  description = "Deletion protection on the ledger table and termination protection on the box; false also lets a destroy empty the artifact bucket. Keep true for production; false only for a test account that teardown.sh will remove. The data volume keeps prevent_destroy either way."
+  default     = true
+}
+
 variable "log_retention_days" {
   type        = number
   description = "Retention for every CloudWatch log group."
