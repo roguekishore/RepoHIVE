@@ -6,7 +6,8 @@
 .rh-ld {
   background: var(--rh-bg);
   color: var(--rh-fg);
-  overflow-x: hidden;
+  /* clip, not hidden: hidden would make this a scroll container and break the sticky nav and stage */
+  overflow-x: clip;
 }
 
 .rh-ld-wrap {
