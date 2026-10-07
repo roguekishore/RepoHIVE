@@ -1,129 +1,33 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
-import { Button, LinkButton } from "../../components/button";
+import { useEffect, useState, type ReactNode } from "react";
+import { LinkButton } from "../../components/button";
 import { Text } from "../../components/feedback";
-import { Table, type TableColumn } from "../../components/table";
 import { Brand } from "../../icons/mark";
 import { routes } from "../../routes";
-import { IndexRequestDialog, parseRepoInput } from "../dashboard/index-dialog";
+import { BigMark } from "./big-mark";
 import { BoundaryWhatIf } from "./boundary";
+import { Determinism } from "./determinism";
 import type { LandingFigures } from "./figures-types";
 import { FilmPlayer } from "./film-player";
+import { IndexForm } from "./index-form";
 import { ProofFigures, RegionWaffle } from "./proof";
 import { Story } from "./story";
+import { ViewsBento } from "./views-bento";
 
 const number = new Intl.NumberFormat("en-US");
-const percent = (fraction: number): string => `${(fraction * 100).toFixed(1)}%`;
 
-/** The one-line index form the page shows twice. It checks what was typed and then opens the real request dialog. */
-function IndexForm({ idPrefix }: { readonly idPrefix: string }) {
-  const id = useId();
-  const noteId = `${idPrefix}-note-${id}`;
-  const [value, setValue] = useState("");
-  const [note, setNote] = useState<{ readonly text: string; readonly error: boolean } | undefined>();
-  const [dialogRepo, setDialogRepo] = useState<string | undefined>();
+const HEADLINE = "Read a codebase by the way it is actually built.";
 
-  const submit = (event: FormEvent): void => {
-    event.preventDefault();
-    if (value.trim() === "") {
-      setNote({ text: "Enter a repository, for example apache/kafka.", error: true });
-      return;
-    }
-    const repo = parseRepoInput(value);
-    if (repo === undefined) {
-      setNote({ text: "Use owner/repo or a github.com link, for example apache/kafka.", error: true });
-      return;
-    }
-    setNote({ text: `${repo} looks right.`, error: false });
-    setDialogRepo(repo);
-  };
-
+/** A section head: the label across the top, then the title and the lead side by side. */
+function SectionHead({ label, title, children }: { readonly label: string; readonly title: string; readonly children: ReactNode }) {
   return (
-    <>
-      <form className="rh-ld-form" onSubmit={submit} noValidate>
-        <input
-          id={`${idPrefix}-repo-${id}`}
-          className="rh-input rh-ld-input"
-          placeholder="owner/repo or GitHub link"
-          autoComplete="off"
-          aria-label="Repository"
-          aria-describedby={noteId}
-          aria-invalid={note?.error === true ? true : undefined}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-        />
-        <Button type="submit" variant="primary" size="lg">
-          Index it
-        </Button>
-      </form>
-      <p id={noteId} className={`rh-ld-note rh-t-caption ${note?.error === true ? "rh-ld-note-err" : "rh-fg3"}`} aria-live="polite">
-        {note?.text}
-      </p>
-      <IndexRequestDialog open={dialogRepo !== undefined} initialRepo={dialogRepo} onClose={() => setDialogRepo(undefined)} />
-    </>
-  );
-}
-
-function ViewsBento({ figures }: { readonly figures: LandingFigures }) {
-  const { counts, dsm, flat } = figures;
-  const views: readonly { readonly name: string; readonly question: string; readonly figure: string }[] = [
-    { name: "Overview", question: "What is in this repository, and how was it decided?", figure: `${number.format(counts.files)} files in ${number.format(counts.regions)} regions` },
-    { name: "Map", question: "How is it nested, and who depends on whom?", figure: `${number.format(counts.groupNodes)} groups, ${counts.depth} levels deep` },
-    { name: "Hierarchy", question: "Where do the files sit, level by level?", figure: `${counts.depth} rings, sweep is files` },
-    { name: "Decisions", question: "Why was each package kept or rebuilt?", figure: `${number.format(counts.assessed)} measured regions, each with its score` },
-    { name: "Architecture", question: "How do the groups depend on each other?", figure: `${number.format(dsm.totalGroups)} groups at level ${dsm.level}` },
-    { name: "Baseline", question: "What did the flat graph look like before?", figure: `${number.format(counts.files)} files, ${number.format(flat.totalLinks)} imports` },
-    { name: "Adaptivity", question: "How often does the engine keep a package?", figure: `${percent(counts.preserveShare)} kept, of measured` },
-  ];
-  return (
-    <ul className="rh-ld-bento">
-      {views.map((view) => (
-        <li key={view.name} className="rh-panel rh-ld-view">
-          <Text as="h3" role="heading">
-            {view.name}
-          </Text>
-          <Text role="lead" tone="subtle">
-            {view.question}
-          </Text>
-          <span className="rh-ld-code">{view.figure}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-type DeterminismFile = LandingFigures["determinism"]["files"][number];
-
-function Determinism({ figures }: { readonly figures: LandingFigures }) {
-  const { determinism } = figures;
-  const columns: TableColumn<DeterminismFile>[] = [
-    { key: "name", header: "Index file", render: (file) => <span className="rh-mono">{file.name}</span> },
-    { key: "bytes", header: "Size", numeric: true, render: (file) => `${number.format(file.bytes)} bytes` },
-    { key: "sha", header: "SHA-256", render: (file) => <span className="rh-mono">{file.sha256.slice(0, 12)}…</span> },
-  ];
-  return (
-    <div className="rh-ld-det">
-      <div className="rh-ld-det-copy">
-        <Text role="label">Determinism</Text>
-        <Text as="h2" role="display">
-          Same commit, same bytes.
-        </Text>
-        <Text role="lead" tone="subtle">
-          Index the same commit twice and the index files match byte for byte, so a link to a region stays valid.
-        </Text>
-        <p className="rh-t-caption rh-fg3">
-          Group ids are {determinism.groupScheme}. For example {determinism.sampleGroupId} names the same {number.format(determinism.sampleMembers)} members every time.
-        </p>
-      </div>
-      <section className="rh-panel">
-        <div className="rh-panel-head">
-          <h3>The index of {figures.repository}</h3>
-          <span className="rh-fg3 rh-mono">group digest {determinism.digest.slice(0, 8)}…</span>
-        </div>
-        <Table caption="The index files and their hashes" columns={columns} rows={determinism.files} rowKey={(file) => file.name} />
-        <p className="rh-t-caption rh-fg3 rh-ld-det-note">The determinism check compares these hashes on every run.</p>
-      </section>
+    <div className="rh-ld-sec-head">
+      <span className="rh-t-label">{label}</span>
+      <Text as="h2" role="display">
+        {title}
+      </Text>
+      <p className="rh-t-lead">{children}</p>
     </div>
   );
 }
@@ -133,14 +37,22 @@ function Determinism({ figures }: { readonly figures: LandingFigures }) {
  * Everything it shows about a repository comes from `figures`, which a script writes from a real index.
  */
 export function LandingScreen({ figures }: { readonly figures: LandingFigures }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = (): void => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="rh-ld" id="top">
-      <header className="rh-ld-nav">
+      <header className={scrolled ? "rh-ld-nav rh-ld-scrolled" : "rh-ld-nav"}>
         <div className="rh-ld-wrap rh-ld-nav-row">
           <a className="rh-ld-brand" href="#top" aria-label="RepoHIVE, back to top">
             <Brand />
           </a>
-          <nav className="rh-ld-links rh-hide-sm" aria-label="Sections">
+          <nav className="rh-ld-links" aria-label="Sections">
             <a href="#how">How it works</a>
             <a href="#boundary">Decisions</a>
             <a href="#views">Views</a>
@@ -150,118 +62,107 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
             <LinkButton variant="ghost" href={routes.signIn}>
               Sign in
             </LinkButton>
-            <LinkButton variant="primary" href="#start" className="rh-hide-sm">
+            <LinkButton variant="primary" href="#start">
               Index a repository
             </LinkButton>
           </div>
         </div>
       </header>
 
-      <section className="rh-ld-hero" aria-label="RepoHIVE">
-        <div className="rh-ld-wrap rh-ld-hero-grid">
-          <div className="rh-ld-hero-head">
-            <Text role="label">Structure maps for Java repositories on GitHub</Text>
-            <Text as="h1" role="hero">
-              Read a codebase by the way it is actually built.
-            </Text>
+      <main>
+        <section className="rh-ld-hero" aria-label="RepoHIVE">
+          <div className="rh-ld-wrap rh-ld-hero-grid">
+            <div className="rh-ld-hero-head">
+              <span className="rh-t-label">Structure maps for Java repositories on GitHub</span>
+              <h1 className="rh-t-hero" aria-label={HEADLINE}>
+                <span aria-hidden="true">
+                  {HEADLINE.split(" ").map((word, index, words) => (
+                    <span key={index}>
+                      <span className="rh-ld-w" style={{ "--i": index } as React.CSSProperties}>
+                        <span>{word}</span>
+                      </span>
+                      {index < words.length - 1 ? " " : null}
+                    </span>
+                  ))}
+                </span>
+              </h1>
+            </div>
+            <FilmPlayer figures={figures} />
+            <div className="rh-ld-hero-body">
+              <p className="rh-t-lead rh-ld-lead">
+                RepoHIVE measures every package in a repository. Packages that hold together keep their shape. The rest are rebuilt from their dependencies. You get a map you can zoom into, and the
+                reason behind every boundary.
+              </p>
+              <IndexForm idPrefix="hero" />
+              <div className="rh-ld-meta">
+                <span>Public repositories, with a daily allowance per account</span>
+                <a href="#proof">
+                  See a real result <span aria-hidden="true">→</span>
+                </a>
+              </div>
+            </div>
           </div>
-          <FilmPlayer figures={figures} />
-          <div className="rh-ld-hero-body">
-            <Text role="lead" tone="subtle">
-              RepoHIVE measures every package in a repository. Packages that hold together keep their shape. The rest are rebuilt from their dependencies. You get a map you can zoom into, and the
-              reason behind every boundary.
-            </Text>
-            <IndexForm idPrefix="hero" />
-            <p className="rh-ld-meta rh-t-caption rh-fg3">
-              <span>Public repositories, with a daily allowance per account</span>
-              <a href="#proof">See a real result →</a>
-            </p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-sec" id="proof">
-        <div className="rh-ld-wrap">
-          <div className="rh-ld-sec-head">
-            <Text role="label">One repository, every figure real</Text>
-            <Text as="h2" role="display">
-              {figures.repository}, start to finish.
-            </Text>
-            <Text role="lead" tone="subtle">
+        <section className="rh-ld-sec" id="proof">
+          <div className="rh-ld-wrap">
+            <SectionHead label="One repository, every figure real" title={`${figures.repository}, start to finish.`}>
               An open-source commerce framework on Spring. Every number on this page, and every view behind it, comes from its index, read at {figures.signal.level}.
-            </Text>
+            </SectionHead>
+            <ProofFigures figures={figures} />
+            <RegionWaffle figures={figures} />
           </div>
-          <ProofFigures figures={figures} />
-          <RegionWaffle figures={figures} />
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-sec" id="how">
-        <div className="rh-ld-wrap">
-          <div className="rh-ld-sec-head">
-            <Text role="label">How it works</Text>
-            <Text as="h2" role="display">
-              From a flat graph to a map, one region at a time.
-            </Text>
-            <Text role="lead" tone="subtle">
+        <section className="rh-ld-sec" id="how">
+          <div className="rh-ld-wrap">
+            <SectionHead label="How it works" title="From a flat graph to a map, one region at a time.">
               Scroll to run it. The picture is the same film, played by your position on the page.
-            </Text>
+            </SectionHead>
+            <Story figures={figures} />
           </div>
-          <Story figures={figures} />
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-sec" id="boundary">
-        <div className="rh-ld-wrap">
-          <div className="rh-ld-sec-head">
-            <Text role="label">Decisions</Text>
-            <Text as="h2" role="display">
-              Every boundary comes with its reason.
-            </Text>
-            <Text role="lead" tone="subtle">
-              These are {figures.repository}’s {number.format(figures.counts.assessed)} measured regions on one axis. Drag the line to see which decisions would change, or pick a region to see its values.
-            </Text>
+        <section className="rh-ld-sec" id="boundary">
+          <div className="rh-ld-wrap">
+            <SectionHead label="Decisions" title="Every boundary comes with its reason.">
+              These are {figures.repository}’s {number.format(figures.counts.assessed)} measured regions on one axis. Drag the line to see which decisions would change, or pick a region to see its
+              values.
+            </SectionHead>
+            <BoundaryWhatIf figures={figures} />
           </div>
-          <BoundaryWhatIf figures={figures} />
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-sec" id="views">
-        <div className="rh-ld-wrap">
-          <div className="rh-ld-sec-head">
-            <Text role="label">Views</Text>
-            <Text as="h2" role="display">
-              Seven views of one index.
-            </Text>
-            <Text role="lead" tone="subtle">
-              Each view answers one question about the same recorded result. The figures below are {figures.repository}’s.
-            </Text>
+        <section className="rh-ld-sec" id="views">
+          <div className="rh-ld-wrap">
+            <SectionHead label="Views" title="Seven views of one index.">
+              Each view answers one question about the same recorded result. Every preview below is drawn from {figures.repository}’s index.
+            </SectionHead>
+            <ViewsBento figures={figures} />
           </div>
-          <ViewsBento figures={figures} />
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-sec" id="same">
-        <div className="rh-ld-wrap">
+        <section className="rh-ld-sec" id="same">
           <Determinism figures={figures} />
-        </div>
-      </section>
+        </section>
 
-      <section className="rh-ld-end" id="start">
-        <div className="rh-ld-wrap rh-ld-end-copy">
-          <Text role="label">Start</Text>
-          <Text as="h2" role="display">
-            Index your first repository.
-          </Text>
-          <Text role="lead" tone="subtle">
-            Paste a public GitHub repository. RepoHIVE checks it, indexes it, and opens the map when it is done.
-          </Text>
-          <IndexForm idPrefix="end" />
-        </div>
-      </section>
+        <section className="rh-ld-end" id="start">
+          <div className="rh-ld-wrap rh-ld-end-grid">
+            <BigMark />
+            <div className="rh-ld-end-copy">
+              <span className="rh-t-label">Start</span>
+              <Text as="h2" role="display">
+                Index your first repository.
+              </Text>
+              <p className="rh-t-lead">Paste a public GitHub repository. RepoHIVE checks it, indexes it, and opens the map when it is done.</p>
+              <IndexForm idPrefix="end" arrow />
+            </div>
+          </div>
+        </section>
+      </main>
 
       <footer className="rh-ld-foot">
-        <div className="rh-ld-wrap rh-ld-foot-row rh-t-caption">
+        <div className="rh-ld-wrap rh-ld-foot-row">
           <a className="rh-ld-brand" href="#top">
             <Brand markSize={16} />
           </a>
@@ -269,7 +170,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
           <a href="#boundary">Decisions</a>
           <a href="#views">Views</a>
           <a href="#same">Determinism</a>
-          <a href={routes.method}>Method</a>
+          <span className="rh-ld-foot-year">© {new Date().getFullYear()} RepoHIVE</span>
         </div>
       </footer>
     </div>
