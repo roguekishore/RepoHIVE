@@ -22,6 +22,7 @@ export interface MapScreenProps {
   readonly colors?: ColorSource;
 }
 
+const WHOLE = { x: 0, y: 0, w: 1, h: 1 } as const;
 const FIT_FILL = 0.94;
 const CARD_FILL = 0.82;
 const ZOOM_STEP = 1.5;
@@ -59,7 +60,6 @@ export function MapScreen({ data, colors }: MapScreenProps) {
   const [chain, setChain] = useState<readonly number[]>([]);
   const [zoom, setZoom] = useState<number | undefined>();
   const sizeRef = useRef<Size>({ w: 0, h: 0 });
-  const fitScale = useRef(1);
 
   useEffect(() => setLengths(readLengths()), []);
 
@@ -72,11 +72,7 @@ export function MapScreen({ data, colors }: MapScreenProps) {
       const state: MapDrawState = { selected, hovered, related, ancestors, lengths };
       drawMap(frame, model, state);
     },
-    fit: (size) => {
-      const camera = frameRect({ x: 0, y: 0, w: 1, h: 1 }, size, FIT_FILL);
-      fitScale.current = camera.scale;
-      return camera;
-    },
+    fit: (size) => frameRect(WHOLE, size, FIT_FILL),
     onHover: (hit) => setHovered(hit ?? -1),
     onPick: (hit) => setSelected((current) => (hit === undefined || hit === current ? -1 : hit)),
     onOpen: (hit) => {
@@ -85,7 +81,8 @@ export function MapScreen({ data, colors }: MapScreenProps) {
     },
     onCamera: (camera: Camera) => {
       setChain(focusChain(model, camera, sizeRef.current));
-      setZoom(fitScale.current > 0 ? camera.scale / fitScale.current : undefined);
+      const fitted = frameRect(WHOLE, sizeRef.current, FIT_FILL).scale;
+      setZoom(fitted > 0 ? camera.scale / fitted : undefined);
     },
     onKey: (event) => {
       if (event.key !== "Escape") return false;
