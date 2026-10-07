@@ -201,9 +201,6 @@ README.md
 .editorconfig
 ```
 
-Code derived from upstream (repowise) is not a separate top-level directory. It lives in `packages/web`, with
-attribution in `NOTICE`.
-
 Deliberately absent from the public repository, all git-ignored: `context/` (project state, decision
 history, and registers; see below), `tooling/`, `archive/`, `node_modules/`, `dist/`,
 `graph.json`, and `index/`.

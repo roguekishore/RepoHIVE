@@ -15,7 +15,4 @@ Status: active development. Interfaces and command names are not yet stable.
 
 **GNU Affero General Public License v3.0 or later** — see [`LICENSE`](LICENSE).
 
-Parts of the user interface are derived from [repowise](https://github.com/repowise-dev/repowise),
-which is licensed under AGPL-3.0. See [`NOTICE`](NOTICE) for attribution.
-
 Previously distributed under the MIT License; copies obtained under those terms remain under them.
