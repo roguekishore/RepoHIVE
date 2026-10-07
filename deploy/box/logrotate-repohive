@@ -1,7 +1,7 @@
 # Daily rotation of the web and worker logs. systemd keeps the files open
 # (StandardOutput=append:), so each is copied and truncated rather than moved. The CloudWatch agent follows
 # the file across the truncation. Caddy rotates its own access log.
-/var/log/repohive/web.log /var/log/repohive/worker.log {
+/var/log/repohive/web.log /var/log/repohive/worker.log /var/log/repohive/heartbeat.log {
     daily
     rotate 7
     compress
