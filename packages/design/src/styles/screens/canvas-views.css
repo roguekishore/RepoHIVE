@@ -282,3 +282,49 @@ svg.rh-sun:focus-visible {
   stroke: var(--rh-line-strong);
   stroke-dasharray: 1 2;
 }
+
+/* ---------- Baseline (flat file graph) ---------- */
+
+.rh-flat-zoom {
+  position: absolute;
+  top: var(--rh-space-3);
+  right: var(--rh-space-3);
+  display: flex;
+  gap: var(--rh-space-1);
+}
+
+.rh-flat-links {
+  list-style: none;
+  margin: var(--rh-space-1) 0 0;
+  padding: 0;
+  display: grid;
+}
+
+.rh-flat-link {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  padding: var(--rh-space-1) 0;
+  background: none;
+  border: 0;
+  color: var(--rh-fg-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rh-flat-link:hover {
+  color: var(--rh-fg);
+}
+
+.rh-flat-link em {
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--rh-fs-caption);
+}
+
+.rh-flat-path {
+  overflow-wrap: anywhere;
+}
