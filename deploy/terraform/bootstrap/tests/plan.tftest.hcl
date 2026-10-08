@@ -89,3 +89,19 @@ run "unprotected_with_existing_provider" {
     error_message = "An unprotected account lets a destroy delete the registry and the ops bucket."
   }
 }
+
+run "immutable_subject" {
+  command = plan
+
+  variables {
+    github_subject_prefix = "repo:example@1/repohive@2"
+  }
+
+  # A repository with immutable subjects: the role trusts the id form, not the name form.
+  assert {
+    condition = strcontains(data.aws_iam_policy_document.github_build_assume.json, "repo:example@1/repohive@2:environment:prod") && !strcontains(
+      data.aws_iam_policy_document.github_build_assume.json, "repo:example/repohive:environment"
+    )
+    error_message = "The role must trust the subject prefix GitHub issues for the repository."
+  }
+}
