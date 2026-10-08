@@ -178,7 +178,8 @@ describe("state machine definition", () => {
       const env = Object.fromEntries((overrides[0]?.Environment ?? []).map((e) => [e.Name, e.Value]));
       assert.equal(env.REPOHIVE_TIME_LIMIT_MS, String(TIER_TIMEOUT_MS[tier]));
       assert.ok(env.REPOHIVE_JOB_INPUT?.includes("$job"));
-      assert.equal(state.Arguments?.StartedBy, "{% $job.jobId %}");
+      assert.equal(state.Arguments?.StartedBy, undefined);
+      assert.equal(state.Arguments?.Group, "{% 'job-' & $job.jobId %}");
     }
     assert.equal(TIER_TIMEOUT_MS.L, 600_000);
     assert.equal(TIER_TIMEOUT_MS.XL, 900_000);
@@ -229,7 +230,11 @@ describe("state machine definition", () => {
     }
     const list = states.ListRunningTasks as State;
     assert.equal(list.Resource, "arn:aws:states:::aws-sdk:ecs:listTasks");
-    assert.equal(list.Arguments?.StartedBy, "{% $job.jobId %}");
+    assert.equal(list.Arguments?.Family, "${task_definition_family}");
+    assert.equal(list.Next, "AnyRunningTasks");
+    const describe = states.DescribeRunningTasks as State;
+    assert.equal(describe.Resource, "arn:aws:states:::aws-sdk:ecs:describeTasks");
+    assert.equal(describe.Next, "StopRunningTasks");
     const stop = (states.StopRunningTasks as State).ItemProcessor?.States.StopTask;
     assert.equal(stop?.Resource, "arn:aws:states:::aws-sdk:ecs:stopTask");
     assert.equal(controlOp(states.ReleaseSlot as State), "releaseSlot");
