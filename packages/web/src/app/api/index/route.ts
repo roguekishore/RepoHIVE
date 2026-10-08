@@ -1,7 +1,6 @@
 import { resolveSession } from "@/lib/auth/accounts";
 import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/lib/auth/http";
-import { getArtifactStore, getJobLedger } from "@/lib/hosting/clients";
-import { createRepoLockReader } from "@/lib/hosting/repo-lock";
+import { getArtifactStore, getJobLedger, getRepoLockReader } from "@/lib/hosting/clients";
 import { processIndexRequest } from "@/lib/intake/process-index-request";
 import { INTAKE_BUSY_RETRY_SECONDS } from "@/lib/intake/api-error";
 import { getJobOrchestrator } from "@/lib/orchestrator";
@@ -34,7 +33,7 @@ export async function POST(request: Request) {
       store: getArtifactStore(config),
       ledger: getJobLedger(config),
       orchestrator: getJobOrchestrator(config),
-      repoLocks: createRepoLockReader(config),
+      repoLocks: getRepoLockReader(config),
     },
   );
 
