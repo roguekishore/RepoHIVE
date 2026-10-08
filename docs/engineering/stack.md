@@ -14,9 +14,8 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
 - ESM. `"type": "module"` is set in `shared`, `parser` and `core`. It is
   **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
-- Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. The upstream
-  UI code that remains in `packages/web` is AGPL.
-  Upstream attribution in `NOTICE`. Any new dependency must be licence-compatible.
+- Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. Any new
+  dependency must be licence-compatible.
 
 ## Engine dependencies
 
