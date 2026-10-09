@@ -69,6 +69,7 @@ import {
   type ExtractionPipeline,
   type FileSource,
 } from "./extraction-pool.js";
+import { resolveDuplicateDeclarations } from "./duplicate-resolution.js";
 import { createGraphSerializer, type GraphSerializer } from "./serializer.js";
 import {
   findInvalidSourceEntry,
@@ -95,6 +96,22 @@ const DEFAULT_READ_CONCURRENCY = 16;
  * Options for {@link parseProject} (design: "Orchestrator (Parser_System)").
  */
 export interface ParseOptions {
+  /**
+   * Build the graph from the files that parsed instead of failing the run on
+   * the first file that did not (the R10.4 gate). Default `false`: any
+   * recoverable per-file error fails the run and writes nothing, which suits a
+   * curated project. Indexing an arbitrary repository cannot afford that: one
+   * template, one fuzz input or one construct the grammar lacks would discard
+   * everything else.
+   *
+   * When set, `file-unparseable`, `file-unreadable` and `path-unsupported` files,
+   * and files dropped by duplicate-declaration resolution (a later file that
+   * declares a class an earlier one already declared), are reported on
+   * {@link ParseSuccess.skippedFiles}. Each contributed no nodes and no
+   * references. Fatal errors still fail the run, and so does a run in which no
+   * file survived. Deterministic: the same input skips the same files.
+   */
+  tolerateFileErrors?: boolean;
   /**
    * Path to the local Java project directory to parse. Give this or
    * {@link ParseOptions.source}: when `source` is given it is used and this is
@@ -381,17 +398,38 @@ async function parseProjectUnguarded(
     workers: resolveWorkers(options.workers),
     readConcurrency: resolveConcurrency(options.concurrency),
     ...(options.onProgress !== undefined ? { onProgress: options.onProgress } : {}),
+    ...(options.tolerateFileErrors === true ? { tolerateFileErrors: true } : {}),
   });
   if (!extraction.ok) {
     return err([...errors.errors(), ...extraction.errors]);
   }
   const { nodes, edges, crossScopeAmbiguities } = extraction.value;
+  for (const skippedFile of extraction.value.skipped ?? []) {
+    errors.add(skippedFile);
+  }
 
   // 6. Error gate: if any recoverable error was recorded, return them all and
   //    write nothing. The serializer is never invoked, so no partial/empty
   //    `graph.json` is created and any prior valid file is left byte-for-byte
   //    intact (R10.4, R10.6).
-  if (errors.hasErrors()) {
+  //
+  //    `tolerateFileErrors` opts out of the gate, not out of the errors: the
+  //    skipped files ride along on the success value. A run where no file
+  //    survived still fails, because an empty graph is `no-java-files` by another
+  //    route and would only move the failure into `group`. Two files declaring
+  //    the same class are resolved first (see duplicate-resolution.ts), because
+  //    the serializer's `duplicate-node-id` check is otherwise fatal.
+  let graphNodes = nodes;
+  if (options.tolerateFileErrors === true) {
+    const resolved = resolveDuplicateDeclarations(nodes);
+    graphNodes = resolved.nodes;
+    for (const skippedFile of resolved.skipped) {
+      errors.add(skippedFile);
+    }
+    if (graphNodes.length === 0) {
+      return err(errors.errors());
+    }
+  } else if (errors.hasErrors()) {
     return err(errors.errors());
   }
 
@@ -411,13 +449,18 @@ async function parseProjectUnguarded(
       ]);
     }
   }
-  const written = await deps.serializer.write(nodes, edges, outputPath);
+  const written = await deps.serializer.write(graphNodes, edges, outputPath);
   if (written.ok) {
     if (crossScopeAmbiguities > 0) {
       written.value.crossScopeAmbiguities = crossScopeAmbiguities;
     }
     if (excludedDirectoryCount > 0) {
       written.value.excludedDirectoryCount = excludedDirectoryCount;
+    }
+    // Reachable only under `tolerateFileErrors`: otherwise the gate above has
+    // already returned these as failures.
+    if (errors.hasErrors()) {
+      written.value.skippedFiles = errors.errors();
     }
   }
   return written;
