@@ -82,4 +82,35 @@ describe("token drift", () => {
     expect(defined.has("--color-success-muted")).toBe(true);
     expect(defined.has("--color-error-muted")).toBe(true);
   });
+
+  it("derives the accent from the single #b7a6f2 brand seed", () => {
+    const css = readFileSync(CSS, "utf8");
+    expect(css).toMatch(/--color-brand:\s*#b7a6f2;/);
+    // The seed is written exactly once; everything else references it.
+    expect(css.match(/#b7a6f2/gi)).toHaveLength(2); // the declaration + the doc comment
+    expect(css).toMatch(/--color-accent-fill:\s*var\(--color-brand\);/);
+    // Dark ink is the seed itself; light ink is a deepened step of the same ramp.
+    expect(css).toMatch(/--color-accent-primary:\s*var\(--color-brand-700\);/);
+    expect(css).toMatch(/\.dark\s*\{[^}]*--color-accent-primary:\s*var\(--color-brand\);/);
+  });
+
+  it("keeps literal colours in the primitive tier", () => {
+    const lines = readFileSync(CSS, "utf8").split("\n");
+    const start = lines.findIndex((l) => l.includes("TIER 1"));
+    const end = lines.findIndex((l) => l.includes("TIER 2"));
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    // Categorical palettes (community hues, language brand colours) are
+    // literals by nature, and `.dark` repeats the community hues.
+    const allowed = /--color-(community-\d+(-soft)?|lang-[a-z]+)\s*:/;
+    const literal = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/;
+
+    const offenders = lines
+      .map((text, i) => ({ text, i }))
+      .filter(({ text, i }) => literal.test(text) && !/^\s*(\/\*|\*)/.test(text) && !(i >= start && i < end) && !allowed.test(text))
+      .map(({ text, i }) => `globals.css:${i + 1}  ${text.trim()}`);
+
+    expect(offenders).toEqual([]);
+  });
 });
