@@ -8,7 +8,7 @@
  * depend on which, how far the authored packages were split, and why re-running
  * produces the same result.
  *
- * This replaces the vendored architecture page, whose Symbols / Dependencies /
+ * This replaces the earlier architecture page, whose Symbols / Dependencies /
  * Coupling tabs fetched endpoints this app does not serve.
  */
 

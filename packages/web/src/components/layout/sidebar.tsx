@@ -14,7 +14,6 @@ import {
 import { cn } from "@/lib/utils/cn";
 import {
   GLOBAL_NAV,
-  WORKSPACE_NAV,
   repoNavGroups,
   isNavItemActive,
   type NavItem,
@@ -26,18 +25,16 @@ import { ThemeToggle } from "@repohive/ui/shared/theme-toggle";
 import { AddRepoDialog } from "@/components/repos/add-repo-dialog";
 import { VersionFooter } from "./version-footer";
 import { FeedbackButton } from "./feedback-button";
-import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import type { RepoResponse } from "@/lib/api/types";
 import { withActiveRepo } from "@/lib/snapshot/active-repo";
 import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface SidebarProps {
   repos?: RepoResponse[];
   activeRepoId?: string;
-  workspace?: WorkspaceResponse | null;
 }
 
-export function Sidebar({ repos: listedRepos = [], activeRepoId, workspace }: SidebarProps) {
-  const isWorkspace = workspace?.is_workspace ?? false;
+export function Sidebar({ repos: listedRepos = [], activeRepoId }: SidebarProps) {
   const pathname = usePathname();
   const derivedActiveRepoId = React.useMemo(() => {
     if (activeRepoId) return activeRepoId;
@@ -80,18 +77,6 @@ export function Sidebar({ repos: listedRepos = [], activeRepoId, workspace }: Si
       setCollapsed(preDocsCollapsed.current);
     }
   }, [isDocsRoute]);
-
-  // Workspace group: collapsed unless the user is on a workspace route, so
-  // the (more used) per-repo navigation leads. Tracks route changes in both
-  // directions; manual toggles win while the route type is unchanged.
-  const isWorkspaceRoute = pathname?.startsWith("/workspace") ?? false;
-  const [workspaceNavOpen, setWorkspaceNavOpen] = React.useState(isWorkspaceRoute);
-  const wasWorkspaceRoute = React.useRef(isWorkspaceRoute);
-  React.useEffect(() => {
-    if (isWorkspaceRoute === wasWorkspaceRoute.current) return;
-    wasWorkspaceRoute.current = isWorkspaceRoute;
-    setWorkspaceNavOpen(isWorkspaceRoute);
-  }, [isWorkspaceRoute]);
 
   const toggleRepo = (id: string) => {
     setExpandedRepos((prev) => {
@@ -153,45 +138,6 @@ export function Sidebar({ repos: listedRepos = [], activeRepoId, workspace }: Si
             ))}
             <SidebarSearchButton iconOnly={isIconOnly} />
           </nav>
-
-          {/* Workspace nav — only shown in workspace mode. Collapsed by
-              default: per-repo navigation is the primary surface, so the
-              cross-repo views tuck behind a toggle unless one is active. */}
-          {isWorkspace && (
-            <>
-              <Separator className="my-4" />
-              {!isIconOnly && (
-                <button
-                  onClick={() => setWorkspaceNavOpen((v) => !v)}
-                  aria-expanded={workspaceNavOpen}
-                  aria-controls="sidebar-workspace-nav"
-                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium uppercase tracking-wider text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-secondary)]"
-                >
-                  <span className="flex-1 truncate text-left">Workspace</span>
-                  {workspaceNavOpen ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                  )}
-                </button>
-              )}
-              {(isIconOnly || workspaceNavOpen) && (
-                <nav className="space-y-1" id="sidebar-workspace-nav">
-                  {(isIconOnly && !isWorkspaceRoute
-                    ? WORKSPACE_NAV.slice(0, 1)
-                    : WORKSPACE_NAV
-                  ).map((item) => (
-                    <SidebarNavItem
-                      key={item.href}
-                      item={item}
-                      isActive={item.exact ? pathname === item.href : pathname.startsWith(`${item.href}`)}
-                      iconOnly={isIconOnly}
-                    />
-                  ))}
-                </nav>
-              )}
-            </>
-          )}
 
           {repos.length > 0 && (
             <>

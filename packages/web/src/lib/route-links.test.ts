@@ -103,7 +103,7 @@ describe("route links", () => {
     // After the shell cull exactly two stubs remain — the old `/c4` and
     // `/zoom` URLs, kept because they land on the real Knowledge Graph.
     expect(redirectOnlySegments()).toEqual(new Set(["zoom"]));
-    expect(linkedSegments([...walk(WEB_SRC), ...walk(UI_SRC)]).size).toBeGreaterThan(10);
+    expect(linkedSegments([...walk(WEB_SRC), ...walk(UI_SRC)]).size).toBeGreaterThan(5);
   });
 
   it("keeps the deliberate-allowance set honest", () => {

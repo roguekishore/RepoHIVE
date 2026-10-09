@@ -6,7 +6,6 @@
  * indexed, or an expired `?snapshot=`. A signed-in visitor sees the request
  * form prefilled for a never-indexed repository.
  */
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { NeverIndexedNotice } from "@/components/layout/never-indexed-notice";
 import { useSnapshot } from "@/lib/snapshot/snapshot-context";

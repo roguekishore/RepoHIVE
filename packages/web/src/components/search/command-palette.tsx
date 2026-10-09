@@ -4,24 +4,22 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import useSWR from "swr";
-import { Search, LayoutDashboard, Settings, BookOpen, FileCode, Layers, Link2, GitMerge, MessageSquare } from "lucide-react";
+import { Search, LayoutDashboard, Settings, BookOpen, FileCode, MessageSquare } from "lucide-react";
 import { useSearch } from "@/lib/hooks/use-search";
 import { truncatePath } from "@repohive/ui/lib/format";
 import { commandPaletteShortcutIsClaimed } from "@repohive/ui/lib/command-palette-scope";
 import { getFilesIndex } from "@/lib/api/files";
 import { repoNavItems } from "@/components/layout/nav-items";
 import { pageHref } from "@/lib/utils/page-href";
-import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import type { RepoResponse } from "@/lib/api/types";
 import { withActiveRepo } from "@/lib/snapshot/active-repo";
 import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface CommandPaletteProps {
   repos: RepoResponse[];
-  workspace?: WorkspaceResponse | null;
 }
 
-export function CommandPalette({ repos, workspace }: CommandPaletteProps) {
-  const isWorkspace = workspace?.is_workspace ?? false;
+export function CommandPalette({ repos }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const router = useRouter();
@@ -198,36 +196,6 @@ export function CommandPalette({ repos, workspace }: CommandPaletteProps) {
               Settings
             </Command.Item>
           </Command.Group>
-
-          {/* Workspace */}
-          {isWorkspace && (
-            <Command.Group heading="Workspace" className="px-2 pb-1">
-              <Command.Item
-                value="workspace-overview"
-                onSelect={() => navigate("/workspace")}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)] cursor-pointer hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] data-[selected=true]:bg-[var(--color-bg-elevated)] data-[selected=true]:text-[var(--color-text-primary)]"
-              >
-                <Layers className="h-4 w-4" />
-                Workspace Overview
-              </Command.Item>
-              <Command.Item
-                value="workspace-contracts"
-                onSelect={() => navigate("/workspace/contracts")}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)] cursor-pointer hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] data-[selected=true]:bg-[var(--color-bg-elevated)] data-[selected=true]:text-[var(--color-text-primary)]"
-              >
-                <Link2 className="h-4 w-4" />
-                Contracts
-              </Command.Item>
-              <Command.Item
-                value="workspace-co-changes"
-                onSelect={() => navigate("/workspace/co-changes")}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)] cursor-pointer hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] data-[selected=true]:bg-[var(--color-bg-elevated)] data-[selected=true]:text-[var(--color-text-primary)]"
-              >
-                <GitMerge className="h-4 w-4" />
-                Co-Changes
-              </Command.Item>
-            </Command.Group>
-          )}
 
           {/* Repos */}
           {repos.length > 0 && (

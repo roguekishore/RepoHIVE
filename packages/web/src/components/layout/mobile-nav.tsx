@@ -21,21 +21,18 @@ import { FeedbackButton } from "./feedback-button";
 import { cn } from "@/lib/utils/cn";
 import {
   GLOBAL_NAV,
-  WORKSPACE_NAV,
   repoNavGroups,
   isNavItemActive,
 } from "./nav-items";
-import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
+import type { RepoResponse } from "@/lib/api/types";
 import { withActiveRepo } from "@/lib/snapshot/active-repo";
 import { repoIdFromPathname } from "@/lib/snapshot/repo-name";
 
 interface MobileNavProps {
   repos?: RepoResponse[];
-  workspace?: WorkspaceResponse | null;
 }
 
-export function MobileNav({ repos: listedRepos = [], workspace }: MobileNavProps) {
-  const isWorkspace = workspace?.is_workspace ?? false;
+export function MobileNav({ repos: listedRepos = [] }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
   const activeRepoId = React.useMemo(() => {
@@ -129,38 +126,6 @@ export function MobileNav({ repos: listedRepos = [], workspace }: MobileNavProps
                   );
                 })}
               </nav>
-
-              {isWorkspace && (
-                <>
-                  <Separator className="my-4" />
-                  <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                    Workspace
-                  </p>
-                  <nav className="space-y-1">
-                    {WORKSPACE_NAV.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = (item as { exact?: boolean }).exact
-                        ? pathname === item.href
-                        : pathname.startsWith(`${item.href}`);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors",
-                            isActive
-                              ? "bg-[var(--color-accent-muted)] text-[var(--color-accent-primary)]"
-                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)]",
-                          )}
-                        >
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                </>
-              )}
 
               {repos.length > 0 && (
                 <>

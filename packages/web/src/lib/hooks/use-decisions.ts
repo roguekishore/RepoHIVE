@@ -14,7 +14,7 @@ import type { MorphCell, MorphEdge, MorphFile } from "@repohive/ui/repohive";
 import { useSnapshotJson } from "@/lib/snapshot/snapshot-context";
 
 /** One region row as served by `/api/graph/{id}/region-decisions`. */
-export interface RegionDecisionRow extends RegionPoint {
+interface RegionDecisionRow extends RegionPoint {
   displayName: string;
   modularity?: number;
 }
@@ -29,7 +29,7 @@ export interface RegionDecisionsResponse {
 }
 
 /** `/api/graph/{id}/region-detail?region=…` — the morph/provenance payload. */
-export interface RegionDetailResponse {
+interface RegionDetailResponse {
   regionId: string;
   displayName: string;
   decision: {

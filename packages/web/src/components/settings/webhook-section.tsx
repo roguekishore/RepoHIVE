@@ -9,7 +9,7 @@ import { CopyLine, SettingsRow, SettingsRows } from "@repohive/ui/settings";
  * when set, else the dashboard origin (API requests are proxied through it
  * via Next rewrites, so webhooks reach the backend the same way).
  */
-export function resolveWebhookBaseUrl(): string {
+function resolveWebhookBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_REPOWISE_API_URL;
   if (configured) return configured.replace(/\/$/, "");
   if (typeof window !== "undefined") return window.location.origin;
