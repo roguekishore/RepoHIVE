@@ -23,6 +23,8 @@ export interface JobCounts {
   readonly objects: number;
   /** Stored (compressed) bytes of those objects. */
   readonly storedBytes: number;
+  /** Java files left out because they would not parse or repeated another file's declarations. Omitted when none. */
+  readonly skippedFiles?: number;
 }
 
 export type JobResult =
