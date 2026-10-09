@@ -18,7 +18,7 @@
  * Determinism (a hard parser requirement) is guaranteed two ways:
  *
  * 1. **Collision resolution is canonical-first.** When two declarations map to the
- *    same FQN, exactly one entry is retained — the node whose id sorts first under
+ *    same FQN, exactly one entry is retained - the node whose id sorts first under
  *    canonical (byte-wise UTF-8) order (R4.5).
  * 2. **Build order is canonical.** Construction iterates nodes in canonical id
  *    order and never overwrites an existing key, so the resulting map is identical
@@ -55,8 +55,8 @@ export interface SymbolTable {
    */
   lookup(fqn: string): NodeId | null;
   /**
-   * Resolve `fqn` **within a specific source-root scope** — the referring
-   * file's own classpath, matching Java resolution semantics (Fix 24 — Gap 2).
+   * Resolve `fqn` **within a specific source-root scope** - the referring
+   * file's own classpath, matching Java resolution semantics (Fix 24 - Gap 2).
    *
    * @returns the node defining `fqn` in `scope`, or `null` when none exists in
    *   that scope. Never throws.
@@ -64,7 +64,7 @@ export interface SymbolTable {
   lookupInScope(scope: string, fqn: string): NodeId | null;
   /**
    * All nodes defining `fqn` across every source root, in canonical id order
-   * (Fix 24 — Gap 2). Used for the cross-scope fallback: a single element is an
+   * (Fix 24 - Gap 2). Used for the cross-scope fallback: a single element is an
    * unambiguous cross-module reference; several elements are an ambiguity the
    * caller resolves deterministically (byte-first) and records.
    *
@@ -127,7 +127,7 @@ export interface SymbolTableBuilder {
  */
 function classKey(node: GraphNode): string {
   let fqn = node.id.slice(CLASS_ID_PREFIX.length);
-  // Strip the source-root scope prefix, if any (Fix 24 — Gap 2). A Java FQN
+  // Strip the source-root scope prefix, if any (Fix 24 - Gap 2). A Java FQN
   // never contains `|`, so the scope↔FQN boundary is the last `|`.
   const bar = fqn.lastIndexOf("|");
   if (bar >= 0) {
@@ -151,7 +151,7 @@ function classKey(node: GraphNode): string {
  */
 function functionKey(node: GraphNode): string | null {
   let body = node.id.slice(FUNCTION_ID_PREFIX.length);
-  // Strip the source-root scope prefix, if any (Fix 24 — Gap 2): the scope sits
+  // Strip the source-root scope prefix, if any (Fix 24 - Gap 2): the scope sits
   // before the enclosing FQN and the last `|` is its boundary.
   const scopeBar = body.lastIndexOf("|");
   if (scopeBar >= 0) {
@@ -186,7 +186,7 @@ function keyFor(node: GraphNode): string | null {
 
 /**
  * Extract the source-root scope encoded in a `class` / `function` id, or `""`
- * when the id is unscoped (repository-root source root) (Fix 24 — Gap 2). The
+ * when the id is unscoped (repository-root source root) (Fix 24 - Gap 2). The
  * scope sits before the last `|`; a Java FQN never contains `|`, so the
  * boundary is unambiguous. Non-keyed nodes (`file`) have no scope key.
  */

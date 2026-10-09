@@ -17,7 +17,7 @@
  *    (`file-unreadable`, `file-unparseable`) come back in canonical file order,
  *    and no output is written during this phase (R10.1, R10.2, R10.3).
  * 4. **Gate on the collector.** If any recoverable error was recorded, return
- *    them all and write nothing — no partial or empty `graph.json`, and any
+ *    them all and write nothing - no partial or empty `graph.json`, and any
  *    prior valid file is left byte-for-byte intact because the serializer is
  *    never invoked (R10.4, R10.6).
  * 5. Otherwise **serialize** the graph atomically and return the
@@ -143,7 +143,7 @@ export interface ParseOptions {
    */
   writeGraph?: boolean;
   /**
-   * Directory-name segments to exclude from collection (Fix 16 — Gap 19).
+   * Directory-name segments to exclude from collection (Fix 16 - Gap 19).
    * Omitted → the collector's default list; an empty set → include everything
    * (`--include-generated`).
    */
@@ -287,7 +287,7 @@ export async function parseProject(
   try {
     return await parseProjectUnguarded(options, deps);
   } catch (cause) {
-    // Backstop (Fix 2 — Gap 3): the parser promises errors-as-values, so no
+    // Backstop (Fix 2 - Gap 3): the parser promises errors-as-values, so no
     // throw may cross this boundary. Anything unexpected becomes a structured
     // error rather than a raw stack trace; nothing is written, because the
     // serializer is the last step and any throw precedes its completion.

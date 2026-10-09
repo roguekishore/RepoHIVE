@@ -97,7 +97,7 @@ test("a function-target reference maps up to its enclosing class, never a functi
   const symbols = buildSymbolTable(baseNodes);
   // A static-member import resolves to a function node; R5.2 forbids a function
   // *endpoint*, so the edge maps up to the enclosing class rather than being
-  // dropped (Fix 10 — Gap 8, part 3).
+  // dropped (Fix 10 - Gap 8, part 3).
   const edges = stitch(
     baseNodes,
     [importRef(fileA.id, "com.example.B.helper")],
@@ -215,7 +215,7 @@ const nodeIds = projectNodes.map((n) => n.id);
 
 /**
  * A reference whose `fromNodeId` is any node id (including function/absent-ish
- * cases via the pool) and whose `targetName` may resolve or not — including
+ * cases via the pool) and whose `targetName` may resolve or not - including
  * static-member names that resolve to functions and unresolvable external names.
  */
 const referenceArb: fc.Arbitrary<RawReference> = fc.record({
@@ -306,7 +306,7 @@ test("every edge carries exactly three finite non-negative integer frequency sig
           edge.methodCallFrequency,
           edge.sharedTypeCount,
         ]) {
-          // Finite, non-negative, integer — never NaN/Infinity/fraction/negative (R6.5).
+          // Finite, non-negative, integer - never NaN/Infinity/fraction/negative (R6.5).
           assert.ok(Number.isInteger(signal), `non-integer signal ${signal}`);
           assert.ok(signal >= 0, `negative signal ${signal}`);
         }
@@ -394,11 +394,11 @@ function samePackageNodes() {
 }
 
 test("same-package simple name resolves to its package sibling (Gap 1c core case)", () => {
-  // X.java uses 'Y' (simple name) — no import needed within the same package.
+  // X.java uses 'Y' (simple name) - no import needed within the same package.
   const { fileX, classX, fileY, classY } = samePackageNodes();
   const nodes = [fileX, classX, fileY, classY];
   const symbols = buildSymbolTable(nodes);
-  // type-use reference with the bare simple name — exactly what the extractor emits.
+  // type-use reference with the bare simple name - exactly what the extractor emits.
   const refs: RawReference[] = [typeUseRef(fileX.id, "Y")];
   const edges = stitch(nodes, refs, symbols);
   assert.equal(edges.length, 1, "expected one edge for same-package type-use");
@@ -433,7 +433,7 @@ test("single-type import of simple name takes precedence over same-package class
   // The type-use reference uses the bare simple name 'Y'.
   const refs: RawReference[] = [
     importRef(fileX.id, "com.other.Y"),  // single-type import
-    typeUseRef(fileX.id, "Y"),           // bare name — must resolve via import, not same-pkg
+    typeUseRef(fileX.id, "Y"),           // bare name - must resolve via import, not same-pkg
   ];
   const edges = stitch(nodes, refs, symbols);
   // Should produce two edges: one from the import (to com.other.Y as a class),
@@ -470,7 +470,7 @@ test("a dotted FQN bypasses the simple-name resolution path and resolves directl
 
 test("same-package simple name within the same file produces no self-edge (R5.6)", () => {
   // A file node referencing itself (source === target) is the self-edge case.
-  // When fileX references its own classX, source=fileX.id, target=classX.id —
+  // When fileX references its own classX, source=fileX.id, target=classX.id -
   // those are different ids, so it produces a valid file→class edge, NOT filtered.
   // The actual R5.6 case is when resolved target === source, e.g. a file-scoped
   // reference that resolves to the same file node id.
@@ -478,14 +478,14 @@ test("same-package simple name within the same file produces no self-edge (R5.6)
   const { fileX, classX, fileY, classY } = samePackageNodes();
   const nodes = [fileX, classX, fileY, classY];
   const symbols = buildSymbolTable(nodes);
-  // classX referencing 'X' — resolves to classX itself → self-edge, dropped (R5.6).
+  // classX referencing 'X' - resolves to classX itself → self-edge, dropped (R5.6).
   const refs: RawReference[] = [typeUseRef(classX.id, "X")];
   const edges = stitch(nodes, refs, symbols);
   assert.equal(edges.length, 0, "class referencing its own type must produce no self-edge (R5.6)");
 });
 
 // Property: resolution is invariant under shuffling the reference array when
-// same-package simple names are involved (R5.7, R6.7 — extension for Gap 1c).
+// same-package simple names are involved (R5.7, R6.7 - extension for Gap 1c).
 test("same-package resolution is independent of reference processing order", () => {
   const { fileX, classX, fileY, classY } = samePackageNodes();
   const nodes = [fileX, classX, fileY, classY];

@@ -411,7 +411,7 @@ test("end-to-end: emitted graph.json conforms to the downstream contract with ze
   // Spot-check representative entities the fixture is designed to produce.
   const ids = new Set(parsed.nodes.map((n: GraphNode) => n.id));
   // Files live under `src/com/example/...`, so the source root is `src` and
-  // class/function ids carry the `src|` scope prefix (Fix 24 — Gap 2). File ids
+  // class/function ids carry the `src|` scope prefix (Fix 24 - Gap 2). File ids
   // are never scoped (a path is already unique).
   assert.ok(ids.has("class:src|com.example.model.User"), "User class node present");
   assert.ok(
@@ -499,7 +499,7 @@ test("property: byte-identical graph.json across shuffled extraction order (R9.5
   );
 });
 
-// --- A determinism check must verify something (Fix 18 — Gap 18) ----------
+// --- A determinism check must verify something (Fix 18 - Gap 18) ----------
 //
 // The verdict was "no two digests disagree", which an empty list satisfies. The
 // demo script also silently replaced an out-of-range `runs` with 3, so `... 0`

@@ -17,7 +17,7 @@ const hostGrotesk = Host_Grotesk({
 export const metadata: Metadata = {
   title: {
     default: "RepoHIVE",
-    template: "%s — RepoHIVE",
+    template: "%s - RepoHIVE",
   },
   description:
     "Hierarchical codebase indexing with recorded per-region preserve/reconstruct decisions",

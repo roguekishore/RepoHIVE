@@ -10,7 +10,7 @@
  * `failure.stage` and get the underlying errors exactly as the stage reported
  * them.
  *
- * Errors are returned as values — never thrown — matching the house promise in
+ * Errors are returned as values - never thrown - matching the house promise in
  * both underlying packages. {@link indexProject} wraps its body in a backstop
  * that converts any unexpected throw into an `INTERNAL_ERROR` value.
  */
@@ -136,7 +136,7 @@ export interface EngineSuccess {
  *   group stage never ran, so the previous `index/` is also untouched.
  * - `"group"`: the group stage (including the `graph.json` read-back and the
  *   index write) failed. Unless the run skipped the graph write
- *   (`writeGraph: false`), `graph.json` WAS written — `graphPath` names it, and
+ *   (`writeGraph: false`), `graph.json` WAS written - `graphPath` names it, and
  *   a `group`-only re-run can start from it. The index serializer stages all five
  *   files before promoting, so an existing `index/` survives every failure that
  *   happens before promotion begins; only a failure inside the five-rename

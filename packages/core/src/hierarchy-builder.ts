@@ -98,8 +98,8 @@ export function buildHierarchy(
   // Every group node a region produces, so the audit record can name them, plus
   // one ordinal counter per region.
   //
-  // The counter spans *all* of a region's groups — its Level-2 sub-clusters and
-  // the Level-1 containers built over them — so that `(regionId, ordinal)` is
+  // The counter spans *all* of a region's groups - its Level-2 sub-clusters and
+  // the Level-1 containers built over them - so that `(regionId, ordinal)` is
   // unique across the whole hierarchy. Per-level counters would restart at 0 and
   // make two different boxes indistinguishable to a consumer, which is the one
   // thing the ordinal exists to prevent. It stays deterministic because regions,
@@ -265,7 +265,7 @@ function addGroupNode(
 
 /**
  * Balanced partitioning heuristic (design 6.7, 11.1, 11.2):
- * b = ceil(n / maxGroupSize) subgroups — the provable minimum — filled from
+ * b = ceil(n / maxGroupSize) subgroups - the provable minimum - filled from
  * the canonically sorted child list so that the first (n mod b) subgroups get
  * ceil(n / b) children and the rest get floor(n / b); sizes differ by at most
  * one. Groups under the bound (or below the partition threshold) pass through
@@ -280,12 +280,12 @@ export function partitionChildren(
   const n = sorted.length;
   // `n < minPartitionThreshold` is **intentionally vacuous** (Gap 21). Validation
   // enforces `minPartitionThreshold <= maxGroupSize`, so any `n` small enough to
-  // fail the second test already failed the first — provably, not merely in
+  // fail the second test already failed the first - provably, not merely in
   // practice. The clause is a forward-compatibility placeholder, kept so the
   // parameter has a defined meaning if a navigation argument for leaving
   // moderately-oversized groups intact ever emerges. Giving it teeth today would
   // mean allowing `minPartitionThreshold > maxGroupSize`, which changes hierarchy
-  // shape and needs a requirements amendment, for no identified use case — a
+  // shape and needs a requirements amendment, for no identified use case - a
   // config knob should not gain semantics before someone needs them.
   if (n <= maxGroupSize || n < minPartitionThreshold) {
     return [sorted];

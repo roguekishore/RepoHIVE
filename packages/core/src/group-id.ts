@@ -1,8 +1,8 @@
 /**
  * Content-addressed Group_Node identifiers (design: Group_Node identifier
- * scheme). An id is derived solely from the group's canonicalized membership —
+ * scheme). An id is derived solely from the group's canonicalized membership -
  * never from counters, timestamps, wall-clock, randomness, memory addresses,
- * or input position — so the same contents always yield the same identifier
+ * or input position - so the same contents always yield the same identifier
  * (Req 7.3) and distinct memberships yield distinct identifiers (Req 7.4;
  * hash collisions are surfaced by tests, not handled at runtime).
  */

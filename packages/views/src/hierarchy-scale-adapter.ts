@@ -1,5 +1,5 @@
 /**
- * Hierarchy-at-scale adapter — the whole containment tree as a radial icicle,
+ * Hierarchy-at-scale adapter - the whole containment tree as a radial icicle,
  * coloured by decision state.
  *
  * The point of the surface is legibility at scale: broadleaf is 30,889 nodes
@@ -7,10 +7,10 @@
  * So the adapter does the aggregation the browser must not: it walks the
  * recorded tree once, rolls file counts up, converts each subtree into an
  * angular sweep proportional to its file count, and drops arcs that would be
- * sub-pixel — reporting how many it dropped rather than hiding them.
+ * sub-pixel - reporting how many it dropped rather than hiding them.
  *
  * Pure: no fs, network, clock or RNG. Sibling order is canonical (the engine's
- * own ascending `childIds`), so the same index always yields the same picture —
+ * own ascending `childIds`), so the same index always yields the same picture -
  * which is what makes it usable as a paper figure.
  *
  * Every arc's colour comes from a recorded region decision joined through
@@ -34,12 +34,12 @@ export interface HierarchyArc {
   start: number;
   /** Angular width in turns. */
   span: number;
-  /** File leaves under this node — the quantity the sweep encodes. */
+  /** File leaves under this node - the quantity the sweep encodes. */
   files: number;
   state: ArcState;
   /** Display label; empty when the arc is too small to ever carry one. */
   label: string;
-  /** Region this arc belongs to — its own, or its nearest ancestor's. */
+  /** Region this arc belongs to - its own, or its nearest ancestor's. */
   regionId: string | null;
   /**
    * True only for a group that belongs to no region at all: the fan-out
@@ -135,7 +135,7 @@ export function adaptHierarchyScale(hierarchy: Hierarchy, metadata: Metadata): H
   // A node's region is the one recorded on it or, failing that, on its nearest
   // ancestor that carries one: a file inside a reconstructed group belongs to
   // that region's decision, and painting it as "no decision" would hide a
-  // recorded fact. `null` is reserved for genuine structural wrappers — the
+  // recorded fact. `null` is reserved for genuine structural wrappers - the
   // fan-out groups the engine creates, which correspond to no region by design.
   const stack: Array<{
     node: HierarchyNode;

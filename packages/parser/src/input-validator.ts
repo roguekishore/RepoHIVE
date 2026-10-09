@@ -1,5 +1,5 @@
 /**
- * InputValidator (R1) — validate the Project_Directory before any work begins.
+ * InputValidator (R1) - validate the Project_Directory before any work begins.
  *
  * The validator fails fast: it performs every check (existence, is-directory,
  * readability) and, on the first failure, returns exactly one {@link ParseError}
@@ -84,7 +84,7 @@ export function createInputValidator(
 ): InputValidator {
   return {
     async validate(projectDirectory) {
-      // R1.3 — reject null / undefined / empty / whitespace-only input up front,
+      // R1.3 - reject null / undefined / empty / whitespace-only input up front,
       // before touching the filesystem.
       if (
         projectDirectory === null ||
@@ -138,7 +138,7 @@ export function createInputValidator(
         ]);
       }
 
-      // R1.5 — the path exists but must refer to a directory.
+      // R1.5 - the path exists but must refer to a directory.
       if (!stats.isDirectory()) {
         return err([
           makeError(
@@ -149,7 +149,7 @@ export function createInputValidator(
         ]);
       }
 
-      // R1.6 — probe readability by opening the directory (and reading one
+      // R1.6 - probe readability by opening the directory (and reading one
       // entry). Insufficient permissions surface as EACCES / EPERM.
       try {
         const dir = await deps.opendir(absolutePath);
@@ -178,7 +178,7 @@ export function createInputValidator(
         ]);
       }
 
-      // R1.1 — path exists, is a directory, and is readable.
+      // R1.1 - path exists, is a directory, and is readable.
       return ok({ absolutePath });
     },
   };

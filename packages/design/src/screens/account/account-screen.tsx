@@ -262,7 +262,7 @@ function AccountReady({ state }: { readonly state: Extract<AccountState, { statu
                         <StatusTag tone={jobTone(job.state)}>{jobStateWord(job.state)}</StatusTag>
                       </td>
                       <td className="rh-fg3">{formatWhen(job.requestedAt, now)}</td>
-                      <td className="rh-n rh-fg3">{job.endedAt === undefined ? "—" : (formatElapsed(job.requestedAt, job.endedAt) ?? "—")}</td>
+                      <td className="rh-n rh-fg3">{job.endedAt === undefined ? "-" : (formatElapsed(job.requestedAt, job.endedAt) ?? "-")}</td>
                     </tr>
                   ))}
                 </tbody>

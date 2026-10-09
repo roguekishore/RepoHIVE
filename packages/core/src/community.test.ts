@@ -9,7 +9,7 @@ import { ingest } from "./ingestor.js";
 import type { RawDependencyGraph } from "@repohive/shared";
 
 /**
- * Two dense clusters joined by one weak bridge — the canonical case community
+ * Two dense clusters joined by one weak bridge - the canonical case community
  * detection MUST split. Cluster 1 = {c1a, c1b, c1c}, cluster 2 = {c2a, c2b,
  * c2c}, all intra-cluster edges strength 10, one bridge edge strength 1.
  */
@@ -185,7 +185,7 @@ test("zero-total-weight subgraph collapses to a single community", () => {
   assert.equal(labels.has(0), true, "the single community label must be 0");
 });
 
-// Mixed: some zero, some non-zero edges — must NOT collapse to a single community
+// Mixed: some zero, some non-zero edges - must NOT collapse to a single community
 test("a subgraph with at least one positive-weight edge is not collapsed", () => {
   const detector = new LouvainCommunityDetector();
 

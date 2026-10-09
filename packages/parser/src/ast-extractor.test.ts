@@ -1,5 +1,5 @@
 /**
- * Tests for the AstExtractor (R3) — node extraction and raw-reference
+ * Tests for the AstExtractor (R3) - node extraction and raw-reference
  * collection with per-file error handling (Tasks 5.1 + 5.2).
  *
  * Coverage:
@@ -89,7 +89,7 @@ function idsOfKind(nodes: readonly GraphNode[], kind: GraphNode["kind"]): string
 }
 
 // --------------------------------------------------------------------------
-// Node extraction — file / class / function.
+// Node extraction - file / class / function.
 // --------------------------------------------------------------------------
 
 test("emits exactly one file node carrying package and directory", async () => {
@@ -254,7 +254,7 @@ class Service {}`;
 });
 
 // --------------------------------------------------------------------------
-// Per-file error handling (R10.1, R10.2) — continuation with remaining files.
+// Per-file error handling (R10.1, R10.2) - continuation with remaining files.
 // --------------------------------------------------------------------------
 
 test("records file-unreadable and returns null when the file cannot be read", async () => {
@@ -305,7 +305,7 @@ test("continues extracting remaining files after an unparseable file", async () 
   const local = await createAstExtractor(deps);
   const errors = new ParseErrorCollector();
 
-  // Process the broken file first, then the good one — mirrors the
+  // Process the broken file first, then the good one - mirrors the
   // orchestrator's canonical-order loop.
   const brokenResult = local.extract(file(broken, broken), errors);
   const goodResult = local.extract(file(good, good), errors);
@@ -380,7 +380,7 @@ test("every class/function node references the file and shares its package/dir",
 });
 
 // --------------------------------------------------------------------------
-// Gap 4 (Fix 8): scope-aware node identity — anonymous class bodies,
+// Gap 4 (Fix 8): scope-aware node identity - anonymous class bodies,
 // enum-constant bodies, and local classes in method bodies.
 // --------------------------------------------------------------------------
 
@@ -417,7 +417,7 @@ class Anon {
 }`;
   const { result } = await extractSource("src/com/example/Anon.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
-  // There should be TWO run() methods — one on Anon, one on the anonymous class
+  // There should be TWO run() methods - one on Anon, one on the anonymous class
   const runMethods = funcIds.filter((id) => id.includes("run()"));
   assert.equal(runMethods.length, 2,
     `expected 2 distinct run() methods, got: ${runMethods}`);
@@ -552,7 +552,7 @@ enum Counter {
 });
 
 // --------------------------------------------------------------------------
-// Gap 6 (Fix 9): type-driven parameter lists — no parameter names, no
+// Gap 6 (Fix 9): type-driven parameter lists - no parameter names, no
 // comments, correct varargs, record compact constructors.
 // --------------------------------------------------------------------------
 
@@ -563,7 +563,7 @@ class Sig {
 }`;
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
-  // Must be "varargs(int...)" — NOT "varargs(int... a...)"
+  // Must be "varargs(int...)" - NOT "varargs(int... a...)"
   assert.ok(funcIds.includes("func:src|com.example.Sig#varargs(int...)"),
     `expected 'varargs(int...)' in ${funcIds}`);
   assert.ok(!funcIds.some((id) => id.includes("a...")),
@@ -593,7 +593,7 @@ class Sig {
 }`;
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
-  // Must be "twoParams(int,int)" — only types, not names
+  // Must be "twoParams(int,int)" - only types, not names
   assert.ok(funcIds.includes("func:src|com.example.Sig#twoParams(int,int)"),
     `expected 'twoParams(int,int)' in ${funcIds}`);
   // Parameter names must not appear in the id
@@ -608,7 +608,7 @@ class Sig {
 }`;
   const { result } = await extractSource("src/com/example/Sig.java", source);
   const funcIds = idsOfKind(result.nodes, "function");
-  // Must be "annotated(String)" — annotation stripped
+  // Must be "annotated(String)" - annotation stripped
   assert.ok(funcIds.includes("func:src|com.example.Sig#annotated(String)"),
     `expected 'annotated(String)' in ${funcIds}`);
   assert.ok(!funcIds.some((id) => id.includes("Deprecated")),
@@ -679,7 +679,7 @@ class Stable {
 });
 
 // --------------------------------------------------------------------------
-// Gap 7 (Fix 11): structural qualified names — whitespace and comments in
+// Gap 7 (Fix 11): structural qualified names - whitespace and comments in
 // package declarations and import names must be stripped canonically.
 // --------------------------------------------------------------------------
 
@@ -900,7 +900,7 @@ test("primitive types produce no type-use references", async () => {
 // Feature: dependency-graph-parser, new correctness property:
 // every emitted edge has at least one non-zero signal (Gap 1a / Fix 21)
 test("every emitted edge has at least one non-zero signal after type-use extraction", async () => {
-  // A file with a field reference — type-use gives sharedTypeCount ≥ 1 even
+  // A file with a field reference - type-use gives sharedTypeCount ≥ 1 even
   // with no import, so no all-zero-signal edge can be emitted for that pair.
   const source = `
 package com.example;

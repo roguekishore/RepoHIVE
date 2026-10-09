@@ -1,5 +1,5 @@
 /**
- * Display_Label composition — spec R6, implemented in exactly ONE module
+ * Display_Label composition - spec R6, implemented in exactly ONE module
  * (R6.6) so a change to node-identifier format touches nothing that renders.
  *
  * Pure and deterministic (no fs / network / clock / RNG). Tier-1 structural

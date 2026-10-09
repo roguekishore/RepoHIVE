@@ -1,5 +1,5 @@
 /**
- * TEMPORARY demo wrapper — `npm run group -- <graph.json | dir> [outDir]`.
+ * TEMPORARY demo wrapper - `npm run group -- <graph.json | dir> [outDir]`.
  *
  * Same status as the parser's parse-cli: a temporary demo convenience,
  * replaced by the packaged CLI later (architecture
@@ -8,7 +8,7 @@
  *
  * It nonetheless carries flag parsing, because Req 4.4 requires the
  * Structural_Quality_Boundary to be varied across runs *without code changes*
- * so a sensitivity analysis can be run — and that requirement sits in the
+ * so a sensitivity analysis can be run - and that requirement sits in the
  * algorithm spec, so it is Phase-1 scope regardless of which wrapper exposes it
  * (Gap 20). Every parsed value goes through `validateConfig`, so the CLI cannot
  * become a second injection route for the values Gap 9 rejects.
@@ -23,7 +23,7 @@ import { describeError } from "./errors.js";
 import { groupGraphToIndex, readGraphFile, type PartialGroupingConfig } from "./orchestrator.js";
 import type { Action, RegionId } from "./types.js";
 
-const USAGE = `RepoHIVE group — adaptive hierarchical grouping
+const USAGE = `RepoHIVE group - adaptive hierarchical grouping
 
 usage: npm run group -- <graph.json | project-dir> [outDir] [options]
 
@@ -267,7 +267,7 @@ export function main(argv: readonly string[], io: CliIo = consoleIo): number {
   const { hierarchy, metadata } = result.value;
   const preserved = metadata.regionDecisions.filter((d) => d.action === "preserve").length;
   const reconstructed = metadata.regionDecisions.length - preserved;
-  io.log("RepoHIVE group — adaptive hierarchical grouping");
+  io.log("RepoHIVE group - adaptive hierarchical grouping");
   io.log(`  input    : ${graphPath}`);
   io.log(
     `  regions  : ${metadata.regionDecisions.length} (preserve ${preserved} / reconstruct ${reconstructed})`

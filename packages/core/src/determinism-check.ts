@@ -1,8 +1,8 @@
 /**
- * The determinism demos' verdict, as a testable function (Fix 18 — Gap 18).
+ * The determinism demos' verdict, as a testable function (Fix 18 - Gap 18).
  *
  * The demo scripts computed their verdict as `digests.every(d => d === digests[0])`
- * — an absence-of-counterexample test, which an empty array satisfies. With
+ * - an absence-of-counterexample test, which an empty array satisfies. With
  * `runs = 0` the loop never executed and the script printed
  * `sha-256 : undefined` alongside `DETERMINISTIC`, exit 0. These scripts are
  * pointed at during reviews as evidence, so a false pass is an integrity
@@ -48,8 +48,8 @@ export interface DigestVerdict {
 /**
  * Decide whether `digests` demonstrates determinism over `expectedRuns` runs.
  *
- * Positive on all three counts — right number of digests, each well-formed, all
- * equal — so an empty or short list can never pass.
+ * Positive on all three counts - right number of digests, each well-formed, all
+ * equal - so an empty or short list can never pass.
  */
 export function compareRunDigests(
   digests: readonly string[],

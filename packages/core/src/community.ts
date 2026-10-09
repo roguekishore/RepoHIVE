@@ -55,7 +55,7 @@ export function seededRng(seed: number): () => number {
 export class LouvainCommunityDetector implements CommunityDetector {
   detect(subgraph: CommunitySubgraph, seed: number): CommunityAssignment {
     // Enforce graphology's preconditions here rather than discovering them as a
-    // thrown UsageGraphError from inside the library (Fix 2 — Gap 3): a repeated
+    // thrown UsageGraphError from inside the library (Fix 2 - Gap 3): a repeated
     // node id makes `addNode` throw, and an edge naming a node outside the
     // subgraph makes `addEdge` throw. Both are caller mistakes, but a throw from
     // this depth escapes the Result model entirely, so normalize instead.

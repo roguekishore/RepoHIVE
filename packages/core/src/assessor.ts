@@ -8,11 +8,11 @@
  * - Cohesion (3.3)  = Σ strength of intra-Region edges / Region node count.
  *   Scale-relative Phase-1 simplification (see design note).
  * - Coupling (3.4)  = Σ strength of boundary-crossing edges / total strength
- *   incident to the Region's nodes — a native [0, 1] ratio.
+ *   incident to the Region's nodes - a native [0, 1] ratio.
  * - Modularity (3.5, optional) = Newman Q of the Region partition over the
  *   strength-weighted graph, via graphology-metrics. Q is a partition-level
  *   value; it is recorded per Region as that shared value (secondary,
- *   auditable signal — never the primary discriminator; see requirements
+ *   auditable signal - never the primary discriminator; see requirements
  *   glossary on circularity).
  *
  * Normalization to a common scale (3.6):
@@ -24,7 +24,7 @@
  * clamped to [0, 1] for float safety. No min-max across the run's Regions.
  *
  * Degenerate rule (3.9): a Region with < 2 nodes or 0 internal edges receives
- * the documented neutral score (default 0.0) — never NaN/undefined.
+ * the documented neutral score (default 0.0) - never NaN/undefined.
  *
  * Edges are attributed to Regions at FILE granularity: every edge endpoint is
  * mapped to its owning File node (classes/functions → definedInFile), then the
@@ -112,7 +112,7 @@ export function assess(model: WeightedModel, config: AssessmentConfig = DEFAULT_
     // Strength-aware degenerate rule (Req 3.9): a region is degenerate if it
     // has fewer than 2 nodes, zero internal edges, OR zero total intra-region
     // strength.  A subgraph with edges but no weight carries no signal for the
-    // algorithm to use — scoring it normally would yield cohesion 0, coupling
+    // algorithm to use - scoring it normally would yield cohesion 0, coupling
     // 0, score 0.5, which sits on the default boundary and would cause the
     // same input to flip between preserve and reconstruct under a tiny boundary
     // change.  Both conditions are tested independently so either alone suffices.

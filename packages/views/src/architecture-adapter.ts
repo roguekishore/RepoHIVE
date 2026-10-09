@@ -1,5 +1,5 @@
 /**
- * Architecture adapter — the three recorded artifacts that describe the built
+ * Architecture adapter - the three recorded artifacts that describe the built
  * hierarchy rather than the decisions behind it:
  *
  *   1. Per-level flow.  `perLevel[]` verbatim: how many group nodes, leaves and
@@ -84,14 +84,14 @@ export interface DeterminismEvidence {
     id: string;
     regionId: string | null;
     memberCount: number;
-    /** The first few member ids, canonically ordered — the hash's input. */
+    /** The first few member ids, canonically ordered - the hash's input. */
     members: string[];
   }>;
   totalGroups: number;
   /** Recorded run configuration: what a re-run would need to reproduce. */
   configuration: Metadata["configuration"] | null;
   seed: number | null;
-  /** Distinct group ids vs total groups — a collision would show here. */
+  /** Distinct group ids vs total groups - a collision would show here. */
   distinctIds: number;
 }
 
@@ -103,7 +103,7 @@ export const DSM_BUDGET = 48;
  *
  * Preference order, and the reason for it: a level whose groups carry recorded
  * regions, because the block structure this matrix exists to reveal is regional
- * — on a multi-module repository the shallow levels are entirely fan-out
+ * - on a multi-module repository the shallow levels are entirely fan-out
  * wrappers, which belong to no region and would produce a matrix with no blocks
  * at all. Among levels that do carry regions, the deepest that still fits the
  * budget; failing that the shallowest regioned level, whose group count the
@@ -226,7 +226,7 @@ export function adaptGroupDsm(
 
   // --- Axis order: by recorded region, then by the engine's own ordinal.
   // This is the reordering that reveals block structure, and it is *read* from
-  // the index rather than computed by a clustering pass — intra-region density
+  // the index rather than computed by a clustering pass - intra-region density
   // then shows as a block on the diagonal, and everything off-block is the
   // coupling the engine could not localise.
   const axis = [...kept].sort(
@@ -315,7 +315,7 @@ export function adaptDeterminism(
     .sort((a, b) => byId(a.id, b.id));
 
   // Samples: prefer groups with several members, since a one-member group makes
-  // a less interesting worked example. Deterministic — sorted, then sliced.
+  // a less interesting worked example. Deterministic - sorted, then sliced.
   const samples = [...groups]
     .sort((a, b) => b.childIds.length - a.childIds.length || byId(a.id, b.id))
     .slice(0, sampleCount)
@@ -340,7 +340,7 @@ export function adaptDeterminism(
 }
 
 /* ------------------------------------------------------------------ */
-/* Fragmentation — how far each authored package was split             */
+/* Fragmentation - how far each authored package was split             */
 /* ------------------------------------------------------------------ */
 
 export interface FragmentedRegion {
@@ -373,14 +373,14 @@ export interface Fragmentation {
  * This is the inverse of the "group purity" question, and the inverse is the
  * only direction the data supports. A Region *is* an authored package
  * (`pkg:<path>`) and reconstruction partitions strictly within a region, so a
- * produced group can never contain files from two packages — measured across
+ * produced group can never contain files from two packages - measured across
  * both fixtures, 0 of 1,182 reconstructed groups draw from more than one.
  * Charting packages→groups as a mixing flow would therefore assert something
  * the engine cannot produce.
  *
  * What it *does* produce is splitting, and that is the evidence the authored
  * boundary was misleading: the author declared these files one unit, and the
- * dependencies say they are several. Degenerate regions are excluded — they
+ * dependencies say they are several. Degenerate regions are excluded - they
  * were never assessed, so their split says nothing about structure.
  */
 export function adaptFragmentation(
@@ -441,7 +441,7 @@ export function adaptFragmentation(
     });
   }
 
-  // Most-split first — that is the strongest evidence — then most files, then
+  // Most-split first - that is the strongest evidence - then most files, then
   // canonical id so the order is stable.
   all.sort(
     (a, b) =>

@@ -13,7 +13,7 @@
  *
  * 1. **Resolves** `targetName` through the {@link SymbolTable}. A name whose
  *    declaring entity is not part of the project resolves to nothing and the
- *    reference is dropped — no edge and no synthetic external node is created
+ *    reference is dropped - no edge and no synthetic external node is created
  *    (R5.4).
  * 2. **Maps endpoints to file/class scope.** An edge may only connect nodes of
  *    kind `file` or `class`; any candidate edge with a `function` endpoint (for
@@ -30,13 +30,13 @@
  * ## Frequency signals (R6)
  *
  * Edges are held in a `(source, target)`-keyed accumulator carrying **exactly**
- * the three contract frequency signals — no more, no fewer (R6.1):
+ * the three contract frequency signals - no more, no fewer (R6.1):
  *
  * - `importFrequency` counts the resolved import-based references for the pair,
  *   each resolved reference counted exactly once (R6.2). It is seeded at `0` and
  *   only ever incremented by `1`, so it is always a finite non-negative integer.
- * - `sharedTypeCount` (R6.4) counts resolved `type-use` references — field,
- *   parameter, return, `extends`/`implements`, and `new` type positions — for the
+ * - `sharedTypeCount` (R6.4) counts resolved `type-use` references - field,
+ *   parameter, return, `extends`/`implements`, and `new` type positions - for the
  *   pair.  Each occurrence is counted once; the count is a finite non-negative
  *   integer (R6.5, R6.6).
  * - `methodCallFrequency` (R6.3) counts resolved `method-call` references for
@@ -68,7 +68,7 @@ import type { SymbolTable } from "./symbol-table.js";
 import { deriveSourceRoot } from "./source-root.js";
 import { CLASS_ID_PREFIX, FILE_ID_PREFIX, FUNCTION_ID_PREFIX } from "./ids.js";
 
-/** Sink notified of each cross-source-root resolution ambiguity (Fix 24 — Gap 2). */
+/** Sink notified of each cross-source-root resolution ambiguity (Fix 24 - Gap 2). */
 export type AmbiguitySink = (ambiguity: CrossScopeAmbiguity) => void;
 
 /**
@@ -127,7 +127,7 @@ function edgeKey(source: NodeId, target: NodeId): string {
 }
 
 /**
- * Map a `function` node id up to the id of its enclosing `class` (Fix 10 —
+ * Map a `function` node id up to the id of its enclosing `class` (Fix 10 -
  * Gap 8). A function id is `func:<scope>|<enclosingFqn>#name(params)`; the
  * enclosing class id is the same scope + FQN under the `class:` prefix, so we
  * swap the prefix and drop the `#member(params)` tail. Both share the source
@@ -180,7 +180,7 @@ function resolveEndpoints(
   }
 
   // Build the JLS-precedence candidate FQN list (Gap 1c order, unchanged): the
-  // name as written first, then — for a bare simple name — the single-type
+  // name as written first, then - for a bare simple name - the single-type
   // import, the same package, and each wildcard package in canonical order.
   const candidateFqns: string[] = [reference.targetName];
   if (!reference.targetName.includes(".")) {
@@ -200,7 +200,7 @@ function resolveEndpoints(
     }
   }
 
-  // Resolve each candidate scope-first (Fix 24 — Gap 2): prefer a definition in
+  // Resolve each candidate scope-first (Fix 24 - Gap 2): prefer a definition in
   // the referring file's own source root (Java classpath semantics), then fall
   // back across roots. One cross-root match is an unambiguous cross-module edge;
   // several matches resolve deterministically to the byte-first candidate and
@@ -243,9 +243,9 @@ function resolveEndpoints(
     return null;
   }
 
-  // A resolved `function` target — e.g. a static-member import
-  // `import static p.Helper.help;` that resolves to the `help` method node —
-  // maps UP to its enclosing class (Fix 10 — Gap 8): R5.2 forbids a function
+  // A resolved `function` target - e.g. a static-member import
+  // `import static p.Helper.help;` that resolves to the `help` method node -
+  // maps UP to its enclosing class (Fix 10 - Gap 8): R5.2 forbids a function
   // *endpoint*, not the dependency itself. The referencing file genuinely
   // depends on the class that declares the imported member.
   if (targetKind === "function") {
@@ -264,7 +264,7 @@ function resolveEndpoints(
   }
 
   // No self-referential edges, including after mapping a function target up to
-  // its class (R5.6) — this guard MUST run after the map-up above so a file that
+  // its class (R5.6) - this guard MUST run after the map-up above so a file that
   // statically imports a member of a class it declares cannot form a self-edge.
   if (source === target) {
     return null;
@@ -293,12 +293,12 @@ export function stitch(
   const kindOf: KindLookup = (id) => nodesById.get(id)?.kind ?? knownKinds?.(id);
 
   // -------------------------------------------------------------------------
-  // Gap 1c: pre-pass — build a per-file import index so simple type names can
+  // Gap 1c: pre-pass - build a per-file import index so simple type names can
   // be resolved via JLS precedence (single-type import → same package → wildcard).
   //
   // Structure per file:
-  //   singleTypeImports: Map<simpleName, fqn>   — "Helper" → "com.other.Helper"
-  //   wildcardPackages:  string[]               — ["com.other"] (canonical order)
+  //   singleTypeImports: Map<simpleName, fqn>   - "Helper" → "com.other.Helper"
+  //   wildcardPackages:  string[]               - ["com.other"] (canonical order)
   //
   // Only import references are processed; type-use references carry simple names
   // that are already the resolution target, not the source of resolution context.
@@ -379,7 +379,7 @@ export function stitch(
     const referringFileNode = nodesById.get(referringFileId);
     const referringPackage = referringFileNode?.packagePath ?? "";
     // Derive the referring file's source root so resolution can prefer its own
-    // classpath before reaching across roots (Fix 24 — Gap 2). Uses the same
+    // classpath before reaching across roots (Fix 24 - Gap 2). Uses the same
     // helper the extractor used to scope ids, so the two never disagree.
     const referringRelPath = referringFileId.startsWith(FILE_ID_PREFIX)
       ? referringFileId.slice(FILE_ID_PREFIX.length)

@@ -1,5 +1,5 @@
 /**
- * @repohive/engine — pipeline orchestration for RepoHIVE.
+ * @repohive/engine - pipeline orchestration for RepoHIVE.
  *
  * One async call, {@link indexProject}, runs the two batch stages in sequence:
  * parse (`@repohive/parser`, Java sources to `graph.json`) then group
@@ -49,7 +49,7 @@ export type {
 // signatures, so a consumer can type every part of an EngineResult without
 // separate imports (the same convenience the parser extends for the shared
 // contract). Consumers needing stage behavior (e.g. core's describeError or
-// parseIndex) still import the stage package directly — that is allowed for
+// parseIndex) still import the stage package directly - that is allowed for
 // every consumer allowed to import this one.
 export type { ParseError, ParseErrorReason, ParseOptions, ParseSuccess } from "@repohive/parser";
 

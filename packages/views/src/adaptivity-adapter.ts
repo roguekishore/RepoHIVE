@@ -1,5 +1,5 @@
 /**
- * Adaptivity adapter — the cross-repository comparison.
+ * Adaptivity adapter - the cross-repository comparison.
  *
  * The claim this surface exists to support: the engine *decides* per region
  * rather than applying one policy everywhere. The evidence is that the same
@@ -7,7 +7,7 @@
  * materially different preserve rates on different repositories.
  *
  * The statistic is computed over **assessed regions only**. Regions that hit
- * the engine's degenerate rule were never measured — including them would drag
+ * the engine's degenerate rule were never measured - including them would drag
  * every repository toward "always reconstructs" and would be comparing repo
  * size rather than repo structure. The unassessed count is carried alongside so
  * the surface can state it rather than hide it.
@@ -42,7 +42,7 @@ export interface AdaptivityRepo {
   degenerate: number;
   /** preserved / assessed, or null when nothing was assessed. */
   preserveShare: number | null;
-  /** The recorded configuration this run used — the "same settings" claim. */
+  /** The recorded configuration this run used - the "same settings" claim. */
   config: {
     boundary: number;
     weights: { cohesion: number; coupling: number; modularity?: number };
@@ -58,7 +58,7 @@ export interface AdaptivityRepo {
 export interface AdaptivityComparison {
   repos: AdaptivityRepo[];
   /**
-   * True when every repo above ran with an identical configuration — which is
+   * True when every repo above ran with an identical configuration - which is
    * what licenses the "same algorithm, different answers" reading. When false
    * the surface must say so instead of implying a controlled comparison.
    */
@@ -146,7 +146,7 @@ export function adaptAdaptivity(inputs: readonly AdaptivityInput[]): AdaptivityC
     const unique = [...new Set(differing)].sort();
     configurationNote =
       unique.length > 0
-        ? `These runs do not share one configuration — ${unique.join(", ")} differ, so the comparison is not controlled.`
+        ? `These runs do not share one configuration - ${unique.join(", ")} differ, so the comparison is not controlled.`
         : "These runs differ in a recorded configuration field, so the comparison is not controlled.";
   }
 

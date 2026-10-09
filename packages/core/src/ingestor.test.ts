@@ -249,8 +249,8 @@ test("Property 36: the field gate accepts every conforming graph unchanged (R1.7
 // --- Input kinds and the file-node requirement (Gap 14) -------------------
 //
 // NodeKind legally includes `group` and `repository`, so such nodes passed
-// ingest, were silently dropped by the builder — which places only `file` nodes
-// and their definedInFile members — while every input edge was retained. The
+// ingest, were silently dropped by the builder - which places only `file` nodes
+// and their definedInFile members - while every input edge was retained. The
 // result: `group` wrote an index that its own parseIndex rejects.
 
 test("group and repository kinds are rejected as input, naming the node (R1.7)", () => {
@@ -299,7 +299,7 @@ test("an index built from a rejected graph can never reference a dropped node", 
 // --- Parallel duplicate edges (Gap 15) ------------------------------------
 //
 // Two edges over one ordered pair were loaded as distinct edges and their
-// strengths summed independently, inflating Cohesion — reproduced at cohesion 3
+// strengths summed independently, inflating Cohesion - reproduced at cohesion 3
 // where the single edge gives 1.5, enough to cross a boundary calibrated
 // between them. Rejecting mirrors how duplicate node ids are treated; folding
 // would contradict R1.4's "no additions and no removals".
@@ -367,7 +367,7 @@ test("Property 37: an accepted graph never carries a parallel duplicate edge (R1
 
       // Edge multiplicity is exactly 1 per ordered pair, so the cohesion
       // accumulator (which sums per edge) and the modularity projection (which
-      // folds parallel edges into one weighted edge) see the same graph — the
+      // folds parallel edges into one weighted edge) see the same graph - the
       // fold/no-fold divergence this gap named cannot arise.
       const pairs = new Set(result.value.edges.map((e) => `${e.source} ${e.target}`));
       assert.equal(pairs.size, result.value.edges.length);

@@ -2,7 +2,7 @@
   "name": "@repohive/engine",
   "version": "0.0.0",
   "private": true,
-  "description": "RepoHIVE pipeline orchestration — one async call that runs parse then group into .repohive/.",
+  "description": "RepoHIVE pipeline orchestration - one async call that runs parse then group into .repohive/.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

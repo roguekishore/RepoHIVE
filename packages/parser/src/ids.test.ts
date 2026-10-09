@@ -25,7 +25,7 @@ import {
 } from "./ids.js";
 
 // ---------------------------------------------------------------------------
-// Generators — structural inputs only (safe identifier tokens, no separators).
+// Generators - structural inputs only (safe identifier tokens, no separators).
 // ---------------------------------------------------------------------------
 
 /** Java-like simple identifiers containing none of the id separators. */
@@ -46,10 +46,10 @@ const ident = fc.constantFrom(
 );
 
 /**
- * Java-like identifiers including separator characters ($ and others) —
+ * Java-like identifiers including separator characters ($ and others) -
  * widens the generator used for distinctness properties so that identifiers
  * that look like separators cannot be confused with actual separators
- * (Fix 7 — Gap 5: validates the $$ escaping).
+ * (Fix 7 - Gap 5: validates the $$ escaping).
  */
 const identWithDollar = fc.constantFrom(
   "a",
@@ -82,7 +82,7 @@ const parameterTypes = fc.array(
 );
 
 // ---------------------------------------------------------------------------
-// Property 2 — stability: re-deriving the same entity yields the same id.
+// Property 2 - stability: re-deriving the same entity yields the same id.
 // ---------------------------------------------------------------------------
 
 test("file id is a pure, stable function of its relative path", () => {
@@ -120,7 +120,7 @@ test("function id is a pure, stable function of its structural inputs", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Property 2 — distinctness: distinct entities yield distinct ids.
+// Property 2 - distinctness: distinct entities yield distinct ids.
 // ---------------------------------------------------------------------------
 
 test("distinct file paths yield distinct file ids", () => {
@@ -195,7 +195,7 @@ test("the three id kinds never collide across kinds", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Property 2 — only structural material enters ids (R3.10, R9.4).
+// Property 2 - only structural material enters ids (R3.10, R9.4).
 // ---------------------------------------------------------------------------
 
 test("ids carry the correct prefix and no host-path material", () => {
@@ -220,7 +220,7 @@ test("buildFileId rejects non-root-relative or host-specific paths (R9.4)", () =
 });
 
 // ---------------------------------------------------------------------------
-// Example-based unit tests — exact forms from the design table.
+// Example-based unit tests - exact forms from the design table.
 // ---------------------------------------------------------------------------
 
 test("file id matches the documented form", () => {
@@ -273,7 +273,7 @@ test("class id carries the class prefix", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Gap 5 (Fix 7): $ escaping — a $ in an identifier segment is distinct from
+// Gap 5 (Fix 7): $ escaping - a $ in an identifier segment is distinct from
 // the $ separator between nested type names.
 // ---------------------------------------------------------------------------
 
@@ -350,7 +350,7 @@ test("the scope↔FQN boundary is the last '|' since an FQN never contains '|'",
 });
 
 // Feature: dependency-graph-parser, Property (Gap 5): for any two structurally
-// distinct entities, their ids differ — even when segments contain $ characters.
+// distinct entities, their ids differ - even when segments contain $ characters.
 // This is the single most important test: it exercises the escaping correctness
 // across the separator character space.
 test("distinct declarations yield distinct ids even when segments contain $ (widened distinctness)", () => {

@@ -2,7 +2,7 @@
   "name": "@repohive/core",
   "version": "0.0.0",
   "private": true,
-  "description": "RepoHIVE grouping algorithm — graph.json → adaptive multi-level hierarchy → index/*.json.",
+  "description": "RepoHIVE grouping algorithm - graph.json → adaptive multi-level hierarchy → index/*.json.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

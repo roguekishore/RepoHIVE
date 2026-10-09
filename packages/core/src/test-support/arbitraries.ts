@@ -7,7 +7,7 @@
  * - package/directory structure, including the default package ("" →
  *   directory-fallback Regions) and root-directory files;
  * - file/class/function node mixes with definedInFile set;
- * - arbitrary edge subsets over file/class pairs — diamonds and cycles arise
+ * - arbitrary edge subsets over file/class pairs - diamonds and cycles arise
  *   naturally, at most one edge per ordered (source, target) pair (Gap 15);
  * - varied (import, call, sharedType) signal triples including all-zero;
  * - singleton and edgeless Regions (degenerate cases).
@@ -94,7 +94,7 @@ export function graphFromShape(shape: GraphShape): RawDependencyGraph {
     }
   });
 
-  // Self-edges and function-endpoint edges are kept — the ingestor accepts
+  // Self-edges and function-endpoint edges are kept - the ingestor accepts
   // them, so the properties must quantify over them. Parallel (source, target)
   // duplicates are NOT: the contract admits at most one edge per ordered pair
   // and ingest rejects a graph that breaks it (Gap 15), so generating them
@@ -151,7 +151,7 @@ export function arbitraryDependencyGraph(
 
 /**
  * Deterministic Fisher–Yates permutation of the graph's node and edge arrays
- * (content unchanged) — the order-independence combinator (Req 7.2).
+ * (content unchanged) - the order-independence combinator (Req 7.2).
  */
 export function shuffleGraph(graph: RawDependencyGraph, seed: number): RawDependencyGraph {
   return {

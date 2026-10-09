@@ -1,6 +1,6 @@
 /**
  * Index_Parser: read an Index_File_Set (compact format, see
- * `index-format.ts`) back into the in-memory model with full fidelity — same node set, edge set, per-Region
+ * `index-format.ts`) back into the in-memory model with full fidelity - same node set, edge set, per-Region
  * decisions, and depth (9.5). Atomic failure: ALL missing member files are
  * reported in one MISSING_FILES error (9.6); malformed JSON or a missing
  * required field is reported as MALFORMED_FILE naming the file (9.7); no
@@ -25,9 +25,9 @@ const HIERARCHY_KINDS = new Set<string>(["file", "class", "function", "group", "
  * Whether a parsed JSON array element can have its fields read.
  *
  * `JSON.parse` happily yields `null` and primitives inside an array, and every
- * validation loop below reads `entry.<field>` — so a `null` element raised a
+ * validation loop below reads `entry.<field>` - so a `null` element raised a
  * `TypeError` straight out of `parseIndex`, escaping the Result model that the
- * whole error taxonomy is built on (Fix 2 — Gap 3).
+ * whole error taxonomy is built on (Fix 2 - Gap 3).
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -194,7 +194,7 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
   // Global tree validation (Gap 11). The pairwise checks above prove every link
   // points somewhere real, but they say nothing about the shape as a whole: a
   // two-node mutual parent cycle satisfies every one of them, and parseIndex
-  // accepted it — after which analyzeBlastRadius's ancestor climb never
+  // accepted it - after which analyzeBlastRadius's ancestor climb never
   // terminated. Cycle-freedom, single-rootedness, reachability and level
   // monotonicity all fall out of one BFS, so this is a single pass rather than
   // four separate checks.
@@ -555,7 +555,7 @@ export function parseIndex(dir: string): Result<{ hierarchy: Hierarchy; metadata
       return err({
         code: "MALFORMED_FILE",
         file,
-        detail: `${field} is ${stated} but the parsed index has ${actual} — the file set is inconsistent`,
+        detail: `${field} is ${stated} but the parsed index has ${actual} - the file set is inconsistent`,
       });
     }
   }

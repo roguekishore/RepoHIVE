@@ -28,7 +28,7 @@ test("Property 9: every region score is finite and in [0, 1]; degenerate regions
       }),
       ({ graph, cohesionWeight, couplingWeight, modularityWeight, computeModularity, squashConstant }) => {
         const weighted = weightedModelOf(graph);
-        // Weights need not sum to 1 — the assessor renormalizes the active set.
+        // Weights need not sum to 1 - the assessor renormalizes the active set.
         const assessment = assess(weighted, {
           weights: { cohesion: cohesionWeight, coupling: couplingWeight, modularity: modularityWeight },
           computeModularity,
@@ -248,7 +248,7 @@ test("R3.7: metricWeights echoes the configured weights (modularity dropped when
 });
 
 test("both degenerate arms of R3.9 get the documented neutral score, independently of the implementation's flag", () => {
-  // Arm 1: an edgeless MULTI-file region (2 nodes, 0 internal edges) — the
+  // Arm 1: an edgeless MULTI-file region (2 nodes, 0 internal edges) - the
   // arm a wrong predicate (e.g. only checking node count) would miss. The
   // region's files each have a crossing edge so metrics are otherwise nonzero.
   const graph: RawDependencyGraph = {
@@ -313,7 +313,7 @@ test("modularity over an all-zero-strength projection is treated as not computed
     assert.ok(Number.isFinite(region.score));
   }
   // With modularity dropped, the score must equal the not-computed path
-  // (weights renormalized identically) — no silent worst-case bias.
+  // (weights renormalized identically) - no silent worst-case bias.
   assert.deepEqual(
     withModularity.regions.map((r) => r.score),
     withoutModularity.regions.map((r) => r.score)
@@ -325,7 +325,7 @@ test("modularity over an all-zero-strength projection is treated as not computed
 test("zero-strength intra edges make a region degenerate and yield the configured degenerate score", () => {
   // Three files in one package, two intra-region edges both carrying zero
   // strength (all signals 0).  Without the strength-aware guard the region
-  // would score combineScore(0, 0) = 0.5 — not the documented neutral score.
+  // would score combineScore(0, 0) = 0.5 - not the documented neutral score.
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/zs/A.java", kind: "file", packagePath: "com.zs", directoryPath: "src/com/zs" },
@@ -368,7 +368,7 @@ test("a region with at least one non-zero intra-strength edge is not degenerate"
 });
 
 // Feature: hierarchical-repository-grouping, Property 9 (extension): a
-// zero-strength region with default boundary must reconstruct — and produce
+// zero-strength region with default boundary must reconstruct - and produce
 // exactly ONE group rather than one singleton per file (Gap 16 regression).
 test("reconstructing a zero-strength region yields one group, not one singleton per file", async () => {
   // Six files, five zero-strength intra edges.  Before the fix this produced

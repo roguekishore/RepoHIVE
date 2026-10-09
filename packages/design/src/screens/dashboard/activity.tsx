@@ -125,10 +125,10 @@ export function Activity({ Frame, jobs, signedIn, error, now: nowProp }: Activit
       render: (job) => {
         const { completed, total } = job.progress ?? {};
         if (isInProgress(job)) {
-          return completed !== undefined && total !== undefined ? `${formatCount(completed)} / ${formatCount(total)}` : "—";
+          return completed !== undefined && total !== undefined ? `${formatCount(completed)} / ${formatCount(total)}` : "-";
         }
         const known = figuresOf(job);
-        return known === undefined ? "—" : formatCount(known.files);
+        return known === undefined ? "-" : formatCount(known.files);
       },
     },
     { key: "requested", header: "Requested", render: (job) => <span className="rh-fg2">{formatWhen(job.requestedAt, now)}</span> },
@@ -136,7 +136,7 @@ export function Activity({ Frame, jobs, signedIn, error, now: nowProp }: Activit
       key: "elapsed",
       header: "Elapsed",
       numeric: true,
-      render: (job) => (job.endedAt === undefined ? "—" : (formatElapsed(job.requestedAt, job.endedAt) ?? "—")),
+      render: (job) => (job.endedAt === undefined ? "-" : (formatElapsed(job.requestedAt, job.endedAt) ?? "-")),
     },
   ];
 

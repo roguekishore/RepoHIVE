@@ -1,7 +1,7 @@
 /**
  * Grouping_System orchestrator: sequence ingest → weight → assess → construct
  * → assemble → metadata (→ optionally serialize) with a fail-fast atomic
- * error gate — any stage error is returned as a value and nothing is written.
+ * error gate - any stage error is returned as a value and nothing is written.
  */
 
 import { readFileSync } from "node:fs";
@@ -58,7 +58,7 @@ export interface GroupingOutput {
 /**
  * Drop entries whose value is `undefined` so a caller passing an explicitly
  * undefined option (a natural pattern when plumbing optional CLI flags) can
- * never clobber a default — a plain object spread would.
+ * never clobber a default - a plain object spread would.
  */
 function definedEntries<T extends object>(value: T | undefined): Partial<T> {
   if (value === undefined) {
@@ -95,7 +95,7 @@ function isFiniteNonNegative(value: number): boolean {
  * Validate the *resolved* configuration before any work happens (Gap 9).
  *
  * Nothing checked these values. A `NaN` boundary made every `score > boundary`
- * comparison false, so the run silently reconstructed every region — and then
+ * comparison false, so the run silently reconstructed every region - and then
  * wrote `NaN` into `metadata.json`, where `JSON.stringify` renders it as `null`,
  * which the engine's own `parseIndex` rejects. The same missing gate sat behind
  * negative coefficients (every strength clamps to 0, so everything preserves at
@@ -189,8 +189,8 @@ export interface PartialGroupingConfig {
  * Convert an unexpected throw into a structured error.
  *
  * The engine promises errors-as-values, but a reachable path could still throw
- * — a `null` element in an untrusted `graph.json` raised a `TypeError` straight
- * out of `ingest` — and a thrown error crosses every boundary uncaught, taking
+ * - a `null` element in an untrusted `graph.json` raised a `TypeError` straight
+ * out of `ingest` - and a thrown error crosses every boundary uncaught, taking
  * the whole run with it. One backstop per public entry point makes the promise
  * total: no future invariant violation can escape as a stack trace.
  */
@@ -205,7 +205,7 @@ function internalError(cause: unknown): Result<never> {
  * Project the resolved config onto its serializable audit record (Gap 22).
  *
  * The override Map becomes a plain object with canonically-sorted keys so the
- * record serializes deterministically — `stableStringify` sorts object keys, but
+ * record serializes deterministically - `stableStringify` sorts object keys, but
  * a Map would stringify to `{}`.
  */
 export function runConfigurationOf(config: GroupingConfig): RunConfiguration {

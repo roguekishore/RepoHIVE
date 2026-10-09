@@ -78,7 +78,7 @@ for (let i = 0; i < runs; i++) {
 }
 
 const verdict = compareRunDigests(digests, runs);
-console.log("RepoHIVE core — grouping determinism check");
+console.log("RepoHIVE core - grouping determinism check");
 console.log(`  input   : ${graphPath}`);
 console.log(`  runs    : ${runs}`);
 console.log(`  regions : ${summary.regions}`);
@@ -88,7 +88,7 @@ console.log(
   `  result  : ${
     verdict.deterministic
       ? `DETERMINISTIC (${runs} runs, identical digest)`
-      : `NON-DETERMINISTIC — ${verdict.reason}`
+      : `NON-DETERMINISTIC - ${verdict.reason}`
   }`,
 );
 if (!verdict.deterministic) {

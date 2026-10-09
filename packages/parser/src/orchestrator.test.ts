@@ -1,5 +1,5 @@
 /**
- * Tests for the Orchestrator (Task 9) — the error-gate behavior of
+ * Tests for the Orchestrator (Task 9) - the error-gate behavior of
  * {@link parseProject}.
  *
  * Covers (design: "Orchestrator (Parser_System) and error aggregation (R10)"):
@@ -446,12 +446,12 @@ test("leaves a pre-existing graph.json byte-for-byte unchanged when a per-file e
   }
 });
 
-// --- No exception escapes parseProject (Fix 2 — Gap 3) --------------------
+// --- No exception escapes parseProject (Fix 2 - Gap 3) --------------------
 //
 // parseProject promised errors-as-values, but a throw from any collaborator
 // escaped it. A legal Linux filename containing a backslash reached ids.ts's
 // path guard, which throws, and extract wraps its call in try/finally with no
-// catch — so one file crashed the whole run with a raw stack trace.
+// catch - so one file crashed the whole run with a raw stack trace.
 
 test("a throwing pipeline becomes internal-error and writes nothing", async () => {
   const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string | undefined }[] };

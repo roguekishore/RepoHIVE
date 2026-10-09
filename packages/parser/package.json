@@ -2,7 +2,7 @@
   "name": "@repohive/parser",
   "version": "0.0.0",
   "private": true,
-  "description": "RepoHIVE dependency graph parser — Java source → cross-file graph.json.",
+  "description": "RepoHIVE dependency graph parser - Java source → cross-file graph.json.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

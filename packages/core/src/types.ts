@@ -87,7 +87,7 @@ export interface RegionDecision {
    *
    * Joins the audit record to the tree in the decision→groups direction, so a
    * consumer can go from "this region was reconstructed with score 0.31" to the
-   * boxes on screen — which is what makes the adaptive contribution visible
+   * boxes on screen - which is what makes the adaptive contribution visible
    * rather than merely recorded. Optional so older indexes still parse.
    */
   groupIds?: NodeId[];
@@ -126,7 +126,7 @@ export interface HierarchyNode {
    * show `g_<hash>` and has no way to tell which package a box represents.
    *
    * Omitted on the Repository node and on the intermediate wrapper groups that
-   * exist only to bound the Repository's fan-out — those correspond to no
+   * exist only to bound the Repository's fan-out - those correspond to no
    * region, and consumers must handle that.
    */
   regionId?: RegionId;
@@ -136,8 +136,8 @@ export interface HierarchyNode {
    * The piece a consumer cannot derive: when a region is reconstructed into
    * several communities, or split by `maxGroupSize` into slices, the resulting
    * sibling groups share a `regionId` and differ only by content hash. The
-   * ordinal is a pure function of the already-canonical iteration order — no
-   * counter spans the run — so it stays deterministic.
+   * ordinal is a pure function of the already-canonical iteration order - no
+   * counter spans the run - so it stays deterministic.
    *
    * Omitted wherever `regionId` is.
    */
@@ -188,7 +188,7 @@ export interface PerLevelStats {
  *
  * `metadata.json` recorded the boundary, metric weights, squash constant and
  * decisions, but not `maxGroupSize`, `minPartitionThreshold`, the seed, the
- * weight coefficients or `degenerateScore` — so a run's *hierarchy shape* could
+ * weight coefficients or `degenerateScore` - so a run's *hierarchy shape* could
  * not be reproduced from its own audit record, even though Req 7.1 states its
  * determinism guarantee "with identical configuration".
  *

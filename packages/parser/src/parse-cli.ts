@@ -33,7 +33,7 @@ function defaultFixtureDirectory(): string {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
-  // Exclusion flags (Fix 16 — Gap 19):
+  // Exclusion flags (Fix 16 - Gap 19):
   //   --include-generated   include everything (turn the default exclusions off)
   //   --exclude a,b,c        add segments to the default exclusion list
   const includeGenerated = args.includes("--include-generated");
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   );
 
   // Resolve relative paths against the directory the user invoked npm from
-  // (INIT_CWD), not this module's cwd — npm's `--workspace` indirection changes
+  // (INIT_CWD), not this module's cwd - npm's `--workspace` indirection changes
   // the process cwd to the package directory, which would break a relative arg.
   const invocationCwd = process.env.INIT_CWD ?? process.cwd();
   const projectDirectory =
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(
       [
-        `RepoHIVE parser — parse`,
+        `RepoHIVE parser - parse`,
         `  project : ${projectDirectory}`,
         `  nodes   : ${result.value.nodeCount}`,
         `  edges   : ${result.value.edgeCount}`,
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
   // eslint-disable-next-line no-console
   console.error(
     [
-      `RepoHIVE parser — parse FAILED`,
+      `RepoHIVE parser - parse FAILED`,
       `  project : ${projectDirectory}`,
       `  errors  :`,
       ...result.errors.map(
@@ -118,14 +118,14 @@ async function main(): Promise<void> {
 }
 
 // `void main()` discarded the promise, so a rejection surfaced as an unhandled
-// rejection with a raw stack trace and — depending on the Node version — an
+// rejection with a raw stack trace and - depending on the Node version - an
 // exit code that did not reliably signal failure. Render the same structured
-// block the error path uses and exit non-zero (Fix 2 — Gap 3).
+// block the error path uses and exit non-zero (Fix 2 - Gap 3).
 main().catch((cause: unknown) => {
   // eslint-disable-next-line no-console
   console.error(
     [
-      `RepoHIVE parser — parse FAILED`,
+      `RepoHIVE parser - parse FAILED`,
       `  errors  :`,
       `    - internal-error: ${cause instanceof Error ? cause.message : String(cause)}`,
     ].join("\n"),

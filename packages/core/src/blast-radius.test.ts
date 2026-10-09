@@ -15,7 +15,7 @@ function hierarchyOf(graph: RawDependencyGraph): Hierarchy {
 
 /**
  * Independent recompute of the impact set: fixed-point iteration over the
- * reversed leaf edges — the target plus every node with a dependency path
+ * reversed leaf edges - the target plus every node with a dependency path
  * reaching it, each node added at most once.
  */
 function expectedImpactSet(hierarchy: Hierarchy, target: string): Set<string> {
@@ -165,8 +165,8 @@ test("an unknown id is rejected with NODE_NOT_FOUND naming it, hierarchy unchang
 //
 // The dependency traversal always had a visited set; the containment climb did
 // not, because a Hierarchy was assumed to be a tree. analyzeBlastRadius is
-// public API over a plain Hierarchy value, so a caller — or a future
-// incremental path that patches a hierarchy in memory — can hand it a cycle.
+// public API over a plain Hierarchy value, so a caller - or a future
+// incremental path that patches a hierarchy in memory - can hand it a cycle.
 
 /** A Hierarchy whose parentId links form a cycle. parseIndex would reject it. */
 function cyclicHierarchy(): Hierarchy {
@@ -201,7 +201,7 @@ test("a containment cycle terminates the climb instead of hanging (R10.7)", () =
   assert.ok(second.ok);
   assert.deepEqual(second.value, first.value);
 
-  // The groups on the cycle are still reported — the guard stops the loop, it
+  // The groups on the cycle are still reported - the guard stops the loop, it
   // does not truncate the answer.
   assert.deepEqual(first.value.groupNodes, ["g_a", "g_b"]);
 });

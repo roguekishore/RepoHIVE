@@ -5,12 +5,12 @@
  * byte-identical `graph.json` (identical SHA-256). Two primitives make that
  * possible and both live here:
  *
- * 1. **Canonical ordering** — a total order over nodes (by node id) and edges
+ * 1. **Canonical ordering** - a total order over nodes (by node id) and edges
  *    (by the `(source, target)` id pair), compared *byte-wise* over the UTF-8
  *    encoding of the identifier strings (R9.2, R9.3). Byte-wise (rather than
  *    JavaScript's default UTF-16 code-unit) comparison guarantees the order is
  *    independent of the JS engine and matches the on-disk byte order.
- * 2. **Stable stringification** — a hand-written JSON stringifier that emits a
+ * 2. **Stable stringification** - a hand-written JSON stringifier that emits a
  *    fixed key order within every object, arrays in canonical order, `\n` line
  *    endings, and no byte-order mark, so the byte-level output is fully
  *    determined by graph content (R9.6). It deliberately does NOT use
@@ -53,7 +53,7 @@ export function compareNodes(a: GraphNode, b: GraphNode): number {
 
 /**
  * Canonical comparator for {@link DependencyEdge}s: ascending by the
- * `(source, target)` pair — `source` primary, `target` tie-break — each
+ * `(source, target)` pair - `source` primary, `target` tie-break - each
  * compared byte-wise over its UTF-8 string (R9.3). Because every `(source,
  * target)` pair is unique in a well-formed graph, this order is total.
  */

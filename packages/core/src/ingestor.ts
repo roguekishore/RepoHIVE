@@ -7,7 +7,7 @@
  * endpoint (1.2). On success the model contains exactly the input node and
  * edge sets (1.1, 1.4), held in canonical order.
  *
- * `graph.json` is untrusted disk input — the sanctioned adaptive demo runs on a
+ * `graph.json` is untrusted disk input - the sanctioned adaptive demo runs on a
  * hand-authored fixture, so malformed input is a real path, not a hypothetical.
  * The field-validity walk runs before the structural checks so the order in
  * which defects are reported stays well defined.
@@ -25,7 +25,7 @@ import type { DependencyModel } from "./types.js";
  * `NodeKind` also admits `group` and `repository`, but those are outputs of the
  * hierarchy builder, not inputs to it. Accepting them meant they passed ingest,
  * were silently dropped by the builder (which places only `file` nodes and their
- * `definedInFile` members) while their edges were retained — so `group` wrote an
+ * `definedInFile` members) while their edges were retained - so `group` wrote an
  * index that its own `parseIndex` rejects. They have no defined input semantics,
  * and inventing one would pre-empt the incremental-re-indexing feature that
  * deserves its own design.
@@ -127,7 +127,7 @@ function validateRawGraph(input: RawDependencyGraph): GroupingError | null {
 
   // At most one edge per ordered pair, mirroring how duplicate node ids are
   // treated. Two edges sharing a (source, target) pair were loaded as distinct
-  // edges and their strengths summed independently, inflating Cohesion —
+  // edges and their strengths summed independently, inflating Cohesion -
   // reproduced at cohesion 3 where the single edge gives 1.5, enough to cross a
   // boundary calibrated between them. Folding them instead would contradict
   // R1.4's "no additions and no removals" and silently rewrite a hand-authored
@@ -136,7 +136,7 @@ function validateRawGraph(input: RawDependencyGraph): GroupingError | null {
   //
   // Scanned in canonical order, not input order: with two offending pairs in a
   // graph, iterating as-given would name whichever happened to come first, so
-  // the *error value itself* would depend on input position — the very thing
+  // the *error value itself* would depend on input position - the very thing
   // Req 7.2 forbids.
   const byPair = [...input.edges].sort(compareEdgePairs);
   for (let i = 1; i < byPair.length; i++) {
@@ -226,7 +226,7 @@ export function ingest(input: RawDependencyGraph | null | undefined): Result<Dep
     }
   }
 
-  // All validation passed — build the model (no partial load before this point).
+  // All validation passed - build the model (no partial load before this point).
   const nodes = [...nodesById.values()];
   const graph = new MultiDirectedGraph({ allowSelfLoops: true });
   for (const node of nodes) {

@@ -4,7 +4,7 @@
  * The parser and the core both sort by identifier, and both must mean the same
  * thing by it. They did not: the parser compared byte-wise over UTF-8 while the
  * core used JavaScript's `<`/`>` (UTF-16 code units). Nothing cross-checked
- * them, and no test compared them — which is precisely why the divergence could
+ * them, and no test compared them - which is precisely why the divergence could
  * exist unnoticed.
  *
  * These tests are that missing check. They pin the core's comparator to the
@@ -95,13 +95,13 @@ test("Property 34: transitivity holds across the plane boundary", () => {
 });
 
 test("the reproduced divergence now resolves byte-wise (U+FF61 before U+10000)", () => {
-  const bmp = "｡"; // halfwidth ideographic full stop — UTF-8 EF BD A1
-  const supplementary = "\u{10000}"; // linear B syllable — UTF-8 F0 90 80 80
+  const bmp = "｡"; // halfwidth ideographic full stop - UTF-8 EF BD A1
+  const supplementary = "\u{10000}"; // linear B syllable - UTF-8 F0 90 80 80
 
   // Byte-wise: EF < F0, so the BMP character sorts first.
   assert.ok(compareIds(bmp, supplementary) < 0);
 
-  // The old UTF-16 code-unit order put it second — this is the bug, pinned.
+  // The old UTF-16 code-unit order put it second - this is the bug, pinned.
   assert.ok(bmp > supplementary);
 });
 

@@ -159,7 +159,7 @@ export function ArchitectureScreen({ data }: ArchitectureScreenProps) {
     {
       key: "region",
       header: "Region",
-      render: (row) => <span className="rh-fg2">{blockOf(dsm.blocks, row.index)?.label ?? "—"}</span>,
+      render: (row) => <span className="rh-fg2">{blockOf(dsm.blocks, row.index)?.label ?? "-"}</span>,
     },
     { key: "files", header: "Files", numeric: true, render: (row) => formatCount(row.group.files) },
     { key: "usedBy", header: "Used by", numeric: true, render: (row) => formatCount(row.group.inWeight) },
@@ -182,7 +182,7 @@ export function ArchitectureScreen({ data }: ArchitectureScreenProps) {
       key: "cross",
       header: "Cross-group edges",
       numeric: true,
-      render: (row) => (row.crossGroupEdgeCount > 0 ? formatCount(row.crossGroupEdgeCount) : "—"),
+      render: (row) => (row.crossGroupEdgeCount > 0 ? formatCount(row.crossGroupEdgeCount) : "-"),
     },
     {
       key: "bar",

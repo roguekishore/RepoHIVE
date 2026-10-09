@@ -89,7 +89,7 @@ test("Property 19: the hierarchy is a single-rooted, acyclic, fully-populated tr
       }
 
       // A file's ancestors below the root are groups only, at least two of
-      // them — one expansion per group level locates the file.
+      // them - one expansion per group level locates the file.
       for (const node of nodes.values()) {
         if (node.kind !== "file") {
           continue;
