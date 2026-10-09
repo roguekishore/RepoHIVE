@@ -1,12 +1,15 @@
 /**
- * One-command local stack: production Next.js server,
- * the background worker and the local orchestrator env, reading `config/local.env`
+ * One-command local stack: Next.js server, the
+ * background worker and the local orchestrator env, reading `config/local.env`
  * directly. The GitHub pre-check is stubbed to fixture tarballs when the app runs
  * in local mode.
  *
- *   npm run start-local --workspace @repohive/web [--port N]
+ *   npm run start-local --workspace @repohive/web [--port N] [--prod]
  *
- * Build the app once before first use: `npm run build --workspace @repohive/web`.
+ * By default the web server is `next dev`, so edits under `packages/web/src` rebuild
+ * and refresh the browser with no build step. Pass `--prod` for the production
+ * server instead; that needs `npm run build --workspace @repohive/web` first and
+ * does not pick up edits.
  */
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -18,10 +21,9 @@ const port = process.argv.includes("--port")
   ? process.argv[process.argv.indexOf("--port") + 1]
   : "3000";
 
-const baseEnv = loadLocalAppEnv({
-  PORT: port,
-  NODE_ENV: "production",
-});
+const prod = process.argv.includes("--prod");
+
+const baseEnv = loadLocalAppEnv(prod ? { PORT: port, NODE_ENV: "production" } : { PORT: port });
 
 function npmScript(args, name) {
   const child = spawn(process.platform === "win32" ? "npm.cmd" : "npm", args, {
@@ -42,7 +44,7 @@ function npmScript(args, name) {
 }
 
 const children = [
-  npmScript(["run", "start", "--workspace", "@repohive/web", "--", "--port", port], "web"),
+  npmScript(["run", prod ? "start" : "dev", "--workspace", "@repohive/web", "--", "--port", port], "web"),
   npmScript(["run", "worker", "--workspace", "@repohive/web"], "worker"),
 ];
 
