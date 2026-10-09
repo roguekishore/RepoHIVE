@@ -8,7 +8,6 @@
  */
 
 export * from "./node-ids.js";
-export * from "./pagination.js";
 export * from "./graph.js";
 export * from "./git.js";
 export * from "./docs.js";
@@ -16,16 +15,8 @@ export * from "./decisions.js";
 export * from "./dead-code.js";
 export * from "./symbols.js";
 export * from "./chat.js";
-export * from "./workspace.js";
-export * from "./blast-radius.js";
-export * from "./jobs.js";
 export * from "./settings.js";
 export * from "./security.js";
-export * from "./owners.js";
-export * from "./modules.js";
-export * from "./overview.js";
 export * from "./files.js";
 export * from "./external-systems.js";
 export * from "./health.js";
-export * from "./coupling.js";
-export * from "./stats.js";

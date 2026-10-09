@@ -1,31 +1,17 @@
-import type { ZoomMap } from "@repohive/ui/zoom";
+
 import { apiGet } from "./client";
 import type {
   ArchitectureGraphResponse,
-  CallersCalleesResponse,
   CommunityDetailResponse,
   CommunitySliceResponse,
   CommunitySummaryItem,
   DeadCodeGraphResponse,
-  EgoGraphResponse,
   ExecutionFlowsResponse,
   GraphExportResponse,
-  GraphMetricsResponse,
   GraphPathResponse,
   HotFilesGraphResponse,
-  ModuleGraphResponse,
   NodeSearchResult,
 } from "./types";
-
-export async function getGraph(
-  repoId: string,
-  limit?: number,
-): Promise<GraphExportResponse> {
-  return apiGet<GraphExportResponse>(
-    `/api/graph/${repoId}`,
-    limit != null ? { limit } : undefined,
-  );
-}
 
 export async function getGraphPath(
   repoId: string,
@@ -33,18 +19,6 @@ export async function getGraphPath(
   to: string,
 ): Promise<GraphPathResponse> {
   return apiGet<GraphPathResponse>(`/api/graph/${repoId}/path`, { from, to });
-}
-
-export async function getModuleGraph(repoId: string): Promise<ModuleGraphResponse> {
-  return apiGet<ModuleGraphResponse>(`/api/graph/${repoId}/modules`);
-}
-
-export async function getEgoGraph(
-  repoId: string,
-  nodeId: string,
-  hops = 2,
-): Promise<EgoGraphResponse> {
-  return apiGet<EgoGraphResponse>(`/api/graph/${repoId}/ego`, { node_id: nodeId, hops });
 }
 
 export async function searchNodes(
@@ -65,7 +39,7 @@ export async function getArchitectureGraph(repoId: string): Promise<GraphExportR
  * UX overhaul; rendering surface is incremental and the legacy
  * entry-point view above remains the default until adapter support lands.
  */
-export async function getArchitectureCommunityGraph(
+async function getArchitectureCommunityGraph(
   repoId: string,
   minMembers = 2,
 ): Promise<ArchitectureGraphResponse> {
@@ -131,39 +105,9 @@ export async function getCommunitySlice(
   );
 }
 
-export async function getGraphMetrics(
-  repoId: string,
-  nodeId: string,
-): Promise<GraphMetricsResponse> {
-  return apiGet<GraphMetricsResponse>(`/api/graph/${repoId}/metrics`, { node_id: nodeId });
-}
-
-export async function getCallersCallees(
-  repoId: string,
-  symbolId: string,
-  params?: { direction?: string; edge_types?: string; limit?: number },
-): Promise<CallersCalleesResponse> {
-  return apiGet<CallersCalleesResponse>(`/api/graph/${repoId}/callers-callees`, {
-    symbol_id: symbolId,
-    ...params,
-  });
-}
-
 export async function getExecutionFlows(
   repoId: string,
   params?: { top_n?: number; max_depth?: number; entry_point?: string },
 ): Promise<ExecutionFlowsResponse> {
   return apiGet<ExecutionFlowsResponse>(`/api/graph/${repoId}/execution-flows`, params);
-}
-
-/**
- * The continuous-zoom containment tree (system -> layer -> ... -> file). The
- * response shape is the shared `ZoomMap` consumed by the canvas renderer.
- * `focus` + `max_depth` fetch deeper subtrees lazily for large repos.
- */
-export async function getZoomMap(
-  repoId: string,
-  params?: { max_depth?: number; focus?: string },
-): Promise<ZoomMap> {
-  return apiGet<ZoomMap>(`/api/graph/${repoId}/zoom-map`, params);
 }

@@ -2,7 +2,7 @@
 // MCP tool surface
 // ---------------------------------------------------------------------------
 
-export interface McpToolInfo {
+interface McpToolInfo {
   name: string;
   description: string;
   default: boolean;

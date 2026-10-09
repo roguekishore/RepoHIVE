@@ -1,8 +1,7 @@
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiGet, apiPost } from "./client";
 import type {
   PageResponse,
   PageSummary,
-  PageVersionResponse,
   JobLaunchResponse,
   GenerateCascade,
 } from "./types";
@@ -15,7 +14,7 @@ import type {
  * large wiki, and read by nothing that renders a list — in exchange for a
  * `content_chars` count.
  */
-export type PageFields = "full" | "summary";
+type PageFields = "full" | "summary";
 
 interface ListPagesOpts {
   page_type?: string;
@@ -25,15 +24,15 @@ interface ListPagesOpts {
   offset?: number;
 }
 
-export async function listPages(
+async function listPages(
   repoId: string,
   opts: ListPagesOpts & { fields: "summary" },
 ): Promise<PageSummary[]>;
-export async function listPages(
+async function listPages(
   repoId: string,
   opts?: ListPagesOpts & { fields?: "full" },
 ): Promise<PageResponse[]>;
-export async function listPages(
+async function listPages(
   repoId: string,
   opts?: ListPagesOpts & { fields?: PageFields },
 ): Promise<PageSummary[]> {
@@ -101,28 +100,6 @@ export async function getPageById(
     page_id: pageId,
     ...(repoId ? { repo_id: repoId } : {}),
   });
-}
-
-/** Get page versions by ID */
-export async function getPageVersions(
-  pageId: string,
-  limit = 50,
-): Promise<PageVersionResponse[]> {
-  return apiGet<PageVersionResponse[]>("/api/pages/lookup/versions", {
-    page_id: pageId,
-    limit,
-  });
-}
-
-/** Set or clear the human-curated note pinned above a page's generated content. */
-export async function updatePageNotes(
-  pageId: string,
-  humanNotes: string | null,
-): Promise<PageResponse> {
-  return apiPatch<PageResponse>(
-    `/api/pages/lookup/notes?page_id=${encodeURIComponent(pageId)}`,
-    { human_notes: humanNotes },
-  );
 }
 
 /**

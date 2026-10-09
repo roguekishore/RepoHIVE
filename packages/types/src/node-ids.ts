@@ -21,7 +21,7 @@
  */
 
 /** Separator between a file path and a symbol name. */
-export const SYMBOL_SEP = "::";
+const SYMBOL_SEP = "::";
 
 /**
  * Marks the synthetic bucket of files sitting at a container's root, as in
@@ -41,7 +41,7 @@ const KNOWN_PREFIXES = [
   "ext",
 ] as const;
 
-export type NodeKind = (typeof KNOWN_PREFIXES)[number] | "symbol" | "path";
+type NodeKind = (typeof KNOWN_PREFIXES)[number] | "symbol" | "path";
 
 function prefixOf(raw: string): string | null {
   const colon = raw.indexOf(":");

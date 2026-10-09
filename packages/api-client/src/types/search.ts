@@ -1,12 +1,4 @@
-// ---------------------------------------------------------------------------
-// Search
-// ---------------------------------------------------------------------------
 
-export interface SearchRequest {
-  query: string;
-  search_type?: "semantic" | "fulltext";
-  limit?: number;
-}
 
 export interface SearchResultResponse {
   page_id: string;

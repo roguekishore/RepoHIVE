@@ -13,14 +13,14 @@ export type DecisionStatus =
   | "deprecated"
   | "superseded";
 
-export type DecisionSource =
+type DecisionSource =
   | "git_archaeology"
   | "inline_marker"
   | "readme_mining"
   | "cli";
 
 /** Derived granularity of a decision's blast area, narrowest first. */
-export type DecisionScope = "file" | "module" | "cross-module";
+type DecisionScope = "file" | "module" | "cross-module";
 
 export interface DecisionRecord {
   id: string;
@@ -59,48 +59,12 @@ export interface DecisionRecord {
 }
 
 /** The top-ranked evidence row, slimmed for decision list rows. */
-export interface EvidencePreview {
+interface EvidencePreview {
   source: string;
   source_quote: string;
   verification: DecisionVerification;
   evidence_file?: string | null;
   evidence_line?: number | null;
-}
-
-export interface DecisionCreateInput {
-  title: string;
-  context?: string;
-  decision?: string;
-  rationale?: string;
-  alternatives?: string[];
-  consequences?: string[];
-  affected_files?: string[];
-  affected_modules?: string[];
-  tags?: string[];
-}
-
-/**
- * PATCH body for /api/repos/{id}/decisions/{decision_id}. All fields are
- * optional — clients can update just the status, just the linkage, or both.
- */
-export interface DecisionStatusUpdate {
-  status?: DecisionStatus;
-  superseded_by?: string;
-  affected_modules?: string[];
-  affected_files?: string[];
-}
-
-export interface DecisionHealth {
-  summary: {
-    active: number;
-    proposed: number;
-    deprecated: number;
-    superseded: number;
-    stale: number;
-  };
-  stale_decisions: DecisionRecord[];
-  proposed_awaiting_review: DecisionRecord[];
-  ungoverned_hotspots: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -112,76 +76,4 @@ export interface DecisionHealth {
  * was found verbatim in the cited file/commit; `fuzzy` = a near-match;
  * `unverified` = the quote could not be located (LLM-derived, treat with care).
  */
-export type DecisionVerification = "exact" | "fuzzy" | "unverified";
-
-/** One supporting evidence row for a decision. */
-export interface DecisionEvidence {
-  id: string;
-  source: string;
-  source_rank: number;
-  evidence_file: string | null;
-  evidence_line: number | null;
-  evidence_commit: string | null;
-  source_quote: string;
-  confidence: number;
-  verification: DecisionVerification;
-  created_at: string;
-}
-
-/**
- * One hop in a decision's supersession/evolution chain. The chain is ordered
- * root -> current; `relation` describes how the NEWER decision related to this
- * one ("supersedes" | "refines" | null for the terminal/current entry).
- */
-export interface DecisionLineageEntry {
-  id: string;
-  title: string;
-  status: DecisionStatus;
-  source: string;
-  relation: string | null;
-}
-
-export interface DecisionGraphNode {
-  id: string;
-  title: string;
-  status: DecisionStatus;
-  source: string;
-  confidence: number;
-  staleness_score: number;
-  verification: DecisionVerification;
-}
-
-export type DecisionEdgeKind =
-  | "supersedes"
-  | "refines"
-  | "relates_to"
-  | "conflicts_with";
-
-export interface DecisionGraphEdge {
-  src: string;
-  dst: string;
-  kind: DecisionEdgeKind;
-  confidence: number;
-  evidence: string;
-}
-
-export interface DecisionCodeEdge {
-  decision_id: string;
-  node_id: string;
-  link_type: "file" | "module";
-}
-
-export interface DecisionGraph {
-  nodes: DecisionGraphNode[];
-  decision_edges: DecisionGraphEdge[];
-  code_edges: DecisionCodeEdge[];
-}
-
-/** Counts by status, from a grouped COUNT on the server. */
-export interface DecisionCounts {
-  total: number;
-  active: number;
-  proposed: number;
-  superseded: number;
-  deprecated: number;
-}
+type DecisionVerification = "exact" | "fuzzy" | "unverified";
