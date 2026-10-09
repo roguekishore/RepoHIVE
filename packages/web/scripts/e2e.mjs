@@ -214,6 +214,29 @@ async function runHappyPath(scratch) {
     const quota = await jsonGet("/api/quota", cookie);
     assert(quota.response.status === 200, "quota status");
     assert(typeof quota.body.remainingAccount === "number", "quota shape");
+
+    // The repository resources the browser client reads; the Java server serves the same shapes.
+    const listed = await jsonGet("/api/repos");
+    assert(listed.response.status === 200, "repos list status");
+    assert(listed.response.headers.get("cache-control") === "no-store", "repos list must not be cached");
+    const item = Array.isArray(listed.body.items)
+      ? listed.body.items.find((entry) => entry.repoId === "local/sample-java-project")
+      : undefined;
+    assert(item !== undefined, "the indexed repository is missing from /api/repos", { body: listed.body });
+    assert(listed.body.page === 1 && listed.body.totalPages >= 1 && listed.body.total >= 1, "repos page shape");
+    assert(item.nodeCount > 0 && /^[0-9a-f]{32}$/.test(item.snapshotId), "repos list item shape", { item });
+    const one = await jsonGet("/api/repos/local/sample-java-project");
+    assert(one.response.status === 200, "repo status");
+    assert(
+      one.body.repo === "local/sample-java-project" &&
+        one.body.snapshotId === item.snapshotId &&
+        one.body.nodeCount === item.nodeCount &&
+        one.body.commitSha === item.commitSha,
+      "repo summary disagrees with the list",
+      { one: one.body, item },
+    );
+    const missing = await jsonGet("/api/repos/local/never-indexed");
+    assert(missing.response.status === 404 && missing.body.code === "NOT_FOUND", "unindexed repository is a 404");
   } finally {
     stack.stop();
     await sleep(2000);
