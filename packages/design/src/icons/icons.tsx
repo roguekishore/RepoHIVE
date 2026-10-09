@@ -96,6 +96,13 @@ const GLYPHS = {
   play: <path d="M4.5 2.5v11l9-5.5z" fill="currentColor" />,
   pause: <path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor" />,
   arrow: <path d="M3 8h10M9 4l4 4-4 4" stroke={STROKE} strokeWidth="1.4" fill="none" />,
+  sun: (
+    <>
+      <circle cx="8" cy="8" r="2.8" fill="none" stroke={STROKE} strokeWidth="1.4" />
+      <path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3" stroke={STROKE} strokeWidth="1.4" />
+    </>
+  ),
+  moon: <path d="M13.5 9.6A5.7 5.7 0 0 1 6.4 2.5a5.7 5.7 0 1 0 7.1 7.1z" stroke={STROKE} strokeWidth="1.4" fill="none" strokeLinejoin="round" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof GLYPHS;

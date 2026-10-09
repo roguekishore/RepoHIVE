@@ -76,7 +76,7 @@ function UsageLine({ signedIn, quota }: { signedIn: boolean; quota: Quota | unde
 }
 
 /**
- * The application frame: the sidebar (a sheet at 760px and below), the 48px header with crumbs and actions, the content,
+ * The application frame: the sidebar (a sheet at 760px and below, and on a landscape screen under 480px tall), the 48px header with crumbs and actions, the content,
  * and an optional 28px status line. The ⌘K palette belongs to it, opened by the sidebar button and the shortcut.
  */
 export function AppFrame({

@@ -3,6 +3,7 @@
 @import "./components.css";
 @import "./frame.css";
 @import "./screens/landing.css";
+@import "./screens/hive.css";
 @import "./screens/dashboard.css";
 @import "./screens/views.css";
 @import "./screens/map.css";

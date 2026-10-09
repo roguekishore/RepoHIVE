@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <style>
-    .ink { fill: oklch(0.21 0.008 125); }
-    .accent { fill: oklch(0.5 0.1 132); }
+    .ink { fill: oklch(0.21 0.016 290); }
+    .accent { fill: oklch(0.52 0.26 293); }
     @media (prefers-color-scheme: dark) {
-      .ink { fill: oklch(0.955 0.008 125); }
-      .accent { fill: oklch(0.8 0.12 128); }
+      .ink { fill: oklch(0.955 0.026 290); }
+      .accent { fill: oklch(0.7 0.22 295); }
     }
   </style>
   <rect class="ink" x="1" y="1" width="10" height="10"/>

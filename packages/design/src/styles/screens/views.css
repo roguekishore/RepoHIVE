@@ -67,6 +67,11 @@
     padding-left: var(--rh-space-4);
     border-left: var(--rh-border) solid var(--rh-line);
   }
+
+  /* An odd count leaves the last figure alone in its row: let it take the row so the divider does not hang beside it. */
+  .rh-v-figs > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---------- Layout ---------- */
@@ -409,6 +414,7 @@
 .rh-dec-viz svg {
   display: block;
   max-width: 100%;
+  margin-inline: auto;
 }
 
 .rh-dec-filter {

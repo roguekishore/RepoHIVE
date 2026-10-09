@@ -120,9 +120,12 @@ svg.rh-sun:focus-visible {
   min-width: 0;
 }
 
+/* Square, so it is capped by the viewport height as well as the column: on a wide screen it would otherwise be taller
+   than the window. */
 .rh-dsm-wrap svg {
   display: block;
-  width: 100%;
+  width: min(100%, 70vh);
+  width: min(100%, 70dvh);
   height: auto;
   max-width: 760px;
 }
