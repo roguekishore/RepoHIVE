@@ -11,6 +11,7 @@ import {
   headersForKey,
   jsonBytes,
   latestKey,
+  prepareObject,
   viewKey,
   VIEW_FILES,
 } from "@repohive/indexer";
@@ -103,11 +104,12 @@ describe("listIndexedRepositories", () => {
       new Date("2026-04-01T00:00:00.000Z"),
     );
     await store.put(latestKey(repoKey), jsonBytes(pointer), headersForKey(latestKey(repoKey)));
-    await store.put(
-      viewKey(snapshotId, VIEW_FILES.hierarchyScale),
-      jsonBytes({ totalNodes: 38 }),
-      headersForKey(viewKey(snapshotId, VIEW_FILES.hierarchyScale)),
-    );
+    // As the indexer stores it: the view is brotli-compressed, and its headers say so.
+    const scale = await prepareObject({
+      key: viewKey(snapshotId, VIEW_FILES.hierarchyScale),
+      content: jsonBytes({ totalNodes: 38 }),
+    });
+    await store.put(scale.key, scale.body, scale.headers);
 
     const listed = await listIndexedRepositories(db, config, store);
     const fixture = listed.find((row) => row.repoId === "local/sample-java-project");
