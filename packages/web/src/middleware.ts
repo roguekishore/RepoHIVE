@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { DEFAULT_REPO_VIEW } from "@/features/repository/default-view";
 import { needsLowercase, parseRepoParams } from "@/features/repository/repo-name";
 
 /**
@@ -35,7 +36,7 @@ export function middleware(request: NextRequest) {
 
   if (segments.length === 4 || (segments.length === 5 && segments[4] === "")) {
     const target = request.nextUrl.clone();
-    target.pathname = `/repos/${owner}/${repo}/knowledge-graph`;
+    target.pathname = `/repos/${owner}/${repo}/${DEFAULT_REPO_VIEW}`;
     return NextResponse.redirect(target, 307);
   }
 

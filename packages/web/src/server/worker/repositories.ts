@@ -1,3 +1,4 @@
+import { DEFAULT_REPO_VIEW } from "@/features/repository/default-view";
 import type { AppDatabase } from "@/server/app-db/database";
 import { nowIso } from "@/server/auth/time";
 
@@ -32,11 +33,11 @@ export function markJobOutcomeProcessed(db: AppDatabase, jobId: string): boolean
   return true;
 }
 
-/** `github.com/<owner>/<repo>` to `/repos/<owner>/<repo>/knowledge-graph`. */
+/** `github.com/<owner>/<repo>` to the repository's default view, `/repos/<owner>/<repo>/<DEFAULT_REPO_VIEW>`. */
 export function repoKeyToViewerPath(repoKey: string): string | undefined {
   const match = /^github\.com\/([^/]+)\/([^/]+)$/u.exec(repoKey);
   if (match === null) {
     return undefined;
   }
-  return `/repos/${match[1]}/${match[2]}/knowledge-graph`;
+  return `/repos/${match[1]}/${match[2]}/${DEFAULT_REPO_VIEW}`;
 }
