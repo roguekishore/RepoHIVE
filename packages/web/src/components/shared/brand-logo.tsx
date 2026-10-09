@@ -15,7 +15,7 @@ export function BrandLogo({
   className?: string;
 }) {
   const shared = cn(
-    "shrink-0 drop-shadow-[0_0_8px_rgba(245,149,32,0.3)]",
+    "shrink-0 drop-shadow-[0_0_8px_color-mix(in_srgb,var(--color-brand)_30%,transparent)]",
     className,
   );
   return (

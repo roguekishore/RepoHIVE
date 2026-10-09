@@ -16,7 +16,14 @@ interface IndexResponse {
   readonly retryAfterSeconds?: number;
 }
 
-export function RequestIndexForm({ initialRepo = "" }: { initialRepo?: string }) {
+export function RequestIndexForm({
+  initialRepo = "",
+  layout = "stacked",
+}: {
+  initialRepo?: string;
+  /** `inline` puts the input and the button on one row, for the dashboard. */
+  layout?: "stacked" | "inline";
+}) {
   const router = useRouter();
   const [repo, setRepo] = useState(initialRepo);
   const [statusMessage, setStatusMessage] = useState("");
@@ -66,25 +73,29 @@ export function RequestIndexForm({ initialRepo = "" }: { initialRepo?: string })
     }
   }
 
+  const inline = layout === "inline";
+
   return (
-    <form onSubmit={submit} className="flex max-w-md flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="request-repo" className="text-sm font-medium">
-          Repository
-        </label>
-        <Input
-          id="request-repo"
-          value={repo}
-          onChange={(event) => setRepo(event.target.value)}
-          placeholder="owner/repo or GitHub URL"
-          autoComplete="off"
-          required
-        />
+    <form onSubmit={submit} className={inline ? "flex flex-col gap-2" : "flex max-w-md flex-col gap-3"}>
+      <div className={inline ? "flex flex-col gap-2 sm:flex-row" : "flex flex-col gap-3"}>
+        <div className={inline ? "flex-1" : "flex flex-col gap-1.5"}>
+          <label htmlFor="request-repo" className={inline ? "sr-only" : "text-sm font-medium"}>
+            Repository
+          </label>
+          <Input
+            id="request-repo"
+            value={repo}
+            onChange={(event) => setRepo(event.target.value)}
+            placeholder="owner/repo or GitHub URL"
+            autoComplete="off"
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className={inline ? "sm:w-40" : undefined}>
+          {busy ? "Requesting…" : "Request index"}
+        </Button>
       </div>
-      <Button type="submit" disabled={busy}>
-        {busy ? "Requesting…" : "Request index"}
-      </Button>
-      <p role="status" aria-live="polite" className="min-h-5 text-sm text-[var(--color-text-secondary)]">
+      <p role="status" aria-live="polite" className="min-h-5 text-sm text-[var(--color-text-secondary)] empty:hidden">
         {statusMessage}
       </p>
     </form>

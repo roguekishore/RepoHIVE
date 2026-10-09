@@ -1,15 +1,4 @@
-import {
-  Boxes,
-  ClipboardList,
-  Gauge,
-  GitCompare,
-  LayoutDashboard,
-  LogIn,
-  LogOut,
-  Network,
-  ScanSearch,
-  UserPlus,
-} from "lucide-react";
+import { Boxes, ClipboardList, GitCompare, LayoutDashboard, Network, ScanSearch } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -18,14 +7,8 @@ export interface NavItem {
   exact?: boolean;
 }
 
-export const GLOBAL_NAV: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard, exact: true },
-  { label: "Request index", href: "/request", icon: ClipboardList },
-  { label: "Quota", href: "/quota", icon: Gauge },
-  { label: "Sign in", href: "/auth/sign-in", icon: LogIn },
-  { label: "Sign up", href: "/auth/sign-up", icon: UserPlus },
-  { label: "Sign out", href: "/auth/sign-out", icon: LogOut },
-];
+/** Account actions (sign in, sign up, quota, sign out) live in the sidebar footer, not here. */
+export const GLOBAL_NAV: NavItem[] = [{ label: "Dashboard", href: "/", icon: LayoutDashboard, exact: true }];
 
 /** The six views of one indexed repository. */
 export function repoNavItems(repoId: string): NavItem[] {
