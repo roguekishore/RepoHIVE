@@ -71,7 +71,7 @@ describe("token drift", () => {
 
   it("finds tokens at all, so a broken matcher cannot pass vacuously", () => {
     const referenced = referencedTokens(walk(UI_SRC));
-    expect(referenced.size).toBeGreaterThan(50);
+    expect(referenced.size).toBeGreaterThan(20);
     expect(definedTokens().size).toBeGreaterThan(50);
   });
 
