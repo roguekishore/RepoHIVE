@@ -140,6 +140,10 @@ Deploy scripts (bash, `deploy/scripts/`; run by the owner from Linux or WSL, nev
 | `build-app-release.sh` | builds the release bundle in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS |
 | `deploy-app.sh <version>` | uploads the bundle to the ops bucket and activates it on the box through SSM Run Command |
 | `rollback-app.sh` | switches the box to the previous release |
+| `apply.sh <bootstrap\|main> [plan args]` | `init`, `plan -out`, then `apply` of that file after the owner types `apply` |
+| `deploy.sh [all\|indexer\|infra\|app\|smoke]` | the one deploy command; each stage runs alone |
+| `smoke.sh [repo]` | checks the live site through the site domain (healthz, view headers, closed prefixes, origin refusal); no AWS calls |
+| `check.sh` | the offline checks: `terraform fmt -check`, `validate` per root, `shellcheck`, `bash -n`; the only script an agent may run |
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false` then `validate`; `shellcheck` on `deploy/scripts/*`.
