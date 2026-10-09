@@ -2,7 +2,7 @@ import { bandForScore } from "@repohive/types";
 import type { HealthBand } from "@repohive/types/health";
 import { healthBandSoftBadgeClass } from "./tokens";
 
-export interface HealthBadgeProps {
+interface HealthBadgeProps {
   score: number | null | undefined;
   /** Explicit band from the API; when omitted it is derived from `score`
    * via the shared `bandForScore` mirror (no hardcoded cutoffs). */

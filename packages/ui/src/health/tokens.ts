@@ -7,45 +7,15 @@
  * caution/success) so the surface themes correctly in both modes.
  */
 
-import { bandForScore, type HealthBand } from "@repohive/types/health";
+import { type HealthBand } from "@repohive/types/health";
 
 export type Severity = "critical" | "high" | "medium" | "low";
-
-export const SEVERITY_ORDER: Record<Severity, number> = {
-  low: 0,
-  medium: 1,
-  high: 2,
-  critical: 3,
-};
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
   critical: "Critical",
   high: "High",
   medium: "Medium",
   low: "Low",
-};
-
-/**
- * @deprecated Use `SeverityMark`. This paints a tinted ground, a border and
- * coloured text for one token that repeats several times per row, and in a
- * findings list the grounds tile into stripes that outweigh the marker names
- * beside them. Kept exported because `@repohive/ui` is consumed outside
- * this repo; nothing in here should reach for it.
- */
-export const SEVERITY_CHIP: Record<Severity, string> = {
-  critical:
-    "bg-[var(--color-error)]/15 text-[var(--color-error)] border border-[var(--color-error)]/30",
-  high: "bg-[var(--color-warning)]/15 text-[var(--color-warning)] border border-[var(--color-warning)]/30",
-  medium:
-    "bg-[var(--color-caution)]/15 text-[var(--color-caution)] border border-[var(--color-caution)]/30",
-  low: "bg-[var(--color-text-tertiary)]/15 text-[var(--color-text-tertiary)] border border-[var(--color-text-tertiary)]/30",
-};
-
-export const SEVERITY_BAR: Record<Severity, string> = {
-  critical: "bg-[var(--color-error)]",
-  high: "bg-[var(--color-warning)]",
-  medium: "bg-[var(--color-caution)]",
-  low: "bg-[var(--color-text-tertiary)]",
 };
 
 /**
@@ -105,13 +75,6 @@ const BAND_BADGE: Record<ScoreBand, string> = {
   good: "bg-[var(--color-success)]/15 text-[var(--color-success)] border border-[var(--color-success)]/30",
 };
 
-const BAND_BADGE_SOFT: Record<ScoreBand, string> = {
-  critical: "bg-[var(--color-error)]/15 text-[var(--color-error)]",
-  poor: "bg-[var(--color-warning)]/15 text-[var(--color-warning)]",
-  fair: "bg-[var(--color-caution)]/15 text-[var(--color-caution)]",
-  good: "bg-[var(--color-success)]/15 text-[var(--color-success)]",
-};
-
 export function scoreTextColor(score: number | null | undefined): string {
   if (score == null) return "text-[var(--color-text-primary)]";
   return BAND_TEXT[scoreBand(score)];
@@ -120,90 +83,6 @@ export function scoreTextColor(score: number | null | undefined): string {
 /** Bordered score pill (file table, KPI badges). */
 export function scoreBadgeClass(score: number): string {
   return BAND_BADGE[scoreBand(score)];
-}
-
-/** Borderless compact variant (inline HealthBadge next to file paths). */
-export function scoreSoftBadgeClass(score: number): string {
-  return BAND_BADGE_SOFT[scoreBand(score)];
-}
-
-/* Raw CSS custom-property references per canonical band, for SVG/canvas
- * fills and inline styles where a class string cannot be used. */
-const HEALTH_BAND_INK: Record<HealthBand, string> = {
-  alert: "var(--color-error)",
-  warning: "var(--color-warning)",
-  healthy: "var(--color-success)",
-};
-
-/**
- * A canonical band as an ink color, for a key or legend that has a band but no
- * score to derive it from. Exported so an off-canvas key paints from the same
- * table the fills do — a legend with its own copy of the colours is a legend
- * that can describe a canvas it no longer matches.
- */
-export function healthBandInk(band: HealthBand): string {
-  return HEALTH_BAND_INK[band];
-}
-
-/**
- * Canonical banding for a higher-is-better health score on the 0-10 scale,
- * as an ink color usable in `style`/SVG attributes. Thresholds come from the
- * shared `bandForScore` mirror so every surface agrees on what counts as red.
- */
-export function healthInk(score10: number): string {
-  return healthBandInk(bandForScore(score10));
-}
-
-/** `healthInk` for scores expressed on a 0-100 scale. */
-export function healthInk100(score100: number): string {
-  return healthInk(score100 / 10);
-}
-
-/** `bandForScore` for scores expressed on a 0-100 scale. */
-export function healthBand100(score100: number): HealthBand {
-  return bandForScore(score100 / 10);
-}
-
-/**
- * Banding for a higher-is-worse risk value on the 0-1 scale, as an ink
- * color. Matches the impact-graph node banding (>=0.66 alert, >=0.33
- * warning) so risk reads the same across tables, charts, and graphs.
- */
-export function riskInk(risk01: number): string {
-  if (risk01 >= 0.66) return "var(--color-error)";
-  if (risk01 >= 0.33) return "var(--color-warning)";
-  return "var(--color-success)";
-}
-
-export function coverageColor(pct: number): string {
-  if (pct < 30) return "bg-[var(--color-error)]";
-  if (pct < 60) return "bg-[var(--color-warning)]";
-  if (pct < 80) return "bg-[var(--color-caution)]";
-  return "bg-[var(--color-success)]";
-}
-
-/**
- * Coverage as a band, at the thresholds {@link coverageColor} already paints.
- *
- * One function for the same reason `healthBand()` is one function: the coverage
- * lede prints the label, the figure takes the colour and the distribution bar
- * segments by it, and three call sites disagreeing about where "Strong" starts
- * is worse than the duplication that avoids it.
- */
-export function coverageBand(pct: number): { color: string; label: string } {
-  if (pct < 30) return { color: "var(--color-error)", label: "Thin" };
-  if (pct < 60) return { color: "var(--color-warning)", label: "Partial" };
-  if (pct < 80) return { color: "var(--color-caution)", label: "Solid" };
-  return { color: "var(--color-success)", label: "Strong" };
-}
-
-/** Tailwind text colour for a coverage figure, on the same bands. */
-export function coverageTextColor(pct: number | null | undefined): string {
-  if (pct == null) return "text-[var(--color-text-primary)]";
-  if (pct < 30) return "text-[var(--color-error)]";
-  if (pct < 60) return "text-[var(--color-warning)]";
-  if (pct < 80) return "text-[var(--color-caution)]";
-  return "text-[var(--color-success)]";
 }
 
 export function deltaColor(delta: number | null | undefined): string {

@@ -15,7 +15,7 @@ import * as React from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 import { cn } from "../lib/cn";
 
-export const SETTINGS_MICRO_LABEL =
+const SETTINGS_MICRO_LABEL =
   "font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]";
 
 /**

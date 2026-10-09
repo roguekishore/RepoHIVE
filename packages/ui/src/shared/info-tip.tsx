@@ -9,7 +9,7 @@ import {
 } from "../ui/tooltip";
 import { cn } from "../lib/cn";
 
-export interface InfoTipProps {
+interface InfoTipProps {
   /** Tooltip body — plain text or rich content. */
   content: React.ReactNode;
   /** Optional accessible label; defaults to "More info". */

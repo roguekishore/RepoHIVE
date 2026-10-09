@@ -17,14 +17,14 @@ import {
   START_MIN_PX,
 } from "./constants";
 
-export interface FadeThresholds {
+interface FadeThresholds {
   /** Screen-px node width where the body begins to fade and children appear. */
   start: number;
   /** Screen-px node width where the body is gone and children are fully in. */
   end: number;
 }
 
-export interface FadeAlphas {
+interface FadeAlphas {
   /** Alpha for the node's own card body (label, fill, chips). */
   body: number;
   /** Base alpha handed to the node's children subtree. */

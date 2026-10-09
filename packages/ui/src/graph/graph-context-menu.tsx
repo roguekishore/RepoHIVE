@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { FileText, Search, Route, ArrowRightFromLine, ArrowLeftToLine } from "lucide-react";
+import { FileText, Search, ArrowRightFromLine, ArrowLeftToLine } from "lucide-react";
 
 interface GraphContextMenuProps {
   x: number;

@@ -30,7 +30,7 @@ const OPTIONS = [
   { value: "dark" as const, label: "Dark", icon: Moon },
 ];
 
-export interface ThemeToggleProps {
+interface ThemeToggleProps {
   /** Hide the text labels and render an icon-only compact control. */
   compact?: boolean;
   className?: string;

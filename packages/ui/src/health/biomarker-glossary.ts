@@ -19,7 +19,7 @@ export type BiomarkerCategory =
   | "organizational"
   | "sql";
 
-export interface BiomarkerInfo {
+interface BiomarkerInfo {
   label: string;
   category: BiomarkerCategory;
   description: string;
@@ -57,7 +57,7 @@ export const CATEGORY_CAP: Record<BiomarkerCategory, number> = {
   sql: 2.0,
 };
 
-export const BIOMARKER_GLOSSARY: Record<string, BiomarkerInfo> = {
+const BIOMARKER_GLOSSARY: Record<string, BiomarkerInfo> = {
   brain_method: {
     label: "Brain method",
     category: "structural_complexity",
@@ -368,7 +368,7 @@ export type BiomarkerDimension = "defect" | "maintainability" | "performance";
  * Python source; this set is only the client-side fallback for payloads that
  * omit it, so the two can never disagree on a fresh response.
  */
-export const MAINTAINABILITY_HOME_BIOMARKERS: ReadonlySet<string> = new Set([
+const MAINTAINABILITY_HOME_BIOMARKERS: ReadonlySet<string> = new Set([
   "low_cohesion",
   "brain_method",
   "primitive_obsession",
@@ -385,7 +385,7 @@ export const MAINTAINABILITY_HOME_BIOMARKERS: ReadonlySet<string> = new Set([
  * Mirror of ``_PERFORMANCE_HOME`` in ``scoring.py``. Same fallback-only role as
  * the maintainability set above — the server stamps the authoritative dimension.
  */
-export const PERFORMANCE_HOME_BIOMARKERS: ReadonlySet<string> = new Set([
+const PERFORMANCE_HOME_BIOMARKERS: ReadonlySet<string> = new Set([
   "io_in_loop",
   "string_concat_in_loop",
   "blocking_sync_in_async",

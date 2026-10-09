@@ -45,7 +45,7 @@ const MermaidDiagram = lazy(() =>
 const MICRO_LABEL =
   "font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]";
 
-export type MarkdownDensity = "reading" | "compact";
+type MarkdownDensity = "reading" | "compact";
 
 interface Scale {
   h1: string;
@@ -231,7 +231,7 @@ function buildComponents(s: Scale): Components {
   };
 }
 
-export interface MarkdownProps {
+interface MarkdownProps {
   content: string;
   /** `compact` keeps chrome sizes for narrow panels. */
   density?: MarkdownDensity;
@@ -248,10 +248,3 @@ export function Markdown({ content, density = "reading" }: MarkdownProps) {
     </ReactMarkdown>
   );
 }
-
-/**
- * @deprecated Use `Markdown`. Kept because `@repohive/ui/chat/chat-markdown`
- * is imported by the hosted frontend in several places.
- */
-export const ChatMarkdown = Markdown;
-export type ChatMarkdownDensity = MarkdownDensity;

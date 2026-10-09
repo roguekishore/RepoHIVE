@@ -21,7 +21,6 @@
  * canonical order and are rendered in it.
  */
 
-import * as React from "react";
 import { DECISION_TOKEN, DecisionLegend } from "./decision-mark";
 import { displayNumber, displayPercent } from "./format";
 
@@ -50,7 +49,7 @@ export interface AdaptivityRepoView {
   assessedScores: number[];
 }
 
-export interface AdaptivityComparisonProps {
+interface AdaptivityComparisonProps {
   repos: readonly AdaptivityRepoView[];
   sameConfiguration: boolean;
   configurationNote?: string | null;
@@ -133,7 +132,7 @@ function RateRow({ repo, maxFiles }: { repo: AdaptivityRepoView; maxFiles: numbe
 }
 
 /** Every assessed score on a shared axis, with the boundary marked once. */
-export function ScoreSpread({ repos }: { repos: readonly AdaptivityRepoView[] }) {
+function ScoreSpread({ repos }: { repos: readonly AdaptivityRepoView[] }) {
   const W = 720;
   const ROW = 34;
   const PAD_X = 16;

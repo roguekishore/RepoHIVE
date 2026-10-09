@@ -48,7 +48,7 @@ function applyPositions(
   );
 }
 
-export interface UseElkSigmaLayoutOptions {
+interface UseElkSigmaLayoutOptions {
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;
   sigma: Sigma | null;
   enabled: boolean;
@@ -57,7 +57,7 @@ export interface UseElkSigmaLayoutOptions {
   onSkipped?: ((reason: string) => void) | undefined;
 }
 
-export interface UseElkSigmaLayoutReturn {
+interface UseElkSigmaLayoutReturn {
   isComputing: boolean;
   recompute: () => void;
 }

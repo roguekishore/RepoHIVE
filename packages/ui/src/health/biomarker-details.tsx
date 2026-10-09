@@ -6,7 +6,7 @@ import type { C4IoKind } from "@repohive/types/external-systems";
 
 export type BiomarkerDetailsRecord = Record<string, unknown>;
 
-export interface BiomarkerDetailsProps {
+interface BiomarkerDetailsProps {
   biomarkerType: string;
   details?: BiomarkerDetailsRecord | null | undefined;
   onPartnerSelect?: ((path: string) => void) | undefined;

@@ -16,7 +16,7 @@
 import * as React from "react";
 import { middleElide } from "./format";
 
-export interface DeterminismSample {
+interface DeterminismSample {
   id: string;
   regionId: string | null;
   memberCount: number;

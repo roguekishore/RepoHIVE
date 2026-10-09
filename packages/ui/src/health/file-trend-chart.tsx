@@ -4,7 +4,7 @@ import { TrendingDown } from "lucide-react";
 import type { FileHealthTrend } from "@repohive/types/health";
 import { deltaColor, formatDelta, scoreTextColor } from "./tokens";
 
-export interface FileTrendChartProps {
+interface FileTrendChartProps {
   trend: FileHealthTrend | null | undefined;
   height?: number;
   /** Hide the bordered card chrome (e.g. when embedding inside another card). */

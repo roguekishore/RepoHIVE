@@ -16,7 +16,7 @@ import { cn } from "../lib/cn";
  * button, or render your own header inside `children` and set
  * `hideCloseButton`. A DialogTitle is always emitted for screen readers.
  */
-export interface AdaptivePanelProps {
+interface AdaptivePanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Accessible name for the panel; rendered in the header unless `hideHeader`. */

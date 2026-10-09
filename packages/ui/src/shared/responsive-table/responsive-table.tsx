@@ -27,7 +27,7 @@ import { useVirtualRows } from "../virtualized-table/use-virtual-rows";
  * Purely presentational: rows in, callbacks out. No routing, no data fetching.
  */
 
-export type ColumnPriority = 1 | 2 | 3;
+type ColumnPriority = 1 | 2 | 3;
 
 export interface ResponsiveColumn<T> {
   /** Stable identifier; doubles as the sort key passed to `onSort`. */
@@ -48,7 +48,7 @@ export interface ResponsiveColumn<T> {
 }
 
 /** Windowing knobs; presence of the object is what turns virtualization on. */
-export interface ResponsiveTableVirtualization {
+interface ResponsiveTableVirtualization {
   /** Estimated `<tr>` height in px. Default 44. */
   estimateRowHeight?: number | undefined;
   /** Estimated stacked-card height in px. Default 76 (title + one meta line). */
@@ -59,7 +59,7 @@ export interface ResponsiveTableVirtualization {
   maxHeight?: number | string | undefined;
 }
 
-export interface ResponsiveTableProps<T> {
+interface ResponsiveTableProps<T> {
   columns: ResponsiveColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
@@ -109,7 +109,7 @@ function alignCls(align?: "left" | "right" | "center"): string {
  * (no role override, which would detach the row from the table for assistive
  * tech) while making the row tabbable and activatable with Enter/Space.
  */
-export function clickableRowProps<E extends HTMLElement>(activate: () => void) {
+function clickableRowProps<E extends HTMLElement>(activate: () => void) {
   return {
     tabIndex: 0,
     onClick: activate,
@@ -122,7 +122,7 @@ export function clickableRowProps<E extends HTMLElement>(activate: () => void) {
   };
 }
 
-export const CLICKABLE_ROW_CLS =
+const CLICKABLE_ROW_CLS =
   "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent-primary)]";
 
 const NOOP_MEASURE = () => {};

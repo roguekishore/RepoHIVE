@@ -14,7 +14,7 @@ import { useContextDrawer } from "./store";
  * keeps the drawer in `packages/ui` (presentational) while letting
  * `packages/web` supply data fetching for each tab.
  */
-export type ContextDrawerTabId =
+type ContextDrawerTabId =
   | "overview"
   | "decisions"
   | "co_changes"

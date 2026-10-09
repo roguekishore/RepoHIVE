@@ -3,7 +3,7 @@
 import type { FileSignals } from "@repohive/types/health";
 import { formatRelativeTimeOrNull } from "../lib/format";
 
-export interface FileSignalsPanelProps {
+interface FileSignalsPanelProps {
   signals: FileSignals | null | undefined;
   /** Hide the section heading (e.g. when the host supplies its own). */
   hideHeading?: boolean;

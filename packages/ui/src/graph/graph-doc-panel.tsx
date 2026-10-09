@@ -17,7 +17,7 @@ import { ConfidenceBadge } from "../wiki/confidence-badge";
 import { formatRelativeTime } from "../lib/format";
 import type { DocPage } from "@repohive/types/docs";
 
-export interface GraphDocPanelProps {
+interface GraphDocPanelProps {
   /** Node id whose docs are being shown. Used in the header subtitle. */
   nodeId: string;
   /** Pre-fetched doc page; `null`/`undefined` while loading or when missing. */

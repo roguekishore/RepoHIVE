@@ -141,22 +141,6 @@ export function getLayoutDuration(nodeCount: number): number {
  */
 export const SEED_JITTER_PER_SQRT_MEMBER = 20;
 
-// ---- Synchronous pre-settle (module graphs: settle before first paint) ----
-
-/** Above this, settling synchronously would risk a main-thread jank — the
- *  animated FA2 worker takes over instead. Applies to module graphs only; file
- *  graphs ship their seed as the final layout (see buildFileGraph). */
-export const PRESETTLE_MAX_NODES = 800;
-
-/** Sync FA2 iteration budget, scaled down as graphs grow. ~400 iterations on
- *  a 100-node module graph runs in a few ms; 120 on an 800-node expansion
- *  stays well under a frame budget with Barnes-Hut on. */
-export function getPresettleIterations(nodeCount: number): number {
-  if (nodeCount <= 150) return 400;
-  if (nodeCount <= 400) return 250;
-  return 120;
-}
-
 // ---- Noverlap post-layout settings ----
 
 export const NOVERLAP_SETTINGS = {
@@ -187,9 +171,9 @@ export const CURVED_EDGE_THRESHOLD = 8000;
 
 export const LABEL_FONT = "JetBrains Mono, ui-monospace, monospace";
 export const LABEL_SIZE = 11;
-export const LABEL_DENSITY = 0.15;
+const LABEL_DENSITY = 0.15;
 export const LABEL_GRID_CELL_SIZE = 80;
-export const LABEL_RENDERED_SIZE_THRESHOLD = 6;
+const LABEL_RENDERED_SIZE_THRESHOLD = 6;
 
 /**
  * Sparser labels on large graphs to keep repaint cheap.

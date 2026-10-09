@@ -10,13 +10,13 @@ import {
 
 type FA2LayoutType = import("graphology-layout-forceatlas2/worker").default;
 
-export interface UseFA2LayoutOptions {
+interface UseFA2LayoutOptions {
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes> | null;
   sigma: Sigma | null;
   enabled: boolean;
 }
 
-export interface UseFA2LayoutReturn {
+interface UseFA2LayoutReturn {
   isRunning: boolean;
   start: () => void;
   stop: () => void;

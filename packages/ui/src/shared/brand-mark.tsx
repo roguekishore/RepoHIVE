@@ -1,6 +1,6 @@
 import { cn } from "../lib/cn";
 
-export interface BrandMarkProps {
+interface BrandMarkProps {
   /** Canonical owl — cream strokes, drawn for dark surfaces. */
   darkSrc?: string;
   /** Plum-stroke variant for light surfaces. */

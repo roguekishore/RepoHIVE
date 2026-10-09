@@ -18,7 +18,7 @@ const BAND_BAR: Record<HealthBand, string> = {
 
 const BAND_DOT: Record<HealthBand, string> = BAND_BAR;
 
-export interface HealthDistributionBarProps {
+interface HealthDistributionBarProps {
   distribution: HealthDistribution;
   /** When true (default), render the per-band legend under the bar. */
   showCounts?: boolean;

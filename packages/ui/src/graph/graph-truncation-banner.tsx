@@ -17,7 +17,7 @@
 import { cn } from "../lib/cn";
 import { formatNumber } from "../lib/format";
 
-export const LOAD_MORE_STEP = 1500;
+const LOAD_MORE_STEP = 1500;
 
 /**
  * Highest node cap the "load more" ladder will offer.
@@ -29,11 +29,11 @@ export const LOAD_MORE_STEP = 1500;
  * paints immediately. 3,000 is inside that, and it is exactly two presses of
  * the 1,500 step. Raising it again is a benchmark, not an edit.
  */
-export const LOAD_MORE_CEILING = 3000;
+const LOAD_MORE_CEILING = 3000;
 
 const SLOW_HINT_THRESHOLD = 3000;
 
-export interface GraphTruncationBannerProps {
+interface GraphTruncationBannerProps {
   shown: number;
   total: number;
   /** Current node cap in effect; drives the next stepped target. */
