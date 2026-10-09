@@ -121,6 +121,8 @@ export interface EngineSuccess {
   crossScopeAmbiguities?: number;
   /** Directories the parse stage's collector skipped by exclusion policy. Omitted when none. */
   excludedDirectoryCount?: number;
+  /** Files the parse stage left out under `tolerateFileErrors`, with the reason for each. Omitted when none. */
+  skippedFiles?: readonly ParseError[];
 }
 
 /**
