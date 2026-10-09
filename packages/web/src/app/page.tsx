@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { BrandLogo } from "@/components/layout/brand-logo";
-import { RepositoryList } from "@/components/home/repository-list";
-import { getAppDatabase } from "@/lib/app-db/database";
-import { getArtifactStore } from "@/lib/hosting/clients";
-import { getAppConfig } from "@/lib/hosting/config";
-import { listIndexedRepositories, paginateRepositories } from "@/lib/repositories/list-indexed-repositories";
+import { BrandLogo } from "@/components/shared/brand-logo";
+import { RepositoryList } from "@/features/repository/repository-list";
+import { getAppDatabase } from "@/server/app-db/database";
+import { getArtifactStore } from "@/server/hosting/clients";
+import { getAppConfig } from "@/server/hosting/config";
+import { listIndexedRepositories, paginateRepositories } from "@/server/repositories/list-indexed-repositories";
 
 export const metadata: Metadata = { title: "RepoHIVE" };
 

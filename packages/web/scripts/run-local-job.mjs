@@ -16,8 +16,8 @@ import {
   runJob,
 } from "@repohive/indexer";
 import { getViewsVersion } from "@repohive/views";
-import { parseAppConfig } from "../src/lib/hosting/config.ts";
-import { fixtureForLocalRepo, tarballForRepoKey, warmLocalFixtureCache } from "../src/lib/hosting/local-fixtures.ts";
+import { parseAppConfig } from "../src/server/hosting/config.ts";
+import { fixtureForLocalRepo, tarballForRepoKey, warmLocalFixtureCache } from "../src/server/hosting/local-fixtures.ts";
 
 const raw = process.env.REPOHIVE_JOB_INPUT;
 if (raw === undefined || raw === "") {

@@ -5,7 +5,7 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { validateConfigAtStartup } = await import("./lib/hosting/startup");
+    const { validateConfigAtStartup } = await import("@/server/hosting/startup");
     validateConfigAtStartup();
   }
 }

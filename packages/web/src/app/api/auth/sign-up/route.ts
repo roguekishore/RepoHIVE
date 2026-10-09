@@ -1,7 +1,7 @@
-import { signUp } from "@/lib/auth/accounts";
-import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/lib/auth/http";
-import { buildSessionSetCookie } from "@/lib/auth/session-cookie";
-import { getAppTelemetry } from "@/lib/telemetry/app-metrics";
+import { signUp } from "@/server/auth/accounts";
+import { authContext, guardStateChanging, jsonResponse, readJsonBody } from "@/server/auth/http";
+import { buildSessionSetCookie } from "@/server/auth/session-cookie";
+import { getAppTelemetry } from "@/server/telemetry/app-metrics";
 
 export const dynamic = "force-dynamic";
 

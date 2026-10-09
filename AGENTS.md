@@ -52,7 +52,7 @@ If a document disagrees with the code, **the code wins**. Fix the document in th
 - **Read before writing.** Never propose changes to code you have not read.
 - **Determinism is not negotiable** for anything deciding group membership.
 - **Respect package boundaries.** Engine packages (`parser`, `core`, `shared`) must not import from
-  ecosystem packages (`cli`, `web`, `ui`, `api-client`, `types`).
+  ecosystem packages (`web`, `views`, `indexer`).
 - **Run the gates** in `docs/engineering/verification.md` before reporting code work as done. A clean exit
   code is not evidence of success.
 - **Label every timing cold or warm.** They differ by roughly eight times on this codebase.

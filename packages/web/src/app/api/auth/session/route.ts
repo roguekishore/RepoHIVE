@@ -1,5 +1,5 @@
-import { resolveSession } from "@/lib/auth/accounts";
-import { authContext, jsonResponse } from "@/lib/auth/http";
+import { resolveSession } from "@/server/auth/accounts";
+import { authContext, jsonResponse } from "@/server/auth/http";
 
 export const dynamic = "force-dynamic";
 

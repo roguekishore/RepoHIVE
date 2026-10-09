@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AdaptivityView } from "@/components/adaptivity/adaptivity-view";
+import { AdaptivityView } from "@/features/adaptivity/adaptivity-view";
 
 export const metadata: Metadata = { title: "Adaptivity" };
 

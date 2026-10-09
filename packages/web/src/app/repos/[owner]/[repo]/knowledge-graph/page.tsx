@@ -27,18 +27,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { ScanSearch } from "lucide-react";
-import { PageShell } from "@repohive/ui/shared/page-shell";
-import { ZoomCanvas } from "@repohive/ui/zoom";
-import { CO_CHANGES, indexRelationsByNode } from "@repohive/ui/zoom";
-import type { ZoomCanvasHandle, ZoomNode, ZoomRelation } from "@repohive/ui/zoom";
-import { useZoomMap } from "@/lib/hooks/use-graph";
-import { useBlastRadius } from "@/lib/blast-radius/use-blast-radius";
-import { useSnapshot } from "@/lib/snapshot/snapshot-context";
-import { ZoomBreadcrumb } from "@/components/zoom/zoom-breadcrumb";
-import { ZoomSearch } from "@/components/zoom/zoom-search";
-import { ZoomDetailPanel } from "@/components/zoom/zoom-detail-panel";
-import { ZoomMapKey } from "@/components/zoom/zoom-map-key";
-import { ZoomHint } from "@/components/zoom/zoom-hint";
+import { PageShell } from "@/components/shared/page-shell";
+import { ZoomCanvas } from "@/features/structure-map/canvas";
+import { CO_CHANGES, indexRelationsByNode } from "@/features/structure-map/canvas";
+import type { ZoomCanvasHandle, ZoomMap, ZoomNode, ZoomRelation } from "@/features/structure-map/canvas";
+import { useBlastRadius } from "@/features/structure-map/blast-radius/use-blast-radius";
+import { useSnapshotJson } from "@/features/repository/snapshot-context";
+import { ZoomBreadcrumb } from "@/features/structure-map/zoom-breadcrumb";
+import { ZoomSearch } from "@/features/structure-map/zoom-search";
+import { ZoomDetailPanel } from "@/features/structure-map/zoom-detail-panel";
+import { ZoomMapKey } from "@/features/structure-map/zoom-map-key";
+import { ZoomHint } from "@/features/structure-map/zoom-hint";
 
 /** Stable identities, so an unselected / unloaded render does not churn props. */
 const EMPTY_RELATIONS: ZoomRelation[] = [];
@@ -59,10 +58,9 @@ function zoomMapErrorReason(error: unknown): string {
 }
 
 export default function KnowledgeGraphPage() {
-  const { repoId } = useSnapshot();
   const queryBlastRadius = useBlastRadius();
 
-  const { zoomMap, error, isLoading } = useZoomMap(repoId);
+  const { data: zoomMap, error, isLoading } = useSnapshotJson<ZoomMap>("views/zoom-map.json");
   const canvasRef = useRef<ZoomCanvasHandle | null>(null);
 
   const [focusParam, setFocusParam] = useQueryState(

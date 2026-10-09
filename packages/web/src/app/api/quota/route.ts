@@ -1,6 +1,6 @@
-import { resolveSession } from "@/lib/auth/accounts";
-import { authContext, jsonResponse } from "@/lib/auth/http";
-import { remainingQuota } from "@/lib/quota/quota";
+import { resolveSession } from "@/server/auth/accounts";
+import { authContext, jsonResponse } from "@/server/auth/http";
+import { remainingQuota } from "@/server/quota/quota";
 
 export const dynamic = "force-dynamic";
 

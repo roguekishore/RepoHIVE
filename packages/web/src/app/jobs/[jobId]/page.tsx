@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { PublicJobResponse } from "@/lib/intake/job-response";
-import { repoKeyToViewerPath } from "@/lib/worker/repositories";
+import type { PublicJobResponse } from "@/server/intake/job-response";
+import { repoKeyToViewerPath } from "@/server/worker/repositories";
 
 interface JobEventData {
   readonly state?: PublicJobResponse["state"];
