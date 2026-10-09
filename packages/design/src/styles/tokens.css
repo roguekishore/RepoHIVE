@@ -1,0 +1,162 @@
+/*
+ * The design tokens: the only file in this package that holds a colour, a font family, a size, a radius or a motion
+ * value as a literal. Everything else reads these custom properties, in CSS and (through the canvas colour resolver)
+ * in canvases. Changing the design system later means editing this file and the shell's font loading
+ * (`packages/design/README.md`). A test (`src/gates/tokens-only.test.ts`) fails on a literal anywhere else.
+ *
+ * Identity: Kernel · Moss. Colours are OKLCH. The neutral hue and chroma are variables so a palette swap is two
+ * numbers plus the accent and rebuilt rows.
+ */
+
+:root {
+  /* ---- Neutral ramp: hue and chroma ---- */
+  --rh-neutral-hue: 125;
+  --rh-neutral-chroma: 0.008;
+
+  /* ---- Type ----
+     The shell loads the faces and sets --font-host-grotesk and --font-geist-mono (next/font does this); a shell
+     that loads them another way can define the same variables or rely on an installed face. */
+  --rh-font-sans: var(--font-host-grotesk, "Host Grotesk"), "Helvetica Neue", Arial, sans-serif;
+  --rh-font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* The eight sizes, line heights on a 4px grid. These are the only sizes in the product. */
+  --rh-fs-label: 11px;
+  --rh-lh-label: 16px;
+  --rh-fs-caption: 12px;
+  --rh-lh-caption: 16px;
+  --rh-fs-body: 14px;
+  --rh-lh-body: 20px;
+  --rh-fs-lead: 16px;
+  --rh-lh-lead: 24px;
+  --rh-fs-title: 20px;
+  --rh-lh-title: 28px;
+  --rh-fs-heading: 24px;
+  --rh-lh-heading: 32px;
+  --rh-fs-display: 32px;
+  --rh-lh-display: 40px;
+  --rh-fs-hero: 56px;
+  --rh-lh-hero: 64px;
+
+  --rh-weight-regular: 400;
+  --rh-weight-medium: 500;
+  --rh-weight-semibold: 600;
+  --rh-track-label: 0.06em;
+  --rh-track-title: -0.01em;
+  --rh-track-heading: -0.015em;
+  --rh-track-display: -0.02em;
+  --rh-track-hero: -0.035em;
+  --rh-track-brand: -0.02em;
+  --rh-track-figure: -0.02em;
+
+  /* ---- Space on a 4px grid ---- */
+  --rh-space-0: 0;
+  --rh-space-1: 4px;
+  --rh-space-2: 8px;
+  --rh-space-3: 12px;
+  --rh-space-4: 16px;
+  --rh-space-5: 20px;
+  --rh-space-6: 24px;
+  --rh-space-8: 32px;
+  --rh-space-10: 40px;
+  --rh-space-12: 48px;
+  --rh-space-16: 64px;
+  --rh-space-24: 96px;
+
+  /* ---- Shape ---- */
+  --rh-radius: 4px;
+  --rh-radius-lg: 6px;
+  --rh-radius-xl: 8px;
+  --rh-border: 1px;
+  --rh-border-accent: 2px;
+  --rh-glyph-stroke: 1.5px;
+
+  /* ---- Frame ---- */
+  --rh-sidebar-width: 216px;
+  --rh-sheet-width: 264px;
+  --rh-header-height: 48px;
+  --rh-status-height: 28px;
+  --rh-inspector-width: 212px;
+  --rh-control-height: 32px;
+  --rh-control-height-sm: 28px;
+  --rh-control-height-lg: 44px;
+  --rh-input-height: 36px;
+  --rh-row-height: 40px;
+  --rh-page-max: 1520px;
+  --rh-page-max-narrow: 1200px;
+
+  /* ---- Motion ---- */
+  --rh-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --rh-dur-fast: 120ms;
+  --rh-dur: 200ms;
+  --rh-dur-slow: 400ms;
+
+  /* ---- Layers ---- */
+  --rh-z-sticky: 5;
+  --rh-z-scrim: 30;
+  --rh-z-sheet: 40;
+  --rh-z-overlay: 50;
+  --rh-z-toast: 60;
+
+  /* ---- Colour: light ---- */
+  --rh-bg: oklch(0.985 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-surface: oklch(1 0 0);
+  --rh-sunken: oklch(0.965 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-line: oklch(0.915 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-line-strong: oklch(0.83 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg: oklch(0.21 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg-2: oklch(0.44 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-accent: oklch(0.5 0.1 132);
+  --rh-accent-soft: oklch(0.955 0.025 130);
+  --rh-on-accent: oklch(0.99 0 0);
+  --rh-rebuilt: oklch(0.52 0.13 300);
+  --rh-ok: oklch(0.55 0.12 150);
+  --rh-warn: oklch(0.62 0.13 75);
+  --rh-err: oklch(0.55 0.17 27);
+  --rh-scrim: oklch(0.21 0.008 125 / 0.32);
+  color-scheme: light;
+}
+
+/* ---- Colour: dark. Two selectors, one set of values: the system preference unless the light override is set, and
+   the explicit dark override. The tokens test checks the two blocks are identical. ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --rh-bg: oklch(0.165 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-surface: oklch(0.195 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-sunken: oklch(0.145 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-line: oklch(0.275 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-line-strong: oklch(0.37 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-fg: oklch(0.955 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+    --rh-accent: oklch(0.8 0.12 128);
+    --rh-accent-soft: oklch(0.3 0.045 130);
+    --rh-on-accent: oklch(0.17 0.02 130);
+    --rh-rebuilt: oklch(0.74 0.11 305);
+    --rh-ok: oklch(0.74 0.13 150);
+    --rh-warn: oklch(0.8 0.13 80);
+    --rh-err: oklch(0.7 0.15 27);
+    --rh-scrim: oklch(0.08 0.005 125 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --rh-bg: oklch(0.165 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-surface: oklch(0.195 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-sunken: oklch(0.145 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-line: oklch(0.275 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-line-strong: oklch(0.37 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg: oklch(0.955 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
+  --rh-accent: oklch(0.8 0.12 128);
+  --rh-accent-soft: oklch(0.3 0.045 130);
+  --rh-on-accent: oklch(0.17 0.02 130);
+  --rh-rebuilt: oklch(0.74 0.11 305);
+  --rh-ok: oklch(0.74 0.13 150);
+  --rh-warn: oklch(0.8 0.13 80);
+  --rh-err: oklch(0.7 0.15 27);
+  --rh-scrim: oklch(0.08 0.005 125 / 0.6);
+  color-scheme: dark;
+}
