@@ -39,7 +39,16 @@ public final class TestEnv {
         registry.add("REPOHIVE_STORE", () -> "local:" + dir.resolve("store"));
         registry.add("REPOHIVE_ORCHESTRATOR", () -> "local");
         registry.add("REPOHIVE_INTERNAL_SECRET", () -> "test-internal-secret");
+        quiet(registry);
+    }
+
+    /** Nothing runs on a timer in tests: they call the services themselves. */
+    private static void quiet(DynamicPropertyRegistry registry) {
         registry.add("repohive.backup.enabled", () -> "false");
+        for (String name : new String[] {"slot", "reconcile"}) {
+            registry.add("repohive." + name + ".interval-ms", () -> "86400000");
+            registry.add("repohive." + name + ".initial-delay-ms", () -> "86400000");
+        }
     }
 
     public static void hosted(DynamicPropertyRegistry registry, Path dir) {
@@ -52,6 +61,6 @@ public final class TestEnv {
         registry.add("REPOHIVE_CLIENT_IP_HEADER", () -> "X-RepoHIVE-Client-IP");
         registry.add("AWS_REGION", () -> "ap-south-1");
         registry.add("REPOHIVE_INTERNAL_SECRET", () -> "test-internal-secret");
-        registry.add("repohive.backup.enabled", () -> "false");
+        quiet(registry);
     }
 }
