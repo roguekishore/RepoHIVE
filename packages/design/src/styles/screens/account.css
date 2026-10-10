@@ -293,3 +293,21 @@
 .rh-stepper li.rh-step-pending {
   color: var(--rh-fg-3);
 }
+
+/* ---------- Error, not-found and loading pages ---------- */
+
+.rh-status-page {
+  padding-block: var(--rh-space-24);
+}
+
+.rh-status-page h1 {
+  margin: 0;
+  color: var(--rh-fg);
+}
+
+.rh-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--rh-space-3);
+}
