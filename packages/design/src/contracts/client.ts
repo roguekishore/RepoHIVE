@@ -1,6 +1,6 @@
 import type { ActionResult, Credentials, Session } from "./session";
 import type { IndexRequestResult } from "./index-request";
-import type { Job, JobEvent } from "./job";
+import type { Job, JobEvent, JobList } from "./job";
 import type { Quota } from "./quota";
 import type { RepositoryPage, RepositorySummary } from "./repository";
 import type { SnapshotManifest, SnapshotPointer } from "./snapshot";
@@ -26,6 +26,9 @@ export interface ContractClient {
   job(jobId: string): Promise<Job | undefined>;
   /** Follows a job's events until `done`; returns a function that stops it. */
   watchJob(jobId: string, onEvent: (event: JobEvent) => void, onError: (error: Error) => void): () => void;
+
+  /** The signed-in account's jobs, newest first; `undefined` when signed out. */
+  jobs(): Promise<JobList | undefined>;
 
   listRepositories(page?: number): Promise<RepositoryPage>;
   /** `undefined` when the repository has never been indexed. */

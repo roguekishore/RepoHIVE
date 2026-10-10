@@ -31,6 +31,7 @@ import { POST as signInPost } from "@/app/api/auth/sign-in/route";
 import { POST as signOutPost } from "@/app/api/auth/sign-out/route";
 import { POST as signUpPost } from "@/app/api/auth/sign-up/route";
 import { POST as indexPost } from "@/app/api/index/route";
+import { GET as accountJobsGet } from "@/app/api/account/jobs/route";
 import { GET as jobGet } from "@/app/api/jobs/[jobId]/route";
 import { GET as jobEventsGet } from "@/app/api/jobs/[jobId]/events/route";
 import { GET as quotaGet } from "@/app/api/quota/route";
@@ -76,6 +77,7 @@ async function viaHandlers(input: RequestInfo | URL, init?: RequestInit): Promis
     if (path === "/api/quota") return quotaGet(request);
     if (path === "/api/index" && post) return indexPost(request);
     if (path === "/api/repos") return reposGet(request);
+    if (path === "/api/account/jobs") return accountJobsGet(request);
     const events = /^\/api\/jobs\/([^/]+)\/events$/.exec(path);
     if (events !== null) return jobEventsGet(request, { params: Promise.resolve({ jobId: decodeURIComponent(events[1] ?? "") }) });
     const job = /^\/api\/jobs\/([^/]+)$/.exec(path);
@@ -411,5 +413,57 @@ describe("jobs, against the real handlers", () => {
       event: "progress",
       data: { jobId: "running", repo: jobRepo("running"), state: "parsing", progress: { stage: "parsing", completed: 2, total: 10 } },
     });
+  });
+});
+
+describe("the account's job list, against the real handler", () => {
+  const charge = (accountId: number, jobId: string, at: string): void => {
+    db.prepare(
+      "INSERT INTO index_charges (account_id, ip, utc_day, job_id, charged_at, refunded) VALUES (?, '10.9.9.9', '2026-10-07', ?, ?, 0)",
+    ).run(accountId, jobId, at);
+  };
+
+  it("lists this account's jobs newest first, from the ledger's own records", async () => {
+    const me = (db.prepare("SELECT id FROM accounts WHERE email = ?").get("reader@example.com") as { id: number }).id;
+
+    await ledger.claim({ ...jobInput("list-bad"), repo: "github.com/acme/list-bad", accountId: String(me), tier: "L" });
+    await ledger.finish("list-bad", { state: "failed", failureClass: "user", failureCode: "REPO_TOO_LARGE" });
+    await ledger.claim({ ...jobInput("list-ok"), repo: "github.com/acme/list-ok", accountId: String(me), tier: "M" });
+    await ledger.finish("list-ok", { state: "succeeded" });
+    await ledger.claim({ ...jobInput("list-run"), repo: "github.com/acme/list-run", accountId: String(me), tier: "S" });
+    await ledger.transition("list-run", "parsing");
+    await ledger.writeProgress("list-run", { stage: "parsing", completed: 3, total: 9 });
+    // A charge whose ledger record names another account, and one whose record the ledger no longer holds: neither is listed.
+    await ledger.claim({ ...jobInput("list-other"), repo: "github.com/acme/list-other", accountId: String(me + 1000) });
+    await ledger.finish("list-other", { state: "succeeded" });
+    charge(me, "list-bad", "2026-10-07T08:00:00.000Z");
+    charge(me, "list-ok", "2026-10-07T08:01:00.000Z");
+    charge(me, "list-gone", "2026-10-07T08:02:00.000Z");
+    charge(me, "list-run", "2026-10-07T08:03:00.000Z");
+    charge(me, "list-other", "2026-10-07T08:04:00.000Z");
+
+    const list = await client.jobs();
+    expect(list?.items.map((item) => item.jobId)).toEqual(["list-run", "list-ok", "list-bad"]);
+    expect(list?.items[0]).toMatchObject({
+      repo: "github.com/acme/list-run",
+      state: "parsing",
+      tier: "S",
+      progress: { stage: "parsing", completed: 3, total: 9 },
+    });
+    expect(list?.items[0]?.endedAt).toBeUndefined();
+    expect(list?.items[1]).toMatchObject({ state: "succeeded", tier: "M", result: { snapshotId: SNAPSHOT } });
+    expect(list?.items[1]?.endedAt).toEqual(expect.any(String));
+    expect(list?.items[2]).toMatchObject({ state: "failed", tier: "L", failure: { code: "REPO_TOO_LARGE" } });
+    expect(list?.items[2]?.result).toBeUndefined();
+  });
+
+  it("is never cached, and answers 401 with the server's code when signed out", async () => {
+    expect((await viaHandlers("/api/account/jobs")).headers.get("cache-control")).toBe("no-store");
+    await client.signOut();
+    const response = await viaHandlers("/api/account/jobs");
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(await client.jobs()).toBeUndefined();
+    await client.signIn({ email: "reader@example.com", password: "password-ten-chars" });
   });
 });

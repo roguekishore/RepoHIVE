@@ -3,7 +3,7 @@
  * assertion that fails is a compile error, and so is an `@ts-expect-error` that no longer expects one. The first group
  * pins the contract to the types the servers and the view builders really use, so a change on either side breaks here.
  */
-import type { JobProgress as IndexerProgress, JobState as IndexerState, LatestPointer, Manifest } from "@repohive/indexer";
+import type { JobProgress as IndexerProgress, JobState as IndexerState, LatestPointer, Manifest, Tier } from "@repohive/indexer";
 import type { SnapshotViews } from "@repohive/views";
 import { expectTypeOf } from "vitest";
 import type {
@@ -12,8 +12,11 @@ import type {
   IndexRequestResult,
   Job,
   JobEvent,
+  JobList,
+  JobListItem,
   JobProgress,
   JobState,
+  SizeTier,
   Quota,
   RepositoryListItem,
   RepositoryPage,
@@ -33,6 +36,8 @@ expectTypeOf<IndexerProgress>().toExtend<JobProgress>();
 expectTypeOf<JobProgress>().toExtend<IndexerProgress>();
 expectTypeOf<Manifest>().toExtend<SnapshotManifest>();
 expectTypeOf<LatestPointer>().toExtend<SnapshotPointer>();
+// The size classes are the indexer's tiers.
+expectTypeOf<SizeTier>().toEqualTypeOf<Tier>();
 // A job record's public view is the contract's Job; the record itself is not.
 expectTypeOf<Job["state"]>().toEqualTypeOf<IndexerState>();
 
@@ -73,6 +78,8 @@ expectTypeOf(client.view("s", "zoomMap" as const)).toEqualTypeOf<Promise<Snapsho
 expectTypeOf(client.quota).returns.toEqualTypeOf<Promise<Quota | undefined>>();
 expectTypeOf(client.requestIndex).returns.toEqualTypeOf<Promise<IndexRequestResult>>();
 expectTypeOf(client.signIn).returns.toEqualTypeOf<Promise<ActionResult>>();
+expectTypeOf(client.jobs).returns.toEqualTypeOf<Promise<JobList | undefined>>();
+expectTypeOf<JobListItem["state"]>().toEqualTypeOf<IndexerState>();
 expectTypeOf(client.watchJob).returns.toEqualTypeOf<() => void>();
 expectTypeOf(client.watchJob).parameter(1).toEqualTypeOf<(event: JobEvent) => void>();
 
