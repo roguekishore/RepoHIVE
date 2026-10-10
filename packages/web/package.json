@@ -13,14 +13,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "3.1144.0",
-    "@aws-sdk/client-s3": "3.1144.0",
-    "@aws-sdk/client-sfn": "3.1144.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@repohive/core": "*",
-    "@repohive/indexer": "*",
     "@repohive/views": "*",
     "@tanstack/react-virtual": "^3.13.12",
     "class-variance-authority": "^0.7.1",
@@ -40,6 +36,7 @@
   },
   "devDependencies": {
     "@repohive/engine": "*",
+    "@repohive/indexer": "^0.0.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
