@@ -1,1 +1,381 @@
-/* The styles of the views screens. Values come from tokens.css only. */
+/*
+ * The views screens: Overview, Decisions and Adaptivity. Class names start `rh-v-`. Values come from tokens.css
+ * only. Layout, panels, tables, bars and tags are the shared components; this file holds what is specific to these
+ * three pages.
+ */
+
+.rh-v-loading {
+  padding: var(--rh-space-6) var(--rh-space-8);
+}
+
+/* ---------- Page header and figures ---------- */
+
+.rh-v-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--rh-space-4);
+}
+
+.rh-v-head > div:first-child {
+  display: grid;
+  gap: var(--rh-space-1);
+  min-width: 0;
+}
+
+.rh-v-head h1 {
+  overflow-wrap: anywhere;
+}
+
+.rh-v-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-1) var(--rh-space-4);
+  color: var(--rh-fg-3);
+}
+
+.rh-v-figs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: var(--rh-border) solid var(--rh-line-strong);
+  border-bottom: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-v-figs > div {
+  padding: var(--rh-space-4) var(--rh-space-4) var(--rh-space-4) 0;
+  display: grid;
+  gap: var(--rh-space-1);
+}
+
+.rh-v-figs > div + div {
+  padding-left: var(--rh-space-4);
+  border-left: var(--rh-border) solid var(--rh-line);
+}
+
+@media (max-width: 900px) {
+  .rh-v-figs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rh-v-figs > div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .rh-v-figs > div:nth-child(even) {
+    padding-left: var(--rh-space-4);
+    border-left: var(--rh-border) solid var(--rh-line);
+  }
+}
+
+/* ---------- Layout ---------- */
+
+.rh-v-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rh-space-4);
+}
+
+@media (max-width: 900px) {
+  .rh-v-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rh-v-stack {
+  display: grid;
+  gap: var(--rh-space-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.rh-v-section {
+  display: grid;
+  gap: var(--rh-space-4);
+  min-width: 0;
+}
+
+.rh-v-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rh-space-3);
+  flex-wrap: wrap;
+}
+
+.rh-v-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-2);
+  align-items: center;
+}
+
+.rh-v-tools .rh-field {
+  flex: 1 1 240px;
+  width: min(100%, 280px);
+  max-width: 360px;
+}
+
+.rh-v-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-2) var(--rh-space-6);
+}
+
+/* A swatch that is not a decision: coverage counts regions the engine measured, which is not the same as kept. */
+.rh-v-swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  display: inline-block;
+  background: var(--rh-fg-2);
+}
+
+.rh-v-swatch-none {
+  background: var(--rh-line-strong);
+}
+
+.rh-v-bar-assessed {
+  background: var(--rh-fg-2);
+}
+
+/* ---------- Rows ---------- */
+
+.rh-v-name {
+  display: block;
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rh-v-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--rh-space-4);
+  display: grid;
+}
+
+.rh-v-rows li {
+  border-top: var(--rh-border) solid var(--rh-line);
+  min-height: var(--rh-row-height);
+  display: grid;
+}
+
+.rh-v-rows li:first-child {
+  border-top: 0;
+}
+
+.rh-v-row-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--rh-space-3);
+  align-items: center;
+  text-decoration: none;
+  padding-block: var(--rh-space-1);
+  min-width: 0;
+}
+
+.rh-v-row-link:hover .rh-v-name {
+  color: var(--rh-accent);
+}
+
+.rh-v-row-link .rh-v-name {
+  max-width: none;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.rh-v-levels {
+  display: grid;
+  gap: var(--rh-space-2);
+}
+
+.rh-v-level {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 96px;
+  gap: var(--rh-space-3);
+  align-items: center;
+}
+
+.rh-v-level i {
+  display: block;
+  height: var(--rh-space-2);
+  background: var(--rh-fg-2);
+  min-width: 2px;
+}
+
+.rh-v-n {
+  text-align: right;
+  font-family: var(--rh-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-v-scroll {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.rh-v-scroll .rh-table th {
+  position: sticky;
+  top: 0;
+  z-index: var(--rh-z-sticky);
+}
+
+/* ---------- Charts (SVG drawn from recorded values) ---------- */
+
+.rh-v-viz {
+  position: relative;
+  min-width: 0;
+}
+
+.rh-v-viz svg {
+  display: block;
+  width: 100%;
+}
+
+.rh-v-viz text {
+  font-family: var(--rh-font-sans);
+  font-size: var(--rh-fs-caption);
+  fill: var(--rh-fg-3);
+}
+
+.rh-v-viz text.rh-v-mono {
+  font-family: var(--rh-font-mono);
+}
+
+.rh-v-viz .rh-v-axis {
+  stroke: var(--rh-line-strong);
+}
+
+.rh-v-viz .rh-v-grid {
+  stroke: var(--rh-line);
+}
+
+/* Kept is a solid mark; rebuilt is a hollow mark in the rebuilt colour. The shape differs, not only the colour. */
+.rh-v-viz .rh-v-dot-kept {
+  fill: var(--rh-fg-2);
+}
+
+.rh-v-viz .rh-v-dot-rebuilt {
+  fill: var(--rh-surface);
+  stroke: var(--rh-rebuilt);
+  stroke-width: var(--rh-glyph-stroke);
+}
+
+.rh-v-viz .rh-v-bin-kept {
+  fill: var(--rh-fg-2);
+}
+
+.rh-v-viz .rh-v-bin-rebuilt {
+  fill: var(--rh-surface);
+  stroke: var(--rh-rebuilt);
+  stroke-width: var(--rh-glyph-stroke);
+  stroke-dasharray: 3 2;
+}
+
+.rh-v-viz .rh-v-sel {
+  stroke: var(--rh-accent);
+  stroke-width: var(--rh-border-accent);
+  fill: none;
+}
+
+.rh-v-viz .rh-v-boundary {
+  stroke: var(--rh-accent);
+  stroke-width: var(--rh-border-accent);
+}
+
+.rh-v-viz .rh-v-handle {
+  fill: var(--rh-accent);
+}
+
+.rh-v-viz text.rh-v-handle-label {
+  fill: var(--rh-on-accent);
+  font-family: var(--rh-font-mono);
+  font-size: var(--rh-fs-label);
+}
+
+.rh-v-viz circle[data-region] {
+  cursor: pointer;
+}
+
+.rh-v-scatter svg {
+  height: auto;
+}
+
+.rh-v-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rh-space-2) var(--rh-space-4);
+}
+
+.rh-v-calc {
+  font-family: var(--rh-font-mono);
+  display: grid;
+  gap: var(--rh-space-1);
+  padding: var(--rh-space-3);
+  background: var(--rh-sunken);
+  border-radius: var(--rh-radius);
+  overflow-x: auto;
+}
+
+.rh-v-calc div {
+  white-space: nowrap;
+}
+
+.rh-v-calc .rh-v-res {
+  color: var(--rh-fg);
+  font-weight: var(--rh-weight-medium);
+}
+
+.rh-v-work-head {
+  display: grid;
+  gap: var(--rh-space-1);
+}
+
+.rh-v-work-head h4 {
+  font-size: var(--rh-fs-lead);
+  line-height: var(--rh-lh-lead);
+  font-weight: var(--rh-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Adaptivity ---------- */
+
+.rh-v-share {
+  display: grid;
+  gap: var(--rh-space-1);
+}
+
+.rh-v-compare {
+  display: grid;
+}
+
+.rh-v-compare-row {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) 56px minmax(0, 1fr);
+  gap: var(--rh-space-3);
+  align-items: center;
+  padding-block: var(--rh-space-2);
+  border-top: var(--rh-border) solid var(--rh-line);
+}
+
+.rh-v-compare-row:first-child {
+  border-top: 0;
+}
+
+.rh-v-compare-row .rh-v-name {
+  max-width: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .rh-v-compare-row {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+
+  .rh-v-compare-row .rh-bar {
+    grid-column: 1 / -1;
+  }
+}
