@@ -42,6 +42,15 @@ public final class TestEnv {
         quiet(registry);
     }
 
+    public static final String ADMIN_TOKEN = "test-admin-token-with-32-characters!";
+    public static final String ADMIN_ORIGIN = "https://hivequota.example";
+
+    /** Switches the admin API on, callable cross-origin from {@link #ADMIN_ORIGIN} only. */
+    public static void admin(DynamicPropertyRegistry registry) {
+        registry.add("REPOHIVE_ADMIN_TOKEN", () -> ADMIN_TOKEN);
+        registry.add("REPOHIVE_ADMIN_ORIGINS", () -> ADMIN_ORIGIN);
+    }
+
     /** Nothing runs on a timer in tests: they call the services themselves. */
     private static void quiet(DynamicPropertyRegistry registry) {
         registry.add("repohive.backup.enabled", () -> "false");
