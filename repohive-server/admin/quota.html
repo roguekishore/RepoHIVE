@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https: http://localhost:* http://127.0.0.1:*; base-uri 'none'; form-action 'none'">
-<title>RepoHIVE limits</title>
+<title>RepoHIVE control</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -48,7 +48,12 @@
   .key { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
   .chip { display: inline-block; font-size: 12px; background: var(--chip); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
   .changed input { border-color: var(--accent); }
-  #limits, #history { display: none; }
+  #limits, #history, #bench { display: none; }
+  .banner { margin: 0 0 12px; font-weight: 600; }
+  .banner.on { color: var(--warn); }
+  .row3 { display: grid; gap: 12px; grid-template-columns: 1fr 140px auto; align-items: end; margin-top: 12px; }
+  @media (max-width: 620px) { .row3 { grid-template-columns: 1fr; } }
+  select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; }
   .shown { display: block !important; }
   @media (max-width: 620px) {
     .hide-narrow { display: none; }
@@ -61,8 +66,8 @@
 </head>
 <body>
 <main>
-  <h1>RepoHIVE limits</h1>
-  <p class="lede">Change the quotas and caps of a running server. A saved value takes effect immediately and survives restarts; resetting a limit puts back the value the server was started with.</p>
+  <h1>RepoHIVE control</h1>
+  <p class="lede">Switch benchmark mode on for an account, and change the quotas and caps of a running server. Everything takes effect immediately.</p>
 
   <section aria-labelledby="connect-title">
     <h2 id="connect-title">Server</h2>
@@ -78,15 +83,40 @@
     </div>
     <p class="hint">The token is kept for this browser tab only. This page must be served from an origin listed in the server's <code>REPOHIVE_ADMIN_ORIGINS</code>.</p>
     <div class="actions">
-      <button id="load" class="primary" type="button">Load limits</button>
+      <button id="load" class="primary" type="button">Connect</button>
       <button id="forget" type="button">Forget token</button>
     </div>
   </section>
 
   <p id="status" role="status" aria-live="polite"></p>
 
+  <section id="bench" aria-labelledby="bench-title">
+    <h2 id="bench-title">Benchmark mode</h2>
+    <p class="hint">A flagged account is not held to the daily quotas, the per-IP limits, one index at a time or the in-flight cap until the time runs out, then everything applies again. Pre-checks, one job per repository, the L and XL slot, Lambda and Fargate capacity and the GitHub budget still apply.</p>
+    <p id="bench-banner" class="banner" role="status"></p>
+    <table id="bench-table">
+      <thead><tr><th scope="col">Account</th><th scope="col">Ends</th><th scope="col"><span style="position:absolute;left:-9999px">Stop</span></th></tr></thead>
+      <tbody id="bench-active"></tbody>
+    </table>
+    <div class="row3">
+      <div>
+        <label for="bench-email">Account email</label>
+        <input id="bench-email" type="text" list="bench-accounts" autocomplete="off" spellcheck="false" placeholder="start typing, or pick one">
+        <datalist id="bench-accounts"></datalist>
+      </div>
+      <div>
+        <label for="bench-hours">For</label>
+        <select id="bench-hours">
+          <option value="1">1 hour</option><option value="2">2 hours</option><option value="6">6 hours</option>
+          <option value="12" selected>12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option><option value="72">72 hours</option>
+        </select>
+      </div>
+      <div><button id="bench-start" class="primary" type="button">Start benchmark mode</button></div>
+    </div>
+  </section>
+
   <section id="limits" aria-labelledby="limits-title">
-    <h2 id="limits-title">Limits</h2>
+    <h2 id="limits-title">Limits for everyone</h2>
     <table>
       <thead>
         <tr><th scope="col">Limit</th><th scope="col" class="num">Value</th><th scope="col" class="num hide-narrow">Default</th><th scope="col" class="num hide-narrow">Allowed</th><th scope="col"><span class="sr" style="position:absolute;left:-9999px">Reset</span></th></tr>
@@ -150,26 +180,35 @@
     return url.origin;
   }
 
-  function call(method, payload) {
+  function request(method, path, payload, valid) {
     var origin = base();
     if (!origin) { return Promise.reject(new Error('Enter the server address as https://host (http only for localhost).')); }
     var token = tokenInput.value.trim();
     if (!token) { return Promise.reject(new Error('Enter the admin token.')); }
     var init = { method: method, headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', credentials: 'omit' };
     if (payload) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(payload); }
-    return fetch(origin + '/api/admin/limits', init).then(function (response) {
+    return fetch(origin + path, init).then(function (response) {
       return response.text().then(function (text) {
         var body = null;
         try { body = JSON.parse(text); } catch (e) { /* not JSON */ }
         if (response.status === 401) { throw new Error('The server did not accept that token.'); }
+        if (response.status === 404 && body && body.code === 'ACCOUNT_NOT_FOUND') { throw new Error(body.message); }
         if (response.status === 404) { throw new Error('The server has no admin API (no admin token is configured on it).'); }
         if (!response.ok) { throw new Error((body && body.message) || ('The server answered ' + response.status + '.')); }
-        if (!body || !Array.isArray(body.limits)) { throw new Error('The server answered something this page does not understand.'); }
+        if (!body || !valid(body)) { throw new Error('The server answered something this page does not understand.'); }
         return body;
       });
     }, function () {
       throw new Error('Could not reach the server. Check the address, and that this page\'s origin (' + location.origin + ') is in REPOHIVE_ADMIN_ORIGINS.');
     });
+  }
+
+  function call(method, payload) {
+    return request(method, '/api/admin/limits', payload, function (b) { return Array.isArray(b.limits); });
+  }
+
+  function benchCall(method, path, payload) {
+    return request(method, path, payload, function (b) { return Array.isArray(b.active) || Array.isArray(b.accounts); });
   }
 
   function when(iso) {
@@ -293,14 +332,80 @@
     return null;
   }
 
+  function renderBench(body) {
+    var rows = el('bench-active');
+    rows.textContent = '';
+    body.active.forEach(function (flag) {
+      var tr = document.createElement('tr');
+      tr.appendChild(cell('td', flag.email, 'name'));
+      tr.appendChild(cell('td', when(flag.expiresAt)));
+      var stopCell = document.createElement('td');
+      var stop = document.createElement('button');
+      stop.type = 'button'; stop.textContent = 'Stop now';
+      stop.setAttribute('aria-label', 'Stop benchmark mode for ' + flag.email);
+      stop.addEventListener('click', function () { stopBench(flag.email); });
+      stopCell.appendChild(stop);
+      tr.appendChild(stopCell);
+      rows.appendChild(tr);
+    });
+    el('bench-table').style.display = body.active.length ? '' : 'none';
+    var banner = el('bench-banner');
+    banner.textContent = body.active.length
+      ? 'Benchmark mode is ON for ' + body.active.length + (body.active.length === 1 ? ' account.' : ' accounts.')
+      : 'Benchmark mode is off. No account is flagged.';
+    banner.className = 'banner' + (body.active.length ? ' on' : '');
+    el('bench').classList.add('shown');
+  }
+
+  function fillAccounts(body) {
+    var list = el('bench-accounts');
+    list.textContent = '';
+    body.accounts.forEach(function (account) {
+      var option = document.createElement('option');
+      option.value = account.email;
+      if (account.benchUntil) { option.label = 'benchmark mode on'; }
+      list.appendChild(option);
+    });
+  }
+
+  var searchTimer = null;
+  function searchAccounts() {
+    var text = el('bench-email').value.trim();
+    benchCall('GET', '/api/admin/bench/accounts?q=' + encodeURIComponent(text)).then(fillAccounts).catch(function () { /* the list is a convenience */ });
+  }
+
+  function startBench() {
+    var email = el('bench-email').value.trim();
+    if (!email) { say('Enter or pick the account email.', 'bad'); return; }
+    var hours = Number(el('bench-hours').value);
+    say('Starting\u2026');
+    el('bench-start').disabled = true;
+    benchCall('PUT', '/api/admin/bench', { email: email, hours: hours }).then(function (body) {
+      renderBench(body);
+      say('Benchmark mode is on for ' + email + ' for ' + hours + (hours === 1 ? ' hour.' : ' hours.'), 'ok');
+      searchAccounts();
+    }).catch(function (error) { say(error.message, 'bad'); }).then(function () { el('bench-start').disabled = false; });
+  }
+
+  function stopBench(email) {
+    say('Stopping\u2026');
+    benchCall('DELETE', '/api/admin/bench?email=' + encodeURIComponent(email)).then(function (body) {
+      renderBench(body);
+      say('Benchmark mode is off for ' + email + '. Its limits apply again.', 'ok');
+      searchAccounts();
+    }).catch(function (error) { say(error.message, 'bad'); });
+  }
+
   function load() {
-    say('Loading…');
+    say('Loading\u2026');
     el('load').disabled = true;
-    call('GET').then(function (body) {
+    Promise.all([call('GET'), benchCall('GET', '/api/admin/bench'), benchCall('GET', '/api/admin/bench/accounts')]).then(function (all) {
       store('sessionStorage', 'repohive-admin-token', tokenInput.value.trim());
       store('localStorage', 'repohive-admin-server', base());
-      render(body);
-      say('Loaded.', 'ok');
+      renderBench(all[1]);
+      fillAccounts(all[2]);
+      render(all[0]);
+      say('Connected.', 'ok');
     }).catch(function (error) { say(error.message, 'bad'); }).then(function () { el('load').disabled = false; });
   }
 
@@ -323,6 +428,11 @@
   }
 
   el('load').addEventListener('click', load);
+  el('bench-start').addEventListener('click', startBench);
+  el('bench-email').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(searchAccounts, 250);
+  });
   el('save').addEventListener('click', save);
   el('discard').addEventListener('click', function () { if (loaded) { render(loaded); say(''); } });
   el('forget').addEventListener('click', function () {
@@ -331,6 +441,7 @@
     loaded = null;
     el('limits').classList.remove('shown');
     el('history').classList.remove('shown');
+    el('bench').classList.remove('shown');
     say('Token forgotten.');
   });
   [serverInput, tokenInput].forEach(function (input) {
