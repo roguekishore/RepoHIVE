@@ -1,28 +1,31 @@
 /**
- * HTTP-level end-to-end checks in local mode.
+ * HTTP-level end-to-end checks against the Spring Boot server in local mode.
  *
  *   node scripts/e2e.mjs
  *
- * Spawns `next start` and the worker with an isolated data directory, then drives
- * sign-up, intake, SSE progress, cache hits, quota, limits and a system-failure
- * refund (second server pass with `REPOHIVE_LOCAL_JOB_INJECT_FAILURE=system`).
+ * Spawns `repohive-server.jar` with an isolated data directory, then drives sign-up,
+ * intake, SSE progress, cache hits, quota, limits and a system-failure refund (a
+ * second server pass with `REPOHIVE_LOCAL_JOB_INJECT_FAILURE=system`). The server
+ * runs the indexer as a child process, so the root build must have run.
+ *
+ * Environment: `REPOHIVE_E2E_PORT` (default 3299), `REPOHIVE_E2E_JAR`
+ * (default `repohive-server/target/repohive-server.jar`), `REPOHIVE_JAVA` (default `java`).
+ * Build the jar first: `./mvnw -B package` in `repohive-server/` (Java 21 or newer).
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { loadLocalAppEnv, webRoot } from "./load-local-env.mjs";
+import { fileURLToPath } from "node:url";
 
+const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "..", "..");
+const serverRoot = path.join(repoRoot, "repohive-server");
+const jarPath = process.env.REPOHIVE_E2E_JAR ?? path.join(serverRoot, "target", "repohive-server.jar");
+const javaBin = process.env.REPOHIVE_JAVA ?? "java";
 const port = process.env.REPOHIVE_E2E_PORT ?? "3299";
 const origin = `http://127.0.0.1:${port}`;
-const repoRootNodeModules = path.join(repoRoot, "node_modules");
-const nextBin = path.join(repoRootNodeModules, "next", "dist", "bin", "next");
-const workerScript = path.join(webRoot, "scripts", "run-worker.mjs");
-// `--import` requires a `file://` URL for an absolute path on Windows.
-const aliasLoaderPath = pathToFileURL(path.join(webRoot, "scripts", "register-aliases.mjs")).href;
 const runId = randomBytes(4).toString("hex");
 const email = (label) => `${label}-${runId}@example.com`;
 
@@ -67,38 +70,28 @@ function killProcessTree(child) {
 }
 
 function startStack(scratch, extraEnv) {
+  if (!existsSync(jarPath)) {
+    throw new Error(`server jar not found at ${jarPath}; run ./mvnw -B package in repohive-server/`);
+  }
   mkdirSync(path.join(scratch, "data"), { recursive: true });
   mkdirSync(path.join(scratch, "store"), { recursive: true });
-  const env = loadLocalAppEnv({
+  const env = {
+    ...process.env,
     ...extraEnv,
     REPOHIVE_SITE_ORIGIN: origin,
+    REPOHIVE_SERVER_URL: origin,
     REPOHIVE_DATA_DIR: path.join(scratch, "data"),
     REPOHIVE_STORE: `local:${path.join(scratch, "store")}`,
-    REPOHIVE_LEDGER: `file:${path.join(scratch, "ledger.json")}`,
-    PORT: port,
-    NODE_ENV: "production",
-  });
-  const mergedEnv = { ...process.env, ...env };
-  const web = spawn(process.execPath, [nextBin, "start", "-p", port], {
-    cwd: webRoot,
-    env: mergedEnv,
-    stdio: "pipe",
-  });
-  const worker = spawn(process.execPath, ["--import", aliasLoaderPath, workerScript], {
-    cwd: webRoot,
-    env: mergedEnv,
-    stdio: "pipe",
-  });
-  for (const child of [web, worker]) {
-    child.stderr?.on("data", (chunk) => {
-      process.stderr.write(`[${child === web ? "web" : "worker"}] ${chunk}`);
-    });
-  }
+    SERVER_PORT: port,
+  };
+  // The working directory is the server's, so `config/local.env` and its relative paths apply.
+  const server = spawn(javaBin, ["-jar", jarPath], { cwd: serverRoot, env, stdio: "pipe" });
+  server.stderr?.on("data", (chunk) => process.stderr.write(`[server] ${chunk}`));
+  server.stdout?.on("data", () => {});
   return {
     env,
     stop() {
-      killProcessTree(web);
-      killProcessTree(worker);
+      killProcessTree(server);
     },
   };
 }
