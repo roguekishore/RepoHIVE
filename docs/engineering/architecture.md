@@ -134,6 +134,15 @@ Fargate entry point and the local child (`local-job.ts`) call; the container ima
 the server's database is the ledger (see "Server"). `precheck-cli.ts` prints the pre-check result as one JSON line
 for the server to run as a child process.
 
+**A hosted run parses tolerantly.** `hostedEngineOptions` sets `tolerateFileErrors`: a Java file that will not parse
+(a template, a fuzz input, syntax newer than the grammar), or that repeats a class another file in the same source
+root declares, is left out instead of failing the repository. For a repeated class the file first in canonical order
+keeps it, so the result does not depend on input order. The run still fails if no file survives. The skipped files
+come back on `ParseSuccess.skippedFiles`, and the job reports their count as `counts.skippedFiles` (omitted when
+none) and logs a `files skipped` line with the first 20 paths. The server receives only node and edge counts, so the
+skipped count is visible in the job result and the log, not in the ledger. The default for `parse` and `group`
+outside the hosted job is unchanged: one unparseable file fails the run.
+
 Published objects have URL-shaped keys. **Public and immutable:** `artifacts/<owner>/<repo>/<snapshotId>/`
 (views and `manifest.json`; owner and repo lowercase). **Private**, outside anything the CDN serves:
 `private/<owner>/<repo>/<snapshotId>/index/` (the index files) and `private/<owner>/<repo>/history.json`. There is
