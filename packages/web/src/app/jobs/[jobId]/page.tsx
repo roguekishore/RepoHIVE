@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { PublicJobResponse } from "@/server/intake/job-response";
-import { repoKeyToViewerPath } from "@/server/worker/repositories";
+import { jobIdFromPathname, repoKeyToViewerPath, type PublicJobResponse } from "@/features/jobs/job-response";
+import { useMounted } from "@/lib/use-mounted";
 
 interface JobEventData {
   readonly state?: PublicJobResponse["state"];
@@ -29,13 +29,18 @@ async function fetchJob(jobId: string): Promise<PublicJobResponse | undefined> {
 }
 
 export default function JobProgressPage() {
-  const params = useParams<{ jobId: string }>();
-  const jobId = params.jobId ?? "";
+  // A static shell exported under the placeholder id `_`: the real id is in the browser path.
+  const mounted = useMounted();
+  const pathname = usePathname();
+  const jobId = mounted ? (jobIdFromPathname(pathname) ?? "") : "";
   const [job, setJob] = useState<PublicJobResponse | undefined>();
   const [live, setLive] = useState<JobEventData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (jobId === "") {
+      return;
+    }
     let cancelled = false;
     void fetchJob(jobId)
       .then((loaded) => {
@@ -54,7 +59,7 @@ export default function JobProgressPage() {
   }, [jobId]);
 
   useEffect(() => {
-    if (job === undefined) {
+    if (jobId === "" || job === undefined) {
       return;
     }
     if (isTerminalJobState(job.state)) {

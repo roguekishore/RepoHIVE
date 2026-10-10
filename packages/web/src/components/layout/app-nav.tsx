@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/cn";
+import { useMounted } from "@/lib/use-mounted";
 import { repoIdFromPathname } from "@/features/repository/repo-name";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { AccountPanel } from "@/features/account/account-panel";
@@ -40,7 +41,10 @@ function NavLink({ item, pathname, small }: { item: NavItem; pathname: string; s
 
 /** The global links, then the six views of the repository named in the URL. */
 function NavList({ pathname }: { pathname: string }) {
-  const repoId = repoIdFromPathname(pathname);
+  // Repository pages are static shells prerendered under placeholder params, so
+  // the repository named in the URL is read only once mounted in the browser.
+  const mounted = useMounted();
+  const repoId = mounted ? repoIdFromPathname(pathname) : undefined;
   return (
     <div className="space-y-4 px-3 py-3">
       <nav className="space-y-1">

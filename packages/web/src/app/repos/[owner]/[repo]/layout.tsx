@@ -1,31 +1,18 @@
-import { notFound } from "next/navigation";
-import { PageTransition } from "@/components/layout/page-transition";
-import { RepoBreadcrumb } from "@/features/repository/repo-breadcrumb";
-import { SnapshotGate } from "@/features/repository/snapshot-gate";
-import { parseRepoParams } from "@/features/repository/repo-name";
-import { SnapshotProvider } from "@/features/repository/snapshot-context";
-
-interface RepoLayoutProps {
-  children: React.ReactNode;
-  params: Promise<{ owner: string; repo: string }>;
-}
+import { RepoShell } from "@/features/repository/repo-shell";
 
 /**
- * Every repository page lives under `/repos/<owner>/<repo>/...`. Names GitHub would not allow are a 404; uppercase names are
- * redirected to lowercase by the middleware before they reach this layout. The
- * provider is keyed by repository, so each repository gets its own snapshot
- * session, and the gate renders a page only once that snapshot is resolved.
+ * Every repository page lives under `/repos/<owner>/<repo>/...`. The static
+ * export has one copy of this tree, under the placeholder params below; the
+ * host serves it for every real owner and repo, and `RepoShell` reads the
+ * real ones from the browser path (see "Static export and host mapping" in the
+ * package README).
  */
-export default async function RepoLayout({ children, params }: RepoLayoutProps) {
-  const { owner, repo } = await params;
-  const parsed = parseRepoParams(owner, repo);
-  if (parsed.kind === "invalid") notFound();
-  return (
-    <SnapshotProvider key={parsed.repoId} repoId={parsed.repoId}>
-      <RepoBreadcrumb repoId={parsed.repoId} />
-      <PageTransition>
-        <SnapshotGate>{children}</SnapshotGate>
-      </PageTransition>
-    </SnapshotProvider>
-  );
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ owner: "_", repo: "_" }];
+}
+
+export default function RepoLayout({ children }: { children: React.ReactNode }) {
+  return <RepoShell>{children}</RepoShell>;
 }

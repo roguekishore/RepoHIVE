@@ -6,12 +6,13 @@
  * use, and disposed (worker terminated) when the page unmounts.
  */
 import { useCallback, useEffect, useRef } from "react";
-import { useSnapshotId } from "@/features/repository/snapshot-context";
+import { useSnapshot, useSnapshotId } from "@/features/repository/snapshot-context";
 import { createBlastRadiusSession, type BlastRadiusSession } from "./client";
 import type { BlastRadiusResult } from "./traverse";
 
 /** `null` result: the node is not in the snapshot. Rejects when the view cannot be loaded. */
 export function useBlastRadius(): (node: string) => Promise<BlastRadiusResult | null> {
+  const { repoId } = useSnapshot();
   const snapshotId = useSnapshotId();
   const session = useRef<{ snapshotId: string; session: BlastRadiusSession }>(undefined);
 
@@ -28,10 +29,10 @@ export function useBlastRadius(): (node: string) => Promise<BlastRadiusResult | 
       if (snapshotId === null) return Promise.resolve(null);
       if (session.current?.snapshotId !== snapshotId) {
         session.current?.session.dispose();
-        session.current = { snapshotId, session: createBlastRadiusSession({ snapshotId }) };
+        session.current = { snapshotId, session: createBlastRadiusSession({ repoId, snapshotId }) };
       }
       return session.current.session.query(node);
     },
-    [snapshotId],
+    [repoId, snapshotId],
   );
 }

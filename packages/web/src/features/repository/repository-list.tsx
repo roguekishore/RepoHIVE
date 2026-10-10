@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, BookMarked } from "lucide-react";
 import { SectionLabel } from "@/components/shared/section-label";
-import type { ListedRepository } from "@/server/repositories/list-indexed-repositories";
+import type { ListedRepository } from "./listed-repository";
 import { repoIdToKnowledgeGraphPath, shortCommitSha } from "./repo-display";
 
 function formatIndexedAt(iso: string): string {
