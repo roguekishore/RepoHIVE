@@ -269,6 +269,14 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
       log.log("error", "engine run failed", { stage: run.stage, detail: describeEngineFailure(run) });
       return failed("system", `ENGINE_${stage}_FAILED`, "Indexing the repository failed.");
     }
+    const skipped = run.value.skippedFiles ?? [];
+    if (skipped.length > 0) {
+      // A sample, not the list: a repository can skip thousands (templates), and a log line has a size limit.
+      log.log("warn", "files skipped", {
+        count: skipped.length,
+        sample: skipped.slice(0, 20).map((e) => `${e.reason}: ${e.path ?? e.message}`),
+      });
+    }
     durations.parseMs = run.value.durationMs.parse;
     durations.groupMs = run.value.durationMs.group;
     checkDeadline();
@@ -318,6 +326,7 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
         regions: run.value.regionCount,
         objects: published.objectCount,
         storedBytes: published.storedBytes,
+        ...(skipped.length > 0 ? { skippedFiles: skipped.length } : {}),
       },
       durations: { ...durations, totalMs: 0 },
     };

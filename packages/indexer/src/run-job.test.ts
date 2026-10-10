@@ -108,6 +108,16 @@ const storedKeys = (store: ReturnType<typeof createMemoryArtifactStore>): string
 
 const okFile = await tarball(SOURCES, "ok");
 const stopsFile = await tarball(SOURCES, "stops");
+const dirtyFile = await tarball(
+  {
+    ...SOURCES,
+    // A template, and a class declared by two files in one source root: neither may fail the repository.
+    "src/main/resources/archetype/Tpl.java": "package ${package};\npublic class Tpl {}\n",
+    "bench/one.java": "class Toggle { void on() {} }\n",
+    "bench/two.java": "class Toggle { void off() {} }\n",
+  },
+  "dirty",
+);
 
 describe("runJob: success", () => {
   test("publishes the snapshot, reports the outcome, emits metrics and cleans up", async () => {
@@ -195,6 +205,23 @@ describe("runJob: success", () => {
     for (const [key, object] of before) {
       assert.deepEqual(Buffer.from(h.store.objects.get(key)!.body), Buffer.from(object.body), key);
     }
+  });
+});
+
+describe("runJob: files the parser cannot take", () => {
+  test("publishes the rest and counts what was skipped", async () => {
+    const h = harness(createLocalSourceFetcher(dirtyFile));
+    const result = await run(h, input("S"));
+    assert.equal(result.status, "succeeded", JSON.stringify(result));
+    if (result.status !== "succeeded") return;
+    assert.equal(result.counts.skippedFiles, 2);
+    assert.ok(storedKeys(h.store).includes(manifestKey(REPO, input("S").snapshotId)));
+    assert.ok(h.lines.some((line) => line.includes("files skipped") && line.includes("duplicate-node-id")));
+  });
+
+  test("a clean repository reports no skippedFiles", async () => {
+    const result = await run(harness(createLocalSourceFetcher(okFile)), input("S"));
+    assert.equal(result.status === "succeeded" && "skippedFiles" in result.counts, false);
   });
 });
 
