@@ -141,6 +141,23 @@ run "plan" {
     error_message = "The indexer and box roles need s3:ListBucket on the artifact bucket without a prefix condition."
   }
 
+  # EC2 accepts only a-zA-Z0-9 and . _-:/()#,@[]+=&;{}!$* in a security group or rule description: an apostrophe fails the
+  # apply with InvalidParameterValue, which a plan cannot see.
+  assert {
+    condition = alltrue([
+      for d in [
+        aws_security_group.box.description,
+        aws_security_group.fargate.description,
+        aws_vpc_security_group_ingress_rule.box_http.description,
+        aws_vpc_security_group_ingress_rule.box_https_cloudfront.description,
+        aws_vpc_security_group_egress_rule.box_http.description,
+        aws_vpc_security_group_egress_rule.box_https.description,
+        aws_vpc_security_group_egress_rule.fargate_https.description,
+      ] : can(regex("^[a-zA-Z0-9 ._:/()#,@\\[\\]+=&;{}!$*-]*$", d))
+    ])
+    error_message = "A security group or rule description holds a character EC2 rejects."
+  }
+
   # No DynamoDB anywhere: the jobs ledger is the server's SQLite file.
   assert {
     condition = !anytrue([

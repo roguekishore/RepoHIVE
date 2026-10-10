@@ -75,7 +75,7 @@ resource "aws_security_group" "fargate" {
 
 resource "aws_vpc_security_group_egress_rule" "fargate_https" {
   security_group_id = aws_security_group.fargate.id
-  description       = "HTTPS to GitHub, S3, SSM, the site (the server's API), ECR and CloudWatch"
+  description       = "HTTPS to GitHub, S3, SSM, the site (the server API), ECR and CloudWatch"
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
