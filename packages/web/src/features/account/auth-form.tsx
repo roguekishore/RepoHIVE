@@ -58,7 +58,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         return;
       }
       await refreshSession();
-      router.push("/");
+      router.push("/repos");
       router.refresh();
     } catch {
       setMessage("The request failed.");
