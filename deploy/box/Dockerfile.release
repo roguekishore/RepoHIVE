@@ -9,8 +9,8 @@
 #     --target release --build-arg GIT_SHA=<sha> --output type=local,dest=<dir> .
 #
 # The server's tests are not run here: the build workflow runs `./mvnw -B verify` on its own runner first (Node on
-# the PATH, as the tests need it), and the jar is built from the same commit. This file has never been built; the
-# first build is the first Linux check of the bundle (see verify-app-tree.sh and verify-release.sh).
+# the PATH, as the tests need it), and the jar is built from the same commit. The build workflow
+# builds it natively on arm64 and checks the bundle (see verify-app-tree.sh and verify-release.sh).
 #
 # The images below are the multi-arch index digests read from Docker Hub (Node, Go; Temurin on 2026-10-06).
 

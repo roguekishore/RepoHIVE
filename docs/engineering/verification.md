@@ -149,13 +149,13 @@ Run in `repohive-server/`. It compiles, runs the whole JUnit suite and builds th
 and the jar built**. Read the Surefire summary (`Tests run: N, Failures: 0, Errors: 0`), not the exit code alone.
 Measured 2026-10-04: **156 / 156** on Windows 11 with JDK 23.0.2, and on Linux x64 with OpenJDK 21.0.12 (Maven 3.9.16 from
 the wrapper), both before the last portability commit; after it, 156 / 156 again on Windows only. After the runtime
-limits control (admin API, `V3`) and benchmark accounts (`V4`), 186 / 186 on Windows 11, JDK 23.0.2, 2026-10-06; Linux was not re-run. Warm, with the
+limits control (admin API, `V3`) and benchmark accounts (`V4`), 186 / 186 on Windows 11, JDK 23.0.2, 2026-10-06, and 186 / 186
+on Linux arm64 with Temurin 21 in the build workflow the same day (tag `verify-2835bf48a750`). The Windows run is warm, with the
 Maven repository already populated.
 
 - **JDK.** The server needs Java 21 or newer. Set `JAVA_HOME` before running; the wrapper uses whatever `java` it finds.
   A machine whose default `java` is older fails with a compiler error about release 21, which is a missing
-  precondition, not a regression. **Java 21 itself has not been run on Windows**, and **Linux has not run the current
-  tests**: the Linux run predates the change below.
+  precondition, not a regression. **Java 21 itself has not been run on Windows**; Linux has run the current tests on Java 21 (above).
 - **Tests must not depend on `sh`, on a Unix path, or on a binary on `PATH` other than `node`.** The tests that spawn a
   child (the pre-check runner, the local dispatcher) use `node -e` for fake children and absolute paths for scripts and
   directories, so they pass the same on Windows and Linux. A test that shells out to `sh -c` passes on Linux and
@@ -201,9 +201,10 @@ the policies, the state machine and cloud-init and asserts the contracts between
 `packages/indexer/src/state-machine.test.ts` (part of Gate 2) reads the state machine file. `check-spa-mapping.mjs` needs `npm run build
 --workspace @repohive/web` first and any Caddy 2 binary (a standard build is enough: it exercises only `deploy/box/spa.caddy`); it
 fails if a request is not answered as the host mapping in `packages/web/README.md` says. Measured 2026-10-06 on Windows 11 with
-Caddy 2.11.6: the offline plan test passed (on a copy of the tree that leaves out files awaiting deletion) and the mapping check
-passed 28 requests and 3 traversal attempts, warm. **Not run:** `shellcheck` (not installed on that machine), the release build,
-`verify-release.sh`, and anything on AWS.
+Caddy 2.11.6: `check.sh` passed on the tree (0 failed, `shellcheck` not run) and the mapping check passed 28 requests and 3
+traversal attempts against a fresh build, warm. The build workflow ran the release build and `verify-release.sh` on Linux arm64 the
+same day and they passed (tag `verify-2835bf48a750`). **Not run:** `shellcheck` and `actionlint` (not installed on that machine),
+and anything on AWS.
 
 ## Gate 3: determinism
 
