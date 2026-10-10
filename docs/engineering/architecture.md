@@ -181,7 +181,16 @@ backup), `repository` (SQL), `dispatch`, `store`, `config`, `model`.
   request, and each real change writes a row to `settings_audit` (old and new value, time, caller's address). The
   page for it is the single file `repohive-server/admin/quota.html`, hosted by the owner, not by the server. Routing
   consequence for `deploy/`: the CDN and Caddy must pass `OPTIONS` and `PUT` on `/api/admin/*`, forward
-  `Authorization`, and not cache `/api/*`. There are no per-account overrides.
+  `Authorization`, and not cache `/api/*`.
+- **Benchmark accounts.** `PUT /api/admin/bench` (`{"email", "hours"}`, 1 to 72, default 12) flags an account until a
+  time; `DELETE /api/admin/bench?email=` ends it; `GET /api/admin/bench` lists the flags and the audit trail;
+  `GET /api/admin/bench/accounts?q=` finds accounts (the page's picker). Same token and CORS as the limits (`V4`,
+  `BenchAccounts`). While flagged, an account skips the per-account and per-IP pre-check and index quotas, the one
+  index in flight per account, and the global in-flight cap; its charges are filed under the address `bench` so they do
+  not use up the quota of ordinary users on the same address. The flag ends by itself. Everything else still applies:
+  the pre-check, one job per repository, the L and XL slot, Lambda and Fargate capacity, the GitHub token's budget, and
+  Caddy's per-IP rate limits. A harness should poll `GET /api/jobs/<id>`, not open an event stream per lane (five per
+  address).
 - **Pre-check stays TypeScript.** `ProcessPrecheckRunner` runs `packages/indexer/dist/precheck-cli.js` under Node
   (`REPOHIVE_NODE`, `REPOHIVE_INDEXER_DIR`), because the pre-check depends on the parser's selection policy and on
   `engineVersion`, and a Java port could drift. The box therefore keeps a Node runtime.
