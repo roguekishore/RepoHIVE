@@ -1,4 +1,4 @@
-import type { ArchitectureBody, HierarchyScale } from "./view-types";
+import type { ArchitectureBody, GraphBody, HierarchyScale } from "./view-types";
 
 /** Two rings: a kept layer with two children (one kept, one rebuilt), a rebuilt layer, an unassessed layer, a wrapper. */
 export const HIERARCHY: HierarchyScale = {
@@ -62,3 +62,26 @@ export const ARCHITECTURE: ArchitectureBody = {
   },
   availableLevels: [{ level: 2, groupNodeCount: 6 }],
 };
+
+/** Five files in two folders: a hub (`A`) importing three others, and one file nothing imports. */
+export const GRAPH: GraphBody = {
+  nodes: ["src/core/A.java", "src/core/B.java", "src/core/C.java", "src/web/D.java", "src/web/E.java"].map((node_id) => ({
+    node_id,
+    node_type: "file" as const,
+    language: "java",
+    symbol_count: 0,
+    pagerank: 0,
+    betweenness: 0,
+    community_id: 0,
+    is_test: false,
+    is_entry_point: false,
+    has_doc: false,
+  })),
+  links: [
+    { source: "src/core/A.java", target: "src/core/B.java" },
+    { source: "src/core/A.java", target: "src/core/C.java" },
+    { source: "src/core/A.java", target: "src/web/D.java" },
+    { source: "src/web/D.java", target: "src/core/A.java" },
+    { source: "src/core/B.java", target: "src/missing/Z.java" },
+  ],
+} as GraphBody;
