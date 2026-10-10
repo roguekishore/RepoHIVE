@@ -1,6 +1,6 @@
 # The S and M indexer: the indexer image on Lambda, arm64, by digest, using the image's
 # default command (the dist/lambda.handler). Outside the VPC; no reserved concurrency (a fresh
-# account's low limit may forbid it, and the ledger's global in-flight cap bounds concurrency).
+# account's low limit may forbid it, and the server's global in-flight cap bounds concurrency).
 
 resource "aws_cloudwatch_log_group" "indexer" {
   name              = local.log_group_indexer
@@ -38,7 +38,7 @@ resource "aws_iam_role_policy" "indexer_job" {
 }
 
 resource "aws_iam_role_policy" "indexer_token" {
-  name   = "github-token"
+  name   = "parameters"
   role   = aws_iam_role.indexer.id
   policy = data.aws_iam_policy_document.read_token_parameter_lambda.json
 }
@@ -62,14 +62,15 @@ resource "aws_lambda_function" "indexer" {
     size = var.lambda_ephemeral_storage_mb
   }
 
-  # The GitHub token is read from SSM by name, never set here. AWS_REGION is
-  # set by Lambda itself. The heap stays at the image's NODE_OPTIONS default.
+  # The GitHub token and the internal secret are read from SSM by name, never set
+  # here. AWS_REGION is set by Lambda itself. The heap stays at the image's NODE_OPTIONS default.
   environment {
     variables = {
-      REPOHIVE_RUNTIME                = "lambda"
-      REPOHIVE_STORE                  = local.indexer_store
-      REPOHIVE_LEDGER                 = local.indexer_ledger
-      REPOHIVE_GITHUB_TOKEN_PARAMETER = local.github_token_parameter
+      REPOHIVE_RUNTIME                   = "lambda"
+      REPOHIVE_STORE                     = local.indexer_store
+      REPOHIVE_SERVER_URL                = local.server_url
+      REPOHIVE_INTERNAL_SECRET_PARAMETER = local.internal_secret_parameter
+      REPOHIVE_GITHUB_TOKEN_PARAMETER    = local.github_token_parameter
     }
   }
 

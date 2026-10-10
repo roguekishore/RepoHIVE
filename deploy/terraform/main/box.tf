@@ -1,9 +1,15 @@
-# The app box: one t4g.small that runs Caddy, the Next.js server and the background worker.
-# No key pair and no SSH: shell access is SSM Session Manager. SQLite data lives on its own volume, which
-# survives the instance. What runs on it is shipped as a release bundle, not by Terraform.
+# The app box: one t4g.small that runs Caddy (the exported viewer from disk, the API through to
+# the server) and the Spring Boot server, which also runs the pre-check as a Node child process. No key pair and
+# no SSH: shell access is SSM Session Manager. SQLite data lives on its own volume, which survives the instance.
+# What runs on it is shipped as a release bundle, not by Terraform.
 
 locals {
   box_files = "${path.module}/../../box"
+
+  box_user_data_units = {
+    for name in fileset("${local.box_files}/systemd", "*.{service,timer}") :
+    name => base64gzip(file("${local.box_files}/systemd/${name}"))
+  }
 
   box_user_data = templatefile("${local.box_files}/cloud-init.yaml.tftpl", {
     region                         = local.region
@@ -11,37 +17,27 @@ locals {
     origin_domain                  = local.origin_domain
     artifact_bucket                = local.artifact_bucket
     ops_bucket                     = local.ops_bucket
-    ledger_table                   = local.ledger_table
     state_machine_arn              = local.state_machine_arn
     data_volume_id                 = aws_ebs_volume.data.id
     rate_limit_per_minute          = var.caddy_rate_limit_per_minute
     rate_limit_api_post_per_minute = var.caddy_rate_limit_api_post_per_minute
-    web_memory_max_mb              = var.web_memory_max_mb
-    web_node_heap_mb               = var.web_node_heap_mb
-    worker_memory_max_mb           = var.worker_memory_max_mb
-    worker_node_heap_mb            = var.worker_node_heap_mb
+    admin_origins                  = join(",", var.admin_origins)
+    server_memory_max_mb           = var.server_memory_max_mb
+    server_heap_mb                 = var.server_heap_mb
     script_env                     = base64gzip(file("${local.box_files}/bin/repohive-env"))
     script_first_boot              = base64gzip(file("${local.box_files}/bin/repohive-first-boot"))
     script_activate                = base64gzip(file("${local.box_files}/bin/repohive-activate"))
     script_heartbeat               = base64gzip(file("${local.box_files}/bin/repohive-heartbeat"))
     logrotate                      = base64gzip(file("${local.box_files}/logrotate-repohive"))
     agent_config                   = base64gzip(file("${local.box_files}/amazon-cloudwatch-agent.json"))
-    units = {
-      for name in fileset("${local.box_files}/systemd", "*.{service,timer}") :
-      name => base64gzip(file("${local.box_files}/systemd/${name}"))
-    }
+    units                          = local.box_user_data_units
   })
 }
 
 # --- log groups of the box; the agent ships into these ---------------------------------
 
-resource "aws_cloudwatch_log_group" "box_web" {
-  name              = local.log_group_box_web
-  retention_in_days = var.log_retention_days
-}
-
-resource "aws_cloudwatch_log_group" "box_worker" {
-  name              = local.log_group_box_worker
+resource "aws_cloudwatch_log_group" "box_server" {
+  name              = local.log_group_box_server
   retention_in_days = var.log_retention_days
 }
 
@@ -69,24 +65,17 @@ data "aws_iam_policy_document" "ec2_assume" {
 }
 
 data "aws_iam_policy_document" "box" {
-  # Repository pointers (the intake pre-check) and snapshot objects (the worker reads each finished job's
-  # manifest and hierarchy scale view under s/<snapshot id>/). Read only.
-  statement {
-    sid       = "ReadPointersAndSnapshots"
-    actions   = ["s3:GetObject"]
-    resources = ["${local.artifact_bucket_arn}/r/*", "${local.artifact_bucket_arn}/s/*"]
-  }
-
-  # The SQLite backup: read, write and delete under its prefix.
+  # The box reads no snapshot, pointer or index object: the server learns a job's result from the worker's
+  # completion call and keeps the active snapshot in SQLite. Its only object access is the SQLite backup
+  #: read, write and delete under its prefix.
   statement {
     sid       = "BackupObjects"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = ["${local.artifact_bucket_arn}/backup/*"]
   }
 
-  # Bucket-wide on purpose: without it a GetObject on a missing key is 403, not 404, and the store reads
-  # that as an error. A repository's first pre-check reads an r/<repo>/latest.json that does not exist yet.
-  # It reveals key names only, never object contents.
+  # Bucket-wide on purpose: the backup service lists its prefix, and without list permission on the bucket a
+  # GetObject on a missing key is 403, not 404. It reveals key names only, never object contents.
   statement {
     sid       = "ListArtifactBucket"
     actions   = ["s3:ListBucket"]
@@ -99,26 +88,22 @@ data "aws_iam_policy_document" "box" {
     resources = ["${local.ops_bucket_arn}/releases/*"]
   }
 
-  # The app also scans the table for "jobs ended since".
-  statement {
-    sid = "Ledger"
-    actions = [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-      "dynamodb:DeleteItem",
-      "dynamodb:Query",
-      "dynamodb:Scan",
-    ]
-    resources = [local.ledger_table_arn, "${local.ledger_table_arn}/index/*"]
-  }
-
+  # The server starts one execution per run and reads its status in the reconciliation loop. DescribeExecution
+  # names an execution ARN, which is the machine's ARN with the execution prefix and the name.
   statement {
     sid       = "StartIndexing"
     actions   = ["states:StartExecution"]
     resources = [local.state_machine_arn]
   }
 
+  statement {
+    sid       = "DescribeExecutions"
+    actions   = ["states:DescribeExecution"]
+    resources = ["arn:aws:states:${local.region}:${local.account_id}:execution:${local.state_machine}:*"]
+  }
+
+  # The GitHub token (rendered into the environment), the internal secret and the admin token (both read by the
+  # server itself at start-up) and the origin secret.
   statement {
     sid       = "ReadParameters"
     actions   = ["ssm:GetParameter"]

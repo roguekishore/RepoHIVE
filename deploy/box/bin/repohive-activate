@@ -5,8 +5,10 @@
 #   repohive-activate --rollback               switch back to the previous release
 #
 # Verify the checksum, unpack to /opt/repohive/releases/<version>, switch /opt/repohive/current, reload Caddy,
-# restart the web and worker units, then poll /healthz for 60 s. If it never answers ok, switch back to the
-# previous release, restart, and exit non-zero. Keeps the 3 newest releases. Never touches /var/lib/repohive.
+# restart the server unit, then poll /healthz for 60 s. If it never answers ok, switch back to the
+# previous release, restart, and exit non-zero. Keeps the 3 newest releases. Never touches /var/lib/repohive: the
+# SQLite file stays where it is, and a release's server migrates it on start (Flyway; a migration is not undone by a
+# rollback, so a rollback across a schema change needs the backup, see the runbook).
 set -euo pipefail
 
 RELEASES=/opt/repohive/releases
@@ -49,7 +51,7 @@ install_from_release() {
     -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json >/dev/null
 }
 
-# Env files first (the secrets may have rotated), then Caddy and the two app units.
+# Env files first (the secrets may have rotated), then Caddy and the server.
 restart_units() {
   systemctl restart repohive-env.service
   if systemctl is-active --quiet caddy.service; then
@@ -57,13 +59,13 @@ restart_units() {
   else
     systemctl restart caddy.service
   fi
-  systemctl restart repohive-web.service repohive-worker.service
+  systemctl restart repohive-server.service
 }
 
 healthy() {
   local body
   for _ in $(seq 1 30); do
-    body="$(curl -fsS --max-time 2 http://127.0.0.1:3000/healthz 2>/dev/null || true)"
+    body="$(curl -fsS --max-time 2 http://127.0.0.1:8080/healthz 2>/dev/null || true)"
     if [[ "${body}" == *'"status":"ok"'* || "${body}" == *'"status": "ok"'* ]]; then
       return 0
     fi

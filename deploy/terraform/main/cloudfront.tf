@@ -1,5 +1,5 @@
-# CloudFront: one distribution serves the site domain. Views come from the artifact bucket
-# (/s/* and /r/*), everything else from the box through its origin domain.
+# CloudFront: one distribution serves the site domain. Snapshot objects come from the artifact
+# bucket (/artifacts/*); the exported viewer, the API and /healthz come from the box through its origin domain.
 
 # The bootstrap root created the certificate; the owner validated it in Netlify DNS. Looking it up with status
 # ISSUED makes this root fail clearly if validation is not done yet.
@@ -31,9 +31,9 @@ resource "aws_cloudfront_origin_access_control" "artifacts" {
   signing_protocol                  = "sigv4"
 }
 
-# Views are keyed on the path alone: no header, cookie or query string. The stored Cache-Control of
-# Snapshot objects are immutable, so the minimum is 0 and the maximum a year. Objects are stored brotli and
-# served as they are, so Accept-Encoding is not normalised.
+# Snapshot objects are keyed on the path alone: no header, cookie or query string. The stored Cache-Control of
+# Every object under a snapshot id is immutable, so the minimum is 0 and the
+# maximum a year. Objects are stored brotli and served as they are, so Accept-Encoding is not normalised.
 resource "aws_cloudfront_cache_policy" "views" {
   name        = "repohive-views"
   comment     = "Path-only cache key; the stored Cache-Control decides the lifetime"
@@ -113,20 +113,12 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  # Views: GET and HEAD, never compressed by CloudFront (the objects are brotli already).
+  # Snapshot objects: GET and HEAD, never compressed by CloudFront (the objects are brotli already). The object
+  # key equals the URL path (artifacts/<owner>/<repo>/<snapshot id>/...), so the origin needs no rewrite. This is
+  # the only behaviour that reaches the bucket: no behaviour, and no bucket policy statement, covers private/,
+  # which holds the compact index and the pruning record, or backup/.
   ordered_cache_behavior {
-    path_pattern               = "/s/*"
-    target_origin_id           = local.s3_origin_id
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD"]
-    cached_methods             = ["GET", "HEAD"]
-    compress                   = false
-    cache_policy_id            = aws_cloudfront_cache_policy.views.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.hsts.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern               = "/r/*"
+    path_pattern               = "/artifacts/*"
     target_origin_id           = local.s3_origin_id
     viewer_protocol_policy     = "redirect-to-https"
     allowed_methods            = ["GET", "HEAD"]
@@ -155,6 +147,21 @@ resource "aws_cloudfront_distribution" "site" {
     allowed_methods            = local.all_methods
     cached_methods             = ["GET", "HEAD"]
     compress                   = false
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.hsts.id
+  }
+
+  # The server's API (sign-in, index requests, job status, the workers' /api/internal/** calls, the limits page's
+  # /api/admin/**): never cached, every method (the limits page sends a preflighted PUT and DELETE) and every
+  # viewer header except Host, so Authorization and Origin reach the server.
+  ordered_cache_behavior {
+    path_pattern               = "/api/*"
+    target_origin_id           = local.box_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = local.all_methods
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
     cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.hsts.id

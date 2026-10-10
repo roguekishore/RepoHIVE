@@ -1,7 +1,13 @@
-# The artifact bucket: snapshots, index files, repository pointers, metadata and
-# the SQLite backup. Not versioned and no lifecycle rule (hosted-snapshots-are-immutable-url-shaped-keys).
-# Ownership and cost tags come from the provider's default_tags, which put them on the bucket itself; no
-# object is tagged.
+# The artifact bucket: public snapshot objects (artifacts/), the compact index and the
+# pruning record (private/) and the SQLite backup (backup/). Not versioned and no lifecycle rule
+# (hosted-snapshots-are-immutable-url-shaped-keys). Ownership and cost tags come from the provider's
+# default_tags, which put them on the bucket itself; no object is tagged.
+
+locals {
+  # The prefixes CloudFront may read: the public snapshot objects and nothing else. The compact index and the
+  # pruning record under private/ and the SQLite backup under backup/ are never listed here.
+  public_object_prefixes = ["artifacts"]
+}
 
 resource "aws_s3_bucket" "artifacts" {
   bucket = local.artifact_bucket
@@ -58,12 +64,12 @@ data "aws_iam_policy_document" "artifacts_bucket" {
     }
   }
 
-  # Views only: snapshots (s/) and repository pointers (r/). idx/, meta/ and backup/ are not granted to
-  # anyone outside the account, and CloudFront has no behaviour for them.
+  # Public snapshot objects only (artifacts/). private/ and backup/ are not granted to anyone outside the account,
+  # and CloudFront has no behaviour for them.
   statement {
-    sid       = "CloudFrontReadsViews"
+    sid       = "CloudFrontReadsArtifacts"
     actions   = ["s3:GetObject"]
-    resources = ["${local.artifact_bucket_arn}/s/*", "${local.artifact_bucket_arn}/r/*"]
+    resources = [for p in local.public_object_prefixes : "${local.artifact_bucket_arn}/${p}/*"]
 
     principals {
       type        = "Service"

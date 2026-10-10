@@ -1,6 +1,7 @@
 /**
- * The Step Functions definition: `deploy/terraform/main/state-machine.asl.json`,
- * read as the file Terraform fills in. Structure only; nothing here runs a state machine.
+ * The Step Functions definition: `deploy/terraform/main/state-machine.asl.json`, read as the file Terraform fills
+ * in. Structure only; nothing here runs a state machine. The machine routes one run by tier and runs it; the job's
+ * ledger, the large-job slot, retier, restart-once and the failure codes belong to the server.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,6 +15,7 @@ const mainRoot = fileURLToPath(new URL("../../../deploy/terraform/main/", import
 interface Catcher {
   readonly ErrorEquals: readonly string[];
   readonly Next: string;
+  readonly Assign?: Record<string, unknown>;
 }
 interface Retrier {
   readonly ErrorEquals: readonly string[];
@@ -28,7 +30,7 @@ interface State {
   readonly Next?: string;
   readonly End?: boolean;
   readonly Default?: string;
-  readonly Choices?: readonly { readonly Next: string }[];
+  readonly Choices?: readonly { readonly Condition?: string; readonly Next: string }[];
   readonly Retry?: readonly Retrier[];
   readonly Catch?: readonly Catcher[];
   readonly TimeoutSeconds?: number;
@@ -54,49 +56,24 @@ function successors(state: State): string[] {
   ];
 }
 
-/** The control operation a Task calls through the control function, if it is one. */
-function controlOp(state: State): string | undefined {
-  if (state.Type !== "Task" || state.Resource !== "arn:aws:states:::lambda:invoke") {
-    return undefined;
+/** The type of every state that ends the execution reached from `from`. */
+function endsReachedFrom(from: string): string[] {
+  const ends = new Set<string>();
+  const seen = new Set<string>();
+  const queue = [from];
+  while (queue.length > 0) {
+    const name = queue.pop() as string;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const state = states[name] as State;
+    if (state.Type === "Succeed" || state.Type === "Fail") ends.add(`${name}:${state.Type}`);
+    queue.push(...successors(state));
   }
-  const payload = state.Arguments?.Payload;
-  if (typeof payload !== "object" || payload === null) {
-    return undefined;
-  }
-  const arn = state.Arguments?.FunctionName;
-  return arn === "${control_function_arn}" ? String((payload as Record<string, unknown>).op) : undefined;
+  return [...ends].sort();
 }
 
-/** Every path from `from` to a state satisfying `isEnd`, with whether `mark` was seen on it (visited, then checked). */
-function pathsEndWithoutMark(
-  from: string,
-  isEnd: (name: string) => boolean,
-  mark: (name: string, state: State) => boolean,
-): string[] {
-  const bad: string[] = [];
-  const seen = new Set<string>();
-  const walk = (name: string, marked: boolean, trail: readonly string[]): void => {
-    const state = states[name];
-    assert.ok(state, `state ${name} exists`);
-    const nowMarked = marked || mark(name, state);
-    const key = `${name}|${nowMarked}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    if (isEnd(name)) {
-      if (!nowMarked) {
-        bad.push([...trail, name].join(" > "));
-      }
-      return;
-    }
-    for (const next of successors(state)) {
-      walk(next, nowMarked, [...trail, name]);
-    }
-  };
-  walk(from, false, []);
-  return bad;
-}
+const FARGATE = ["RunFargateL", "RunFargateXL"] as const;
+const RUNS = ["RunLambda", ...FARGATE] as const;
 
 describe("state machine definition", () => {
   test("is JSONata, has the 3,600 s overall timeout, and every reference resolves", () => {
@@ -140,6 +117,34 @@ describe("state machine definition", () => {
     assert.deepEqual(Object.keys(inner.States).filter((name) => !innerReached.has(name)), []);
   });
 
+  test("routes by tier: S and M to Lambda, L and XL to Fargate, anything else fails", () => {
+    const route = states.RouteTier as State;
+    assert.equal(route.Type, "Choice");
+    const next = (tier: string): string | undefined =>
+      route.Choices?.find((c) => c.Condition?.includes(`$job.tier = '${tier}'`))?.Next;
+    assert.equal(next("S"), "RunLambda");
+    assert.equal(next("M"), "RunLambda");
+    assert.equal(next("L"), "RunFargateL");
+    assert.equal(next("XL"), "RunFargateXL");
+    assert.equal(route.Default, "FailUnknownTier");
+  });
+
+  test("holds no ledger, control function or slot: the server owns the job", () => {
+    assert.doesNotMatch(raw, /control_function_arn|acquireSlot|releaseSlot|failIfOpen/);
+    assert.deepEqual(
+      Object.keys(states).filter((name) => /slot|ledger|inspect|decide|failopen|retier|restart/i.test(name)),
+      [],
+    );
+    const lambdas = Object.values(states).filter((s) => s.Resource === "arn:aws:states:::lambda:invoke");
+    assert.equal(lambdas.length, 1);
+    assert.equal(lambdas[0]?.Arguments?.FunctionName, "${indexer_function_arn}");
+    // The job input goes to the runtime exactly as the server sent it.
+    assert.equal(lambdas[0]?.Arguments?.Payload, "{% $job %}");
+    assert.equal((states.Init as State & { Assign?: Record<string, unknown> }).Assign?.job, "{% $states.input %}");
+    assert.equal(states.Init?.Next, "RouteTier");
+    assert.equal(definition.StartAt, "Init");
+  });
+
   test("retries name only Lambda throttling on the Lambda path and ECS capacity errors on the Fargate path", () => {
     const retried: Record<string, readonly Retrier[]> = {};
     const collect = (all: Record<string, State>): void => {
@@ -153,7 +158,7 @@ describe("state machine definition", () => {
     assert.deepEqual(retried.RunLambda, [
       { ErrorEquals: ["Lambda.TooManyRequestsException"], IntervalSeconds: 5, BackoffRate: 2, MaxAttempts: 3 },
     ]);
-    for (const name of ["RunFargateL", "RunFargateXL"]) {
+    for (const name of FARGATE) {
       assert.deepEqual(retried[name], [
         { ErrorEquals: ["ECS.AmazonECSException"], IntervalSeconds: 30, BackoffRate: 2, MaxAttempts: 3 },
       ]);
@@ -185,47 +190,38 @@ describe("state machine definition", () => {
     assert.equal(TIER_TIMEOUT_MS.XL, 900_000);
   });
 
-  test("every path ends by calling inspect or failIfOpen", () => {
-    const calls = (_name: string, state: State): boolean => {
-      const op = controlOp(state);
-      return op === "inspect" || op === "failIfOpen";
-    };
-    const isEnd = (name: string): boolean => states[name]?.Type === "Succeed" || states[name]?.Type === "Fail";
-    assert.deepEqual(pathsEndWithoutMark(definition.StartAt, isEnd, calls), []);
-    // Every state that ends the execution is reached, and the ones that succeed are reached only after the ledger spoke.
-    const ends = Object.entries(states).filter(([, state]) => state.Type === "Succeed" || state.Type === "Fail");
-    assert.deepEqual(ends.map(([name]) => name).sort(), ["FailControl", "FailSystem", "FailUnexpected", "Succeed"]);
-  });
-
-  test("failIfOpen is called only with the codes the requirements name", () => {
-    const codes = new Set<string>();
-    for (const state of Object.values(states)) {
-      if (controlOp(state) === "failIfOpen") {
-        codes.add(String((state.Arguments?.Payload as Record<string, unknown>).code));
+  test("the run that ends cleanly succeeds; every error ends the execution as FAILED", () => {
+    for (const name of RUNS) {
+      assert.equal((states[name] as State).Next, "Succeed", `${name} goes to Succeed when the run returns`);
+    }
+    // Succeed is reached from the three runs and from nothing else.
+    const into = Object.entries(states)
+      .filter(([, state]) => successors(state).includes("Succeed"))
+      .map(([name]) => name)
+      .sort();
+    assert.deepEqual(into, [...RUNS].sort());
+    // Whatever a run's error handling goes through, it can only end in a Fail state.
+    for (const name of RUNS) {
+      for (const catcher of (states[name] as State).Catch ?? []) {
+        assert.deepEqual(catcher.ErrorEquals, ["States.ALL"]);
+        assert.equal(catcher.Assign?.failure, "{% $states.errorOutput %}", `${name} keeps the run's error`);
+        assert.deepEqual(
+          endsReachedFrom(catcher.Next).map((e) => e.split(":")[1]),
+          ["Fail"],
+          `${name}'s error path must end in Fail only`,
+        );
       }
     }
-    assert.deepEqual([...codes].sort(), [
-      "retier-limit",
-      "runtime-error",
-      "runtime-not-started",
-      "runtime-timeout",
-      "slot-wait-timeout",
-    ]);
+    const ends = Object.entries(states).filter(([, state]) => state.Type === "Succeed" || state.Type === "Fail");
+    assert.deepEqual(ends.map(([name]) => name).sort(), ["FailRun", "FailUnknownTier", "Succeed"]);
   });
 
-  test("a Fargate run, whatever its outcome, stops stray tasks on failure and releases the slot", () => {
-    for (const name of ["RunFargateL", "RunFargateXL"]) {
-      const released = pathsEndWithoutMark(
-        name,
-        (n) => n === "InspectAfterRun",
-        (n) => n === "ReleaseSlot",
-      );
-      assert.deepEqual(released, [], `${name} reaches InspectAfterRun without releasing the slot`);
-      // Both failure kinds go through the task cleanup.
+  test("a failed Fargate run stops stray tasks, and every cleanup step still ends in FailRun", () => {
+    for (const name of FARGATE) {
       const catches = (states[name] as State).Catch ?? [];
       assert.deepEqual(
         catches.map((c) => c.Next),
-        ["ListRunningTasks", "ListRunningTasks"],
+        ["ListRunningTasks"],
       );
     }
     const list = states.ListRunningTasks as State;
@@ -237,15 +233,14 @@ describe("state machine definition", () => {
     assert.equal(describe.Next, "StopRunningTasks");
     const stop = (states.StopRunningTasks as State).ItemProcessor?.States.StopTask;
     assert.equal(stop?.Resource, "arn:aws:states:::aws-sdk:ecs:stopTask");
-    assert.equal(controlOp(states.ReleaseSlot as State), "releaseSlot");
-  });
-
-  test("the Fargate path waits 60 s between slot attempts and gives up after 20 minutes", () => {
-    assert.equal((states.WaitForSlot as State).Type, "Wait");
-    assert.equal((states.WaitForSlot as unknown as { Seconds: number }).Seconds, 60);
-    const choices = JSON.stringify(states.CheckSlot);
-    assert.match(choices, /\$slotAttempts >= 20/);
-    assert.equal((states.CheckSlot as State).Default, "WaitForSlot");
+    // Neither a failure of the cleanup nor its success may let the execution end any other way.
+    for (const name of ["ListRunningTasks", "AnyRunningTasks", "DescribeRunningTasks", "StopRunningTasks"]) {
+      assert.deepEqual(endsReachedFrom(name), ["FailRun:Fail"], `${name} must lead only to FailRun`);
+    }
+    // The failure the run caught is what the execution fails with.
+    const fail = states.FailRun as State & { Error?: string; Cause?: string };
+    assert.match(String(fail.Error), /\$failure\.Error/);
+    assert.match(String(fail.Cause), /\$failure\.Cause/);
   });
 
   test("every placeholder in the file is passed by state-machine.tf", () => {
@@ -255,5 +250,7 @@ describe("state machine definition", () => {
     for (const name of used) {
       assert.match(tf, new RegExp(`^\\s*${name}\\s*=`, "m"), `state-machine.tf does not pass ${name}`);
     }
+    // The control function is gone: nothing may still pass it.
+    assert.doesNotMatch(tf, /control_function/);
   });
 });

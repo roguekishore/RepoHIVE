@@ -80,12 +80,6 @@ override_resource {
 }
 
 override_resource {
-  target          = aws_lambda_function.control
-  override_during = plan
-  values          = { arn = "arn:aws:lambda:ap-south-1:123456789012:function:repohive-control" }
-}
-
-override_resource {
   target          = aws_ecs_cluster.main
   override_during = plan
   values          = { arn = "arn:aws:ecs:ap-south-1:123456789012:cluster/repohive" }
@@ -134,7 +128,8 @@ run "plan" {
   }
 
   # A GetObject on a missing key answers 404 only to a caller allowed s3:ListBucket on the whole bucket; with
-  # a prefix condition it is 403, and the store reads that as an error. First-time pre-checks read missing keys.
+  # a prefix condition it is 403, and the store reads that as an error. A repository's first publish reads a
+  # missing private/<owner>/<repo>/history.json.
   assert {
     condition = alltrue([
       for doc in [data.aws_iam_policy_document.indexer_job.json, data.aws_iam_policy_document.box.json] :
@@ -146,18 +141,104 @@ run "plan" {
     error_message = "The indexer and box roles need s3:ListBucket on the artifact bucket without a prefix condition."
   }
 
-  # The box's worker reads snapshot manifests and views under s/.
+  # No DynamoDB anywhere: the jobs ledger is the server's SQLite file.
+  assert {
+    condition = !anytrue([
+      for doc in [
+        data.aws_iam_policy_document.indexer_job.json,
+        data.aws_iam_policy_document.box.json,
+        data.aws_iam_policy_document.read_token_parameter_lambda.json,
+        data.aws_iam_policy_document.read_internal_secret_task.json,
+      ] : strcontains(doc, "dynamodb")
+    ])
+    error_message = "A role still grants dynamodb:*; this stack has no table."
+  }
+
+  # The job writes and prunes the public snapshots and the private index; nothing else in the bucket.
   assert {
     condition = anytrue([
-      for s in jsondecode(data.aws_iam_policy_document.box.json).Statement :
-      contains(flatten([s.Action]), "s3:GetObject") && contains(flatten([s.Resource]), "arn:aws:s3:::repohive-artifacts-123456789012/s/*")
+      for s in jsondecode(data.aws_iam_policy_document.indexer_job.json).Statement :
+      contains(flatten([s.Action]), "s3:PutObject") && toset(flatten([s.Resource])) == toset([
+        "arn:aws:s3:::repohive-artifacts-123456789012/artifacts/*",
+        "arn:aws:s3:::repohive-artifacts-123456789012/private/*",
+      ])
     ])
-    error_message = "The box role cannot read snapshot objects under s/."
+    error_message = "The indexer job role must write exactly under artifacts/ and private/."
+  }
+
+  # The box reads and writes only the SQLite backup in the artifact bucket, and may describe the executions it started.
+  assert {
+    condition = alltrue([
+      for s in jsondecode(data.aws_iam_policy_document.box.json).Statement :
+      !contains(flatten([s.Action]), "s3:PutObject") || toset(flatten([s.Resource])) == toset(["arn:aws:s3:::repohive-artifacts-123456789012/backup/*"])
+    ])
+    error_message = "The box role may write only under backup/."
   }
 
   assert {
-    condition     = aws_instance.box.disable_api_termination == true && aws_dynamodb_table.ledger.deletion_protection_enabled == true && aws_s3_bucket.artifacts.force_destroy == false
-    error_message = "A protected account must keep termination and deletion protection on."
+    condition = anytrue([
+      for s in jsondecode(data.aws_iam_policy_document.box.json).Statement :
+      contains(flatten([s.Action]), "states:DescribeExecution")
+    ])
+    error_message = "The box role must be able to describe the executions it started."
+  }
+
+  # The workers read the internal secret by name: the Lambda role, and the Fargate task role.
+  assert {
+    condition = alltrue([
+      for doc in [data.aws_iam_policy_document.read_token_parameter_lambda.json, data.aws_iam_policy_document.read_internal_secret_task.json] :
+      strcontains(doc, "parameter/repohive/internal-secret")
+    ])
+    error_message = "The Lambda and Fargate task roles must be able to read /repohive/internal-secret."
+  }
+
+  assert {
+    condition     = strcontains(aws_lambda_function.indexer.environment[0].variables["REPOHIVE_SERVER_URL"], "https://app.repohive.dev") && aws_lambda_function.indexer.environment[0].variables["REPOHIVE_INTERNAL_SECRET_PARAMETER"] == "/repohive/internal-secret"
+    error_message = "The Lambda function must be told the server's URL and the internal secret's parameter name."
+  }
+
+  # CloudFront: /artifacts/* is the only behaviour that reaches the bucket, and it covers public objects only.
+  assert {
+    condition     = [for b in aws_cloudfront_distribution.site.ordered_cache_behavior : b.path_pattern if b.target_origin_id == "artifacts"] == ["/artifacts/*"]
+    error_message = "Only /artifacts/* may reach the bucket."
+  }
+
+  assert {
+    condition     = local.public_object_prefixes == ["artifacts"]
+    error_message = "The bucket policy may grant CloudFront the artifacts/ prefix only: nothing under private/ or backup/."
+  }
+
+  # The limits page: /api/* is never cached, takes every method (OPTIONS and PUT for the preflighted save) and
+  # forwards the viewer's headers, Authorization and Origin included.
+  assert {
+    condition = anytrue([
+      for b in aws_cloudfront_distribution.site.ordered_cache_behavior :
+      b.path_pattern == "/api/*" && b.target_origin_id == "box"
+      && b.cache_policy_id == data.aws_cloudfront_cache_policy.caching_disabled.id
+      && b.origin_request_policy_id == data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+      && contains(b.allowed_methods, "OPTIONS") && contains(b.allowed_methods, "PUT") && contains(b.allowed_methods, "DELETE")
+    ])
+    error_message = "/api/* must go to the box uncached, with every method and the viewer's headers."
+  }
+
+  # The more specific event-stream behaviour must come before /api/*, or it is never used.
+  assert {
+    condition = (
+      index([for b in aws_cloudfront_distribution.site.ordered_cache_behavior : b.path_pattern], "/api/jobs/*")
+      < index([for b in aws_cloudfront_distribution.site.ordered_cache_behavior : b.path_pattern], "/api/*")
+    )
+    error_message = "/api/jobs/* must be listed before /api/*."
+  }
+
+  # The unit that runs the server must be among the files cloud-init writes, and the old ones must be gone.
+  assert {
+    condition     = contains(keys(local.box_user_data_units), "repohive-server.service") && !contains(keys(local.box_user_data_units), "repohive-web.service") && !contains(keys(local.box_user_data_units), "repohive-worker.service")
+    error_message = "The box ships repohive-server.service and neither repohive-web.service nor repohive-worker.service."
+  }
+
+  assert {
+    condition     = aws_instance.box.disable_api_termination == true && aws_s3_bucket.artifacts.force_destroy == false
+    error_message = "A protected account must keep termination protection on and refuse to empty the artifact bucket."
   }
 }
 
@@ -169,7 +250,7 @@ run "unprotected" {
   }
 
   assert {
-    condition     = aws_instance.box.disable_api_termination == false && aws_dynamodb_table.ledger.deletion_protection_enabled == false && aws_s3_bucket.artifacts.force_destroy == true
-    error_message = "An unprotected account must let a destroy remove the box, the table and the artifact bucket."
+    condition     = aws_instance.box.disable_api_termination == false && aws_s3_bucket.artifacts.force_destroy == true
+    error_message = "An unprotected account must let a destroy remove the box and the artifact bucket."
   }
 }

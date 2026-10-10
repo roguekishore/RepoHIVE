@@ -1,6 +1,8 @@
 # The box's only web server. It answers CloudFront, never visitors directly.
 # Values come from /run/repohive/caddy.env, rendered by repohive-env from /etc/repohive/box.env and SSM:
 #   ORIGIN_DOMAIN, SITE_DOMAIN, ORIGIN_SECRET, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_API_POST_PER_MINUTE
+# What it serves: /api/* and /healthz go to the Spring Boot server on 127.0.0.1:8080; /artifacts/* is the bucket's
+# (CloudFront routes it there and never here); everything else is the exported viewer, from disk (spa.caddy).
 
 {
 	# Admin API on localhost only (14.8).
@@ -33,7 +35,10 @@
 		@no_origin_secret not header X-RepoHIVE-Origin-Secret {$ORIGIN_SECRET}
 		respond @no_origin_secret "forbidden" 403
 
-		# The coarse backstop under the app's quota (14.7), keyed on the client address.
+		# The coarse backstop under the app's quota (14.7), keyed on the client address. The workers' calls to
+		# /api/internal/** (progress and the outcome, from Lambda and Fargate addresses that many jobs share) are
+		# outside the POST zone: a refused outcome call would strand a finished job, and the bearer secret is what
+		# guards them. They stay under the overall zone.
 		rate_limit {
 			zone overall {
 				key {client_ip}
@@ -44,6 +49,7 @@
 				match {
 					method POST
 					path /api/*
+					not path /api/internal/*
 				}
 				key {client_ip}
 				events {$RATE_LIMIT_API_POST_PER_MINUTE}
@@ -56,8 +62,10 @@
 			max_size 64KB
 		}
 
-		# No encode directive: CloudFront compresses (14.6).
-		reverse_proxy 127.0.0.1:3000 {
+		# The server's. CloudFront must pass every method here (the limits page sends a preflighted PUT and DELETE to
+		# /api/admin/*) and the Authorization header (the workers and the limits page send a bearer token).
+		@server path /api/* /healthz
+		reverse_proxy @server 127.0.0.1:8080 {
 			# Setting a header replaces any value the visitor sent, so the app sees one trusted value (14.5).
 			# No separate delete: Caddy applies deletes after sets, which would remove the new value.
 			header_up X-RepoHIVE-Client-IP {client_ip}
@@ -65,5 +73,12 @@
 			# Server-sent events must not be buffered (14.6).
 			flush_interval -1
 		}
+
+		# Snapshot objects are served from the bucket. A request for one that reaches the box was misrouted.
+		@artifacts path /artifacts/*
+		respond @artifacts "not found" 404
+
+		# No encode directive: CloudFront compresses (14.6).
+		import spa.caddy
 	}
 }

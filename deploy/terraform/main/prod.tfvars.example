@@ -16,7 +16,6 @@
 #   executions_timed_out  = 1
 #   indexer_errors        = 3
 #   indexer_throttles     = 1
-#   control_errors        = 1
 #   jobs_failed_system    = 3
 #   heartbeat_bad_minutes = 5
 # }
@@ -25,9 +24,11 @@
 # The box (all unmeasured defaults):
 # box_root_volume_gb                   = 12
 # box_data_volume_gb                   = 8
-# web_memory_max_mb                    = 768
-# web_node_heap_mb                     = 512
-# worker_memory_max_mb                 = 256
-# worker_node_heap_mb                  = 192
+# server_memory_max_mb                 = 1280
+# server_heap_mb                       = 512
 # caddy_rate_limit_per_minute          = 300
 # caddy_rate_limit_api_post_per_minute = 30
+
+# The origin of the owner-hosted limits page (it calls /api/admin/** from a browser). Empty allows none, and the
+# admin API stays off until deploy/scripts/put-admin-token.sh has stored a token:
+# admin_origins = ["https://hivequota.themaverick.tech"]

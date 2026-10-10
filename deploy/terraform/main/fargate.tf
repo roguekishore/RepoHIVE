@@ -27,7 +27,8 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
   }
 }
 
-# The task role: what the job does, without the SSM permissions: ECS injects the token.
+# The task role: what the job does. It may read the internal secret by name; ECS injects the
+# GitHub token, so the role has no other SSM permission.
 resource "aws_iam_role" "task" {
   name               = "repohive-indexer-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
@@ -37,6 +38,12 @@ resource "aws_iam_role_policy" "task_job" {
   name   = "job"
   role   = aws_iam_role.task.id
   policy = data.aws_iam_policy_document.indexer_job.json
+}
+
+resource "aws_iam_role_policy" "task_internal_secret" {
+  name   = "internal-secret"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.read_internal_secret_task.json
 }
 
 # The execution role: pulls the image, writes logs, and reads the token parameter for the task's secrets.
@@ -102,7 +109,8 @@ resource "aws_ecs_task_definition" "indexer" {
       environment = [
         { name = "REPOHIVE_RUNTIME", value = "fargate" },
         { name = "REPOHIVE_STORE", value = local.indexer_store },
-        { name = "REPOHIVE_LEDGER", value = local.indexer_ledger },
+        { name = "REPOHIVE_SERVER_URL", value = local.server_url },
+        { name = "REPOHIVE_INTERNAL_SECRET_PARAMETER", value = local.internal_secret_parameter },
         { name = "AWS_REGION", value = local.region },
         { name = "NODE_OPTIONS", value = local.fargate_node_options },
       ]
@@ -123,5 +131,5 @@ resource "aws_ecs_task_definition" "indexer" {
     }
   ])
 
-  depends_on = [aws_iam_role_policy.task_execution_token]
+  depends_on = [aws_iam_role_policy.task_execution_token, aws_iam_role_policy.task_internal_secret]
 }

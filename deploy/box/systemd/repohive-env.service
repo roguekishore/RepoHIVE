@@ -1,8 +1,8 @@
 [Unit]
-Description=RepoHIVE: render the app and Caddy environment files from SSM
+Description=RepoHIVE: render the server and Caddy environment files from SSM
 Wants=network-online.target
 After=network-online.target
-# Runs first; the three services below wait for it.
+# Runs first; the server and Caddy wait for it.
 
 [Service]
 Type=oneshot
