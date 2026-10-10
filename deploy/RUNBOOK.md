@@ -5,6 +5,14 @@ deploy into any account: each account has its own folder `deploy/accounts/<name>
 `REPOHIVE_ACCOUNT=<name>`. The intended order is a **test account first** (an older account with credits,
 `PROTECT=false`), then the **production account** (`PROTECT=true`).
 
+**What is deployed** (`docs/engineering/architecture.md`): one `t4g.small` box runs Caddy, which serves the
+exported viewer from disk and passes `/api/*` and `/healthz` to the Spring Boot server (`repohive-server`, its own Java
+runtime from the release bundle). The server owns accounts, quota, the jobs ledger and the active snapshot in SQLite on
+the data volume, runs the pre-check as a Node child process, and starts one Step Functions execution per run. The state
+machine only routes by tier and runs: the indexer Lambda function (S and M) or a Fargate task (L and XL). The workers
+report progress and the outcome to the server over HTTPS (`/api/internal/**`, a bearer secret in SSM). Snapshot objects
+are served by CloudFront straight from the bucket (`/artifacts/*`). There is no DynamoDB table, control function or queue.
+
 Every step gives **Command**, **Success** and **If it fails**. An agent can run every command; the steps marked
 **Owner** need a person (a console, an email, a DNS provider, a secret). Scripts live in `deploy/scripts/`; each one
 that calls AWS stops unless `aws sts get-caller-identity` matches the account's `deploy.env`. The first plan and apply
@@ -75,8 +83,9 @@ stop and read the message; do not re-run an apply to "see if it works".
 
 ## 3. Quotas
 
-The global in-flight cap (default 5) plus the control function must fit under Lambda's concurrency limit, which every
-other function in the account shares; a 3,008 MB function must be allowed; Fargate needs 8 vCPU for one L or XL run.
+The server's global in-flight cap (default 5; changed at run time on the limits page, Section 6) must fit under Lambda's
+concurrency limit, which every other function in the account shares; a 3,008 MB function must be allowed; Fargate needs
+8 vCPU for one L or XL run.
 
 ```
 aws --profile repohive --region ap-south-1 lambda get-account-settings --query AccountLimit
@@ -84,10 +93,10 @@ aws --profile repohive --region ap-south-1 service-quotas list-service-quotas --
   --query "Quotas[?contains(QuotaName, 'vCPU')].[QuotaName,Value]" --output table
 ```
 
-**Success:** `ConcurrentExecutions` minus what other functions use is at least 6; Fargate On-Demand vCPU at least 8.
+**Success:** `ConcurrentExecutions` minus what other functions use is at least 5; Fargate On-Demand vCPU at least 8.
 **If it fails or is short:**
 
-- Concurrency short: lower the ledger's in-flight cap, or request an increase (`aws service-quotas
+- Concurrency short: lower the in-flight cap on the limits page, or request an increase (`aws service-quotas
   request-service-quota-increase`). The function has no reserved concurrency on purpose.
 - The 3,008 MB memory setting is refused at the first apply: put `lambda_memory_mb = 2048` in
   `deploy/accounts/<name>/main.tfvars` and lower the image's `NODE_OPTIONS` heap before indexing M repositories.
@@ -155,13 +164,34 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh <token-file     # or 
 **Success:** `Stored /repohive/github-token`. **Rotate it:** run the same command, then restart the box's units
 (`deploy.sh app` re-activates the current release, which restarts them). New Lambda and Fargate runs pick it up.
 
+**The admin token and the limits page (owner, optional).** The server's quota, in-flight cap and sign-up limits can be
+changed while it runs, and one account can be flagged as a benchmark account, from the owner-hosted page
+`repohive-server/admin/quota.html` (it takes the server's address as input and keeps the token for the session only).
+The API behind it, `/api/admin/**`, is **off until a token exists**: the server answers 404 for it. Store one, once the
+box is up:
+
+```
+REPOHIVE_ACCOUNT=<name> deploy/scripts/put-admin-token.sh --generate      # run it yourself: it shows the token once, on a terminal
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh app                      # the server reads the token when it starts
+```
+
+(`--generate` refuses to run where its output is not a terminal, so an agent never receives the token. Without it the
+script prompts, or reads a one-line file; at least 24 characters, and not the internal secret.) A browser may call the
+API only from the origins in `admin_origins` (`deploy/accounts/<name>/main.tfvars`, for example
+`admin_origins = ["https://hivequota.themaverick.tech"]`, then `deploy.sh infra`); with none listed only non-browser
+callers can. CloudFront already passes every method and the `Authorization` header on `/api/*` and never caches it.
+**Rotate it:** the same command again, then `deploy.sh app`. Every change is audited with the caller's address. There is
+no lockout for wrong tokens: Caddy's per-IP rate limit is the only brake.
+
 ## 7. The build (GitHub Actions)
 
-`.github/workflows/build.yml` builds the indexer image and the app release **natively on arm64** from one commit, tests the
-bundle against the image (`verify-release.sh`: the snapshot inputs match, the web server answers `/healthz`, the worker
-runs, Caddy validates its file and has both modules), and pushes the image to the account's ECR and the bundle to its ops
-bucket. It runs only when a tag is pushed: `build-<account>-<sha>` (build, test, publish) or `verify-<sha>` (build and test,
-no AWS). Nothing else starts it, and nothing goes to `main`.
+`.github/workflows/build.yml` runs the server's tests (`./mvnw -B verify`, Java 21), builds the indexer image and the app
+release **natively on arm64** from one commit, tests the bundle against the image (`verify-release.sh`: the snapshot
+inputs match; the server starts with the bundle's own Java, answers `/healthz`, serves the viewer and has its pre-check
+child answer a request; the bundle's Caddy serves the viewer with the host mapping, request by request; Caddy validates
+its file and has both modules), and pushes the image to the account's ECR and the bundle to its ops bucket. It runs only
+when a tag is pushed: `build-<account>-<sha>` (build, test, publish) or `verify-<sha>` (build and test, no AWS). Nothing
+else starts it, and nothing goes to `main`.
 
 It reaches AWS through the role `repohive-github-build` (Section 5), which trusts only this repository's GitHub environment
 `<account>`. That environment admits only `build-<account>-*` tags and holds the variables `AWS_ACCOUNT_ID` and
@@ -197,8 +227,9 @@ a JSONata fault shows up in the plan, before anything is created.
 **If it fails**, the likely first-apply faults:
 
 - the certificate is not `ISSUED` yet (Section 5);
-- the state machine definition is rejected (the JSONata forms `Items`, `Arguments`, `Assign`, the `Error` expression on `Fail`,
-  `TaskDefinition` as a bare family name, `ListTasks` with `StartedBy` were checked only offline);
+- the state machine definition is rejected (the JSONata forms `Items`, `Arguments`, `Assign`, the `Error` and `Cause`
+  expressions on `Fail`, `$states.errorOutput` in a `Catch`, `TaskDefinition` as a bare family name were checked only
+  offline, with the `jsonata` package);
 - `lambda_memory_mb = 3008` refused (Section 3);
 - the CloudFront arguments, or the metric-math alarm (`jobs_failed_system`);
 - an AWS Budgets resource refused on the Free plan: remove `aws_budgets_budget.monthly` and tell the owner.
@@ -232,10 +263,12 @@ The bundle was uploaded by the build (Section 7) and tested there. Activate it:
 REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh app
 ```
 
-**Success:** the activation output ends `activate: <version> is live`. The box checks `http://127.0.0.1:3000/healthz` for 60 s
-and switches back to the previous release if it never reports `ok`.
-**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-worker -n 80` and
-`/var/log/repohive/web.log`.
+**Success:** the activation output ends `activate: <version> is live`. The box checks the server's
+`http://127.0.0.1:8080/healthz` for 60 s and switches back to the previous release if it never reports `ok`. The server
+needs a while to start on a `t4g.small` (the JVM, Flyway, the first SQLite open); the unit allows 180 s.
+**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-server -n 80` and
+`/var/log/repohive/server.log`. A server that stops at start-up names the setting it refused (a `ConfigError` names the
+variable, never the value); `/run/repohive/server.env` holds what `repohive-env` rendered (root only).
 
 **Smoke test:**
 
@@ -244,18 +277,22 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/smoke.sh                            # bef
 REPOHIVE_ACCOUNT=<name> deploy/scripts/smoke.sh github.com/<owner>/<repo>  # after Section 10: the full set
 ```
 
-**Success:** `smoke test passed`. A `/healthz` failure through CloudFront with the box healthy means DNS, the origin secret
+**Success:** `smoke test passed`. It checks `/healthz`, that the workers' `/api/internal/**` door refuses a call without the
+secret, that a `PUT` to `/api/admin/limits` reaches the server (and is refused), the viewer's pages, that snapshot objects come
+from the bucket (brotli, immutable) and a missing key is 404, that `private/` and `backup/` are not served, and that the origin
+refuses a direct request. A `/healthz` failure through CloudFront with the box healthy means DNS, the origin secret
 header or Caddy's certificate (Section 8).
 
 ## 10. First indexes
 
 Sign up and sign in at `https://<site domain>`, then request each index and watch it through progress to the viewer:
 
-1. **A small public Java repository** (S tier): the Lambda path, the ledger, the state machine and the viewer. A failure
-   `snapshot id does not match this build` means the web release and the indexer image came from different commits: the
-   build makes both from one commit and checks them, so redeploy both from one build.
+1. **A small public Java repository** (S tier): the Lambda path, the server's ledger, the state machine and the viewer. A
+   failure `snapshot id does not match this build` means the release (whose pre-check computes the snapshot id) and the
+   indexer image came from different commits: the build makes both from one commit and checks them, so redeploy both from
+   one build.
 2. **`BroadleafCommerce/BroadleafCommerce`** (M tier): a realistic size on Lambda.
-3. **One L or XL repository**: the Fargate path, the large slot and the retier loop.
+3. **One L or XL repository**: the Fargate path, the large-job slot (the server's) and the retier.
 
 ```
 aws --profile repohive --region ap-south-1 stepfunctions list-executions --state-machine-arn <arn> --max-results 5
@@ -263,15 +300,19 @@ aws --profile repohive --region ap-south-1 logs tail /aws/lambda/repohive-indexe
 aws --profile repohive --region ap-south-1 logs tail /repohive/fargate/indexer --since 15m
 ```
 
-**Success:** the execution ends `SUCCEEDED`, the site shows the viewer, and the full smoke test passes. **If it fails:** an
-execution `FAILED` with an error named after a code (`slot-wait-timeout`, `runtime-timeout`, `runtime-error`,
-`runtime-not-started`, `retier-limit`) says which path failed; the job's ledger record says why.
+**Success:** the execution ends `SUCCEEDED`, the site shows the viewer, and the full smoke test passes. **If it fails:** the
+job's own answer is the server's: `GET /api/jobs/<job id>` (the job page shows it) carries the failure class and code. An
+execution `FAILED` carries the run's own error (`Lambda.*`, `States.TaskFailed`, `States.Timeout`, `ECS.*`) and says which
+path failed; the server's reconciliation closes and refunds a job whose run ended without reporting (codes
+`runtime-error`, `runtime-timeout`, `runtime-not-started`, `ORCHESTRATOR_START_FAILED`, `slot-wait-timeout`). A job that
+reports its own failure from Fargate exits with code 1, so its execution also shows `FAILED`.
 
 ## 11. Operating
 
-**Logs and metrics.** Log groups (14 days by default): `/aws/lambda/repohive-indexer`, `/aws/lambda/repohive-control`,
-`/repohive/fargate/indexer`, `/aws/vendedlogs/states/repohive-index`, `/repohive/box/web`, `/repohive/box/worker`,
-`/repohive/box/caddy` (visitor IPs), `/repohive/box/heartbeat`. Metrics: namespace `RepoHIVE/Hosted`.
+**Logs and metrics.** Log groups (14 days by default): `/aws/lambda/repohive-indexer`, `/repohive/fargate/indexer`,
+`/aws/vendedlogs/states/repohive-index`, `/repohive/box/server`, `/repohive/box/caddy` (visitor IPs),
+`/repohive/box/heartbeat`. Metrics: namespace `RepoHIVE/Hosted`; the server writes its own (`JobsAccepted`, `InFlight`,
+`SignUps`, ...) as embedded-metric lines to its log, the workers theirs.
 
 **A shell on the box** (no SSH): `aws ssm start-session --target <box_instance_id>`.
 
@@ -281,18 +322,31 @@ when the indexer image or the Terraform changed; the plan says so), `deploy.sh a
 **Roll back the app:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/rollback-app.sh`. It switches to the newest other release;
 rolling back twice returns to the release you left.
 
-**Restore SQLite from `backup/`:** `packages/web/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
-`repohive-worker`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
-both.
+**Restore SQLite from `backup/`:** the server backs the database up once a day to `s3://<artifact bucket>/backup/app-<day>.sqlite`
+(the newest 7 are kept). In a Session Manager shell: `sudo systemctl stop repohive-server`, copy the chosen object over
+`/var/lib/repohive/data/app.sqlite` (and remove `app.sqlite-wal` and `app.sqlite-shm` beside it), `sudo chown repohive:repohive`
+the file, `sudo systemctl start repohive-server`. The server migrates an older file forward on start (Flyway).
+
+**Roll a repository back to an earlier snapshot.** Snapshots are immutable and the server alone says which one is served: the
+row of `indexed_repositories` (primary key `repo`, for example `github.com/owner/repo`). `private/<owner>/<repo>/history.json`
+in the bucket lists the snapshot ids still there, newest first. On the box: `sudo dnf install -y sqlite` once, then
+`sudo -u repohive sqlite3 /var/lib/repohive/data/app.sqlite "UPDATE indexed_repositories SET snapshot_id = '<id>' WHERE repo = 'github.com/<owner>/<repo>'"`
+(stop nothing: SQLite takes the write; the server picks it up on the next read). The row's `commit_sha`, `node_count` and
+`edge_count` stay those of the newer snapshot until the next index, so use this to get a repository viewable again, not to
+keep it that way.
 
 **Rotate the origin secret:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only
 -replace=random_password.origin_secret`, apply it, then `deploy.sh app` so Caddy reads the new value. Expect brief 403s while
 CloudFront rolls the header out.
 
+**Rotate the internal secret** (the workers' bearer secret): the same with `-replace=random_password.internal_secret`, apply, then
+`deploy.sh app` so the server reads it. The Lambda and Fargate workers read it from SSM once when a run starts (a warm
+Lambda container keeps the old one until it is recycled), so rotate while no index is running; a run in flight cannot report
+and the server closes it from its execution's status.
+
 **Replace the box without losing the data volume:** the volume has `prevent_destroy`. In a protected account, first apply
-once with termination protection off (`deploy.sh infra --plan-only -var=protect=false`, which also lifts the table's deletion
-protection for that apply), then `deploy.sh infra --plan-only -replace=aws_instance.box`, then a normal apply to turn
-protection back on. Re-run Section 9. Caddy's certificate lives on the data volume and survives.
+once with termination protection off (`deploy.sh infra --plan-only -var=protect=false`), then
+`deploy.sh infra --plan-only -replace=aws_instance.box`, then a normal apply to turn protection back on. Re-run Section 9. Caddy's certificate lives on the data volume and survives.
 
 ## 12. Post-ship measurement
 
@@ -301,7 +355,7 @@ Nothing hosted was measured before ship. Record each result in `context/register
 
 - **Item 3, Graviton2 per-core speed:** read `StageMs` and `EndToEndMs` from `RepoHIVE/Hosted` for a Lambda job.
 - **Item 6, Fargate startup:** `aws ecs describe-tasks` gives `createdAt`, `pullStartedAt`, `pullStoppedAt`, `startedAt`.
-- **Item 8, viewer memory on the t4g.small:** `systemctl status repohive-web` and `ps -o rss` while loading a large view.
+- **Item 8, memory on the t4g.small:** `systemctl status repohive-server` (it shows the cgroup's memory, the JVM and the pre-check child together) and `ps -o rss` for the JVM during a large index and while several people use the viewer.
 - **Item 9, quotas:** Section 3.
 - **Item 10, Linux arm64 output matches the reference digests:** index `fixtures/sample-java-project` hosted and compare the
   logical digest with `registers/measurements.md`.
@@ -325,8 +379,9 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/teardown.sh --confirm <account id>
 ```
 
 It deletes everything RepoHIVE created there, data included: the main root (after one apply with protection off), the data
-volume (outside Terraform, since it keeps `prevent_destroy`), the GitHub token parameter, the bootstrap root, the versioned
-state bucket (every version), and the account's GitHub environment. It refuses an account whose `deploy.env` says
+volume (outside Terraform, since it keeps `prevent_destroy`; it holds the SQLite file with every account and job), the GitHub
+token and admin token parameters, the bootstrap root, the versioned state bucket (every version), and the account's GitHub
+environment. It refuses an account whose `deploy.env` says
 `PROTECT=true`, and skips a root whose state is empty, so it can be run again after a failure.
 **Owner afterwards:** remove the Netlify records of that site domain (the site CNAME, the origin A record and the certificate
 validation CNAMEs) before the Elastic IP is reused by anyone, and delete the root access key.
@@ -337,7 +392,15 @@ validation CNAMEs) before the Elastic IP is reused by anyone, and delete the roo
 ## 15. Known risks
 
 - **Root access keys** (owner's choice): they cannot be limited. Keep MFA on root and delete the key after use.
-- **The origin secret is in the Terraform state.** The state bucket is private, encrypted and versioned. Rotation: Section 11.
+- **The origin secret and the internal secret are in the Terraform state.** The state bucket is private, encrypted and
+  versioned. Rotation: Section 11. The admin token is not: it is stored by `put-admin-token.sh` and held only by the owner.
+- **Caddy exempts `/api/internal/**` from its POST rate limit** (the workers' progress and outcome calls, from Lambda and
+  Fargate addresses many jobs share, would otherwise be refused and strand a finished job); they stay under the overall
+  limit and behind the bearer secret.
+- **One box, one JVM.** The server, its pre-check child and Caddy share 2 GB on the `t4g.small`; `server_memory_max_mb`
+  (1280) and `server_heap_mb` (512) are unmeasured defaults. A heap exhausted at run time exits the server (systemd restarts it).
+- **Alarm `repohive-index-executions-failed`** also counts a Fargate job that reported its own failure (exit code 1); raise
+  its threshold if a benchmark run makes it noisy.
 - **Caddy access logs hold visitor IP addresses**, kept for the retention period (14 days by default).
 - **The account id appears in GitHub only as an environment variable**, masked in the public build logs.
 - **The unverified assumptions of the spec** (`requirements.md`, "Assumptions"): the managed prefix list counts as 55 rules of
@@ -359,7 +422,6 @@ one 5-minute period.
 | `repohive-index-executions-timed-out` | executions timed out | 1 or more |
 | `repohive-indexer-errors` | indexer function errors | 3 or more |
 | `repohive-indexer-throttles` | indexer function throttles | 1 or more |
-| `repohive-control-errors` | control function errors | 1 or more |
 | `repohive-box-system-check` | `StatusCheckFailed_System` for 2 minutes; also recovers the instance | above 0 |
 | `repohive-jobs-failed-system` | `JobsFailed` with `Class = system`, summed over tiers and runtimes | 3 or more |
 | `repohive-site-heartbeat` | `SiteUp` below 1 for 5 minutes in a row; missing data counts as bad | 5 minutes |
@@ -367,20 +429,33 @@ one 5-minute period.
 
 ## 17. What has and has not been run
 
-**Run with no AWS account:**
+**Re-verified for the Spring Boot server on 2026-10-06** (Windows 11, no AWS account; Terraform 1.16.2, Node 24.21.0, JDK 23.0.2, Caddy 2.11.6
+standard build; every check below is warm):
 
-- The indexer image built (Windows, arm64 under emulation). Inside it, real jobs against GitHub
-  (`spring-guides/gs-rest-service`) succeeded through the Lambda handler and through the Fargate entry point; the control
-  function answered. The snapshot inputs it computes equal the web workspace's.
-- The release build ran to the end of assembly with `verify-app-tree.sh` passing (Windows could not export the tree).
-- `check.sh`: `terraform fmt`, `validate` and an offline `terraform test` plan of each root (protected and unprotected), which
-  renders every policy, the state machine and cloud-init (user data 14,128 bytes of 16,384). `shellcheck` and `actionlint`
-  clean.
-- The state machine's 42 JSONata expressions parse and its decisions route correctly in ten scenarios (the `jsonata`
-  package, not Step Functions). `cloud-init schema` accepts the user data on Amazon Linux 2023.
-- The account scripts' loading, guards and Terraform paths, from Git Bash with no credentials.
-- The build workflow's verify path: see `context/specs/hosting-4-deploy/progress.md` for the run and its result.
+- `terraform fmt`, `validate` and the offline `terraform test` plan of the main root (protected and unprotected) passed on a
+  copy of the tree that leaves out the files the redesign removes (see the progress notes); the plan renders every policy, the state
+  machine and cloud-init and asserts the intended architecture: no DynamoDB grant, the job role writes only under `artifacts/`
+  and `private/`, the box role only under `backup/`, `/artifacts/*` is the only behaviour that reaches the bucket and `/api/*`
+  is uncached with every method, user data under 16 KB.
+- The state machine's 20 JSONata expressions parse (the `jsonata` package, not Step Functions), the tier routing gives the right
+  answer for S, M, L, XL and an unknown tier, and the `Fail` state's error and cause expressions evaluate; the structure test
+  (`packages/indexer/src/state-machine.test.ts`) passes.
+- `deploy/box/spa.caddy` and the whole Caddyfile (without the two plugin directives, which a standard Caddy lacks) ran under
+  Caddy 2.11.6: `deploy/scripts/check-spa-mapping.mjs` served 28 requests against `packages/web/out` as the host mapping says (and refused 3 path-traversal attempts), and
+  a stub server behind the real routes showed the secret check, the pass-through of `PUT`, `OPTIONS`, `Authorization` and the
+  client-address header, a 404 for `/artifacts/*` and the 64 KiB body cap.
+- `repohive-env` ran against a fake `aws`: the server and Caddy environment files it renders, the admin token left out until the
+  parameter exists, and an access error not mistaken for an unset token.
+- The server jar (`repohive-server/target`), run in local mode on JDK 23, answered `/healthz`, served the viewer's pages and had its pre-check child
+  (Node on `packages/indexer`) answer a request.
+- `bash -n` on every script. **Not run:** `shellcheck`, `actionlint` (not installed here).
 
-**Never run:** any plan or apply against AWS, the build workflow's publish path (it needs the bootstrap's role), any
-deploy script against an account, the box's first boot, the CloudWatch agent, CloudFront, `teardown.sh`. The progress file of
-the spec lists, phase by phase, what to expect to break at the first apply.
+**Never run:** the release build (`Dockerfile.release` has never been built, so the JRE copy, the Maven wrapper inside the image
+and `verify-app-tree.sh` on a real tree are unchecked), `verify-release.sh`, `build.yml` after this change, any plan or apply against
+AWS, the build workflow's publish path (it needs the bootstrap's role), any deploy script against an account, the box's first
+boot, the server unit under systemd (memory limits, `/tmp` for the SQLite native library, the JVM next to a Node child on
+2 GB), the Caddy plugins' directives (`rate_limit` with `not path`, `trusted_proxies cloudfront`), the CloudWatch agent, CloudFront,
+the workers reaching the server through CloudFront, and `teardown.sh`. The first apply is the first test of all of it.
+
+**Run for the previous stack** (no longer this stack): the indexer image built and ran jobs through its
+Lambda and Fargate entry points; the release build assembled on an older bundle layout; `check.sh` passed on the old roots.

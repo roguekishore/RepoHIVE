@@ -189,8 +189,8 @@ backup), `repository` (SQL), `dispatch`, `store`, `config`, `model`.
   `clamped`, null removes the override, anything invalid (below 1, not an integer, unknown key) rejects the whole
   request, and each real change writes a row to `settings_audit` (old and new value, time, caller's address). The
   page for it is the single file `repohive-server/admin/quota.html`, hosted by the owner, not by the server. Routing
-  consequence for `deploy/`: the CDN and Caddy must pass `OPTIONS` and `PUT` on `/api/admin/*`, forward
-  `Authorization`, and not cache `/api/*`.
+  consequence for `deploy/` (done in `cloudfront.tf`, the Caddyfile and `smoke.sh`): the CDN and Caddy pass `OPTIONS`
+  and `PUT` on `/api/admin/*`, forward `Authorization`, and do not cache `/api/*`.
 - **Benchmark accounts.** `PUT /api/admin/bench` (`{"email", "hours"}`, 1 to 72, default 12) flags an account until a
   time; `DELETE /api/admin/bench?email=` ends it; `GET /api/admin/bench` lists the flags and the audit trail;
   `GET /api/admin/bench/accounts?q=` finds accounts (the page's picker). Same token and CORS as the limits (`V4`,
@@ -242,7 +242,7 @@ A static export cannot pre-render arbitrary owners, repositories or job ids. Eac
 placeholder shell (`_`), and **the host maps `/repos/<owner>/<repo>[/<surface>]` and `/jobs/<jobId>` to those
 shells**; the browser path supplies the real values. The mapping, and the rules that keep it identical across hosts,
 are in `packages/web/README.md` ("Static export and host mapping"). Three hosts apply it: the Java server's local mode
-(`REPOHIVE_WEB_DIR`), `next dev` (rewrites, development only) and Caddy on the box (a deploy follow-up, not yet done).
+(`REPOHIVE_WEB_DIR`), `next dev` (rewrites, development only) and Caddy on the box (`deploy/box/spa.caddy`).
 
 The repository views do not read `index/`. They call `GET /api/repos/<owner>/<repo>` once per page session (served
 `no-store` by the server) to learn the active snapshot id, then fetch
@@ -308,27 +308,19 @@ optional by construction. `docs/engineering/` is the durable, public half and mu
 ## Deploy tree (`deploy/`)
 
 `deploy/` holds everything needed to run the hosted stack on AWS (ap-south-1), as code. It is **not an npm
-workspace and no package imports it**; it reaches `packages/indexer` and `packages/web` only by building them
-(the indexer image, the app release bundle), never by importing.
-
-> **The deploy tree has not caught up with the redesign.** Everything below describes `deploy/` as it is, which is
-> the design that was deployed to the test account: the DynamoDB ledger, the control Lambda, the ~30-state state
-> machine, the `s/*` and `r/*` CloudFront behaviours, and a box that runs the Next.js server and a worker. The code
-> no longer matches it: the server (`repohive-server`) replaces the box's Next.js server and worker, the ledger and
-> control code are gone from `packages/indexer`, and the keys moved to `artifacts/`. Until the follow-up list in
-> `context/specs/redesign/progress.md` ("Deploy follow-up", 12 items) is done, **a release built from this code
-> cannot be deployed with this tree.** `ledger-table.ts`, `control.ts` and `packages/web/src/server/` named below no
-> longer exist.
+workspace and no package imports it**; it reaches `packages/indexer`, `packages/web` and `repohive-server` only by
+building them (the indexer image, the app release bundle), never by importing. It describes the current stack;
+nothing of it has been applied to an AWS account yet (`deploy/RUNBOOK.md`, Section 17, says what has and has not run).
 
 ```
 deploy/terraform/bootstrap/   applied once per account, local state: state bucket, ops bucket, ECR, CloudFront
                               certificate, GitHub OIDC build role
 deploy/terraform/main/        the stack; state in the account's state bucket (S3 native locking)
-deploy/box/                   Caddyfile, systemd units, CloudWatch agent config, cloud-init, release Dockerfile
-deploy/scripts/               bash deploy scripts
+deploy/box/                   Caddyfile and spa.caddy, systemd units, CloudWatch agent config, cloud-init, release Dockerfile
+deploy/scripts/               bash deploy scripts, and check-spa-mapping.mjs (the host-mapping test)
 deploy/accounts/<name>/       one folder per AWS account (git-ignored): deploy.env, bootstrap state, plans
 deploy/RUNBOOK.md             the step-by-step
-.github/workflows/build.yml   builds and tests the image and the release on arm64, started only by a pushed tag
+.github/workflows/build.yml   tests the server, builds and tests the image and the release on arm64, started only by a pushed tag
 ```
 
 The same tree deploys into any number of accounts. Everything account-specific lives in that account's folder and is
@@ -338,12 +330,44 @@ never collide, except on the site domain, which CloudFront allows on one distrib
 Every file under `deploy/` is LF (`deploy/.gitattributes`): it runs on Linux. Names derived from the account id
 are built once in `deploy/terraform/main/locals.tf`. Engine packages stay free of AWS code.
 
-The ledger table is described twice and a test keeps the two equal: `deploy/terraform/main/ledger-schema.json` (Terraform reads it) and `LEDGER_TABLE_LAYOUT` in `packages/indexer/src/ledger-table.ts` (what the DynamoDB `JobLedger` relies on; `ledger-table.test.ts`). The table has a string partition key `pk`, no sort key, no secondary index, and TTL on `expiresAt`. Secrets are SSM SecureString parameters under `/repohive/`; the indexer's Lambda entry points read the GitHub token from `REPOHIVE_GITHUB_TOKEN_PARAMETER` once per cold start (`src/github-token.ts`).
+**No table, no control function.** The jobs ledger is the server's SQLite file (see "Server"). Secrets are SSM
+SecureString parameters under `/repohive/`: `github-token` and `admin-token` are stored by the owner's scripts,
+`origin-secret` and `internal-secret` are generated by Terraform. The indexer's Lambda entry point and the Fargate task
+read the GitHub token and the internal secret by name once per start (`REPOHIVE_GITHUB_TOKEN_PARAMETER`,
+`REPOHIVE_INTERNAL_SECRET_PARAMETER`; `src/github-token.ts`) and report to the server at `REPOHIVE_SERVER_URL`, which is the
+site domain, so their calls go out through CloudFront and Caddy like a visitor's. Their roles may write only under
+`artifacts/` and `private/` in the bucket.
 
-The same image also holds the control handler (`packages/indexer/src/control.ts`, `dist/control.handler`), which the state machine calls for ledger operations (`acquireSlot`, `releaseSlot`, `inspect`, `failIfOpen`) so the definition never duplicates the table layout. It reads only `REPOHIVE_LEDGER`. Taking the large slot is re-entrant for the job that already holds it and renews its lease in every ledger implementation (shared contract test).
+The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) is small: it routes
+S and M to the Lambda function and L and XL to Fargate and runs the job there (`lambda:invoke`, 330 s, or `ecs:runTask.sync`,
+780 s and 1,080 s), then succeeds. Any error ends the execution FAILED with the run's own error, after a Fargate failure has
+stopped the job's task if it is still running. It knows nothing of the job: the server starts one execution per run (named
+`<jobId>`, `<jobId>-r<n>` for a restart, `<jobId>-s` for a large job started when the slot freed), reads its status with
+`states:DescribeExecution`, and closes and refunds a job whose run ended without the worker's completion call. Retier,
+restart-once, the large-job slot and the failure codes are the server's (see "Server").
+`packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
 
-The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) routes S and M to the Lambda function and L and XL to Fargate, takes the large slot through the control function, and decides every outcome from the ledger rather than from the runtime's exit status: after each run it calls `inspect`, re-routes a `retier` (twice at most), runs a job the runtime never started once more, and calls `failIfOpen` for anything not terminal. The app starts executions named after the job id (`packages/web/src/server/orchestrator/sfn.ts`), and an EventBridge rule on executions ending FAILED, TIMED_OUT or ABORTED calls `failIfOpen` with that name. `packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
+The app box (`deploy/terraform/main/box.tf`, `deploy/box/`) is a t4g.small running three systemd services behind CloudFront:
+Caddy (TLS for the origin domain by HTTP-01, 403 without the origin secret header, the right-most `X-Forwarded-For` address as
+`X-RepoHIVE-Client-IP`), the Spring Boot server on `127.0.0.1:8080` (`repohive-server.service`, the release's own Java
+runtime; it runs the pre-check as a child process of the release's Node), and the CloudWatch heartbeat timer. Caddy sends
+`/api/*` and `/healthz` to the server, answers 404 for `/artifacts/*`, and serves the exported viewer from disk for everything
+else by the host mapping in `deploy/box/spa.caddy` (checked request by request by `deploy/scripts/check-spa-mapping.mjs`; its
+rewrites are separate `route` blocks because Caddy lets only the first of consecutive `rewrite`s apply). Its rate limits stay,
+except that the workers' `/api/internal/**` calls are outside the per-address POST limit. SQLite lives on a separate encrypted
+volume at `/var/lib/repohive`. Secrets never enter user data: `repohive-env` renders `/run/repohive/*.env` from
+`/etc/repohive/box.env` and the SSM parameters at start, giving the server only the names of the internal secret's and the
+admin token's parameters (it reads them itself) and leaving the admin API off until `/repohive/admin-token` exists. A release
+is one tarball built in a linux/arm64 container (`Dockerfile.release`): the server jar and a Temurin 21 JRE, `web/` (the static
+export), `indexer/` (the package, its `dist/` and production `node_modules` with the workspace packages copied in as real
+directories; `deploy/box/verify-app-tree.sh` checks this), the Node binary, Caddy built by `xcaddy`, and the units, agent
+configuration and scripts. `repohive-activate` unpacks it, switches `/opt/repohive/current`, restarts the units, polls
+`/healthz` and switches back if it does not answer. Cloud-init runs once; everything else ships with the next release.
 
-The app box (`deploy/terraform/main/box.tf`, `deploy/box/`) is a t4g.small running three systemd services behind CloudFront: Caddy (TLS for the origin domain by HTTP-01, 403 without the origin secret header, the right-most `X-Forwarded-For` address as `X-RepoHIVE-Client-IP`), the Next.js standalone server on `127.0.0.1:3000`, and the background worker. SQLite lives on a separate encrypted volume at `/var/lib/repohive`. Secrets never enter user data: `repohive-env` renders `/run/repohive/*.env` from `/etc/repohive/box.env` and the SSM parameters at start. A release is one tarball built in a linux/arm64 container (`Dockerfile.release`): the standalone server, the worker's `scripts/` and `src/`, production `node_modules` with the workspace packages the server loads at run time copied in as real directories (`next.config.ts` leaves them out of the bundle; `deploy/box/verify-app-tree.sh` checks this), the Node binary, Caddy built by `xcaddy`, and the units, agent configuration and scripts. `repohive-activate` unpacks it, switches `/opt/repohive/current`, restarts the units, polls `/healthz` and switches back if it does not answer. Cloud-init runs once; everything else ships with the next release.
-
-One CloudFront distribution serves the site domain (`cloudfront.tf`). `/s/*` and `/r/*` go to the artifact bucket through an Origin Access Control with a path-only cache key, so the stored `Cache-Control` decides lifetime; `/_next/static/*`, `/api/jobs/*` (uncached, uncompressed, for server-sent events) and everything else go to the box through `origin.<site domain>`, with the origin secret in `X-RepoHIVE-Origin-Secret`. The bucket policy lets only that distribution read `s/` and `r/`; `idx/`, `meta/` and `backup/` have no behaviour. Eight alarms (`alarms.tf`) email one SNS topic, a budget emails the owner, and a systemd timer on the box writes a `SiteUp` metric line every minute that backs the heartbeat alarm.
+One CloudFront distribution serves the site domain (`cloudfront.tf`). `/artifacts/*` goes to the artifact bucket through an Origin
+Access Control with a path-only cache key, so the stored `Cache-Control` decides lifetime; `/_next/static/*`, `/api/jobs/*`
+(uncached, uncompressed, for server-sent events), `/api/*` (uncached, every method, the viewer's headers forwarded: the workers'
+bearer calls and the limits page's preflighted `PUT`) and everything else go to the box through `origin.<site domain>`, with the
+origin secret in `X-RepoHIVE-Origin-Secret`. The bucket policy lets only that distribution read `artifacts/`; `private/` and
+`backup/` have no behaviour. Six alarms (`alarms.tf`, with the box recover alarm in `box.tf`) email one SNS topic, a budget emails
+the owner, and a systemd timer on the box writes a `SiteUp` metric line every minute that backs the heartbeat alarm.

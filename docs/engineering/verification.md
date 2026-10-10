@@ -13,6 +13,7 @@ report anything as passing.
 | 1. build | `npm install` | **Yes**, after install |
 | 2. tests | `npm install`, plus a built `dist/` for the engine | **Yes**, after install and build, with the caveats below |
 | 2b. server tests | JDK 21+ (`./mvnw -B verify` in `repohive-server/`); no npm install | **Yes**, once a JDK 21+ is on `JAVA_HOME` |
+| 2d. deploy tree | Terraform, bash and Node; a Caddy 2 binary for the host-mapping check | **Yes**, offline (`deploy/scripts/check.sh`); nothing here reaches AWS |
 | 3. determinism | install, build, and `fixtures/sample-java-project` | **Partly.** The comparison runs. The recorded digests to compare against are below, but the baseline history is in the mount |
 | 4. real-repo smoke | recorded counts in `context/registers/measurements.md` | **No.** Needs the private mount |
 
@@ -184,6 +185,25 @@ Windows 11, Node 24.21.0, JDK 23.0.2: happy path, limits and refund pass, 37 s t
    Windows parser run reports one skipped test, not a failure.
 
 A change is clean if it does not add to this list. A new failure outside it is yours.
+
+## Gate 2d: the deploy tree (offline)
+
+For a change under `deploy/` or `.github/`:
+
+```
+deploy/scripts/check.sh
+node deploy/scripts/check-spa-mapping.mjs <caddy binary> packages/web/out
+```
+
+`check.sh` runs `terraform fmt -check`, `validate` and the offline plan test (`tests/plan.tftest.hcl`) on each root, `shellcheck` and
+`bash -n` on every script; a tool that is not installed is reported as "not run", which is not a pass. The plan test renders
+the policies, the state machine and cloud-init and asserts the contracts between them; it cannot check what AWS validates server-side.
+`packages/indexer/src/state-machine.test.ts` (part of Gate 2) reads the state machine file. `check-spa-mapping.mjs` needs `npm run build
+--workspace @repohive/web` first and any Caddy 2 binary (a standard build is enough: it exercises only `deploy/box/spa.caddy`); it
+fails if a request is not answered as the host mapping in `packages/web/README.md` says. Measured 2026-10-06 on Windows 11 with
+Caddy 2.11.6: the offline plan test passed (on a copy of the tree that leaves out files awaiting deletion) and the mapping check
+passed 28 requests and 3 traversal attempts, warm. **Not run:** `shellcheck` (not installed on that machine), the release build,
+`verify-release.sh`, and anything on AWS.
 
 ## Gate 3: determinism
 
