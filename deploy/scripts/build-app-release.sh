@@ -2,7 +2,7 @@
 # Builds the app release bundle in a linux/arm64 container from
 # deploy/box/Dockerfile.release and writes deploy/out/repohive-<git sha>.tar.gz and its SHA-256.
 # Needs Docker 25 or later with buildx; does not call AWS. Refuses to build from a working tree with
-# uncommitted changes under packages/ or deploy/box/, so the version names what was built.
+# uncommitted changes under packages/, repohive-server/ or deploy/box/, so the version names what was built.
 #
 #   deploy/scripts/build-app-release.sh
 set -euo pipefail
@@ -11,8 +11,8 @@ set -euo pipefail
 
 require_docker
 
-if [[ -n "$(git -C "${REPO_ROOT}" status --porcelain -- packages deploy/box)" ]]; then
-  die "uncommitted changes under packages/ or deploy/box/; commit or stash them so the version matches the build"
+if [[ -n "$(git -C "${REPO_ROOT}" status --porcelain -- packages repohive-server deploy/box)" ]]; then
+  die "uncommitted changes under packages/, repohive-server/ or deploy/box/; commit or stash them so the version matches the build"
 fi
 
 version="$(image_tag)"

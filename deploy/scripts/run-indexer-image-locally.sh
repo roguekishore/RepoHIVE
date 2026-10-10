@@ -5,7 +5,7 @@
 #
 # Modes:
 #   cli      the whole job inside the image on the sample tarball: the local fetcher, a mounted directory as the
-#            store (REPOHIVE_STORE=local:<dir> semantics, via --store) and a file ledger. This is the run that
+#            store (REPOHIVE_STORE=local:<dir> semantics, via --store) and a memory reporter. This is the run that
 #            proves the image holds a working job (WebAssembly grammars resolved from node_modules, and so on).
 #   lambda   the image's default command (the Lambda handler) under the base image's runtime interface emulator,
 #            invoked with an event that is not a job input: the handler must load and answer with a job-input error.
@@ -15,7 +15,7 @@
 # Why lambda and fargate do not run the sample job: both entry points build the GitHub source fetcher
 # (src/entry.ts), and nothing selects the local fetcher from the environment, so a job through them would call
 # api.github.com. That needs a package change this spec does not allow; it is recorded in the progress file.
-# The ledger and store settings used here are the ones the task definition uses, with local values.
+# The store and server settings used here are the ones the task definition uses, with local values.
 set -euo pipefail
 
 # shellcheck source=deploy/scripts/lib.sh
@@ -61,12 +61,12 @@ run_cli() {
     --entrypoint node \
     "${image}" dist/cli.js \
     --tarball /data/sample-java-project.tar.gz --repo "${repo}" --commit "${commit}" \
-    --store /data/store --ledger /data/ledger.json)"
+    --store /data/store)"
   printf '%s\n' "${out}"
   [[ "${out}" == *'"kind":"ran"'* && "${out}" == *'"status":"succeeded"'* ]] ||
     die "cli run did not report a succeeded job"
-  [[ -n "$(find "${work}/store" -type f -name 'latest.json' -print -quit)" ]] ||
-    die "cli run wrote no latest.json to the mounted store"
+  [[ -n "$(find "${work}/store/artifacts" -type f -name 'manifest.json' -print -quit)" ]] ||
+    die "cli run wrote no manifest.json under artifacts/ in the mounted store"
   printf 'cli: ok\n'
 }
 
@@ -77,7 +77,8 @@ run_lambda() {
   docker run -d --name "${container}" --platform linux/arm64 -p 127.0.0.1:9000:8080 \
     -v "${work}:/data" \
     -e REPOHIVE_STORE=local:/data/store \
-    -e REPOHIVE_LEDGER=file:/data/ledger-lambda.json \
+    -e REPOHIVE_SERVER_URL=http://127.0.0.1:9 \
+    -e REPOHIVE_INTERNAL_SECRET=not-a-real-secret \
     -e REPOHIVE_GITHUB_TOKEN="${placeholder_token}" \
     "${image}" >/dev/null
   local reply="" attempt
@@ -104,7 +105,8 @@ run_fargate() {
     --entrypoint node \
     -e REPOHIVE_RUNTIME=fargate \
     -e REPOHIVE_STORE=local:/data/store \
-    -e REPOHIVE_LEDGER=file:/data/ledger-fargate.json \
+    -e REPOHIVE_SERVER_URL=http://127.0.0.1:9 \
+    -e REPOHIVE_INTERNAL_SECRET=not-a-real-secret \
     -e REPOHIVE_GITHUB_TOKEN="${placeholder_token}" \
     -e REPOHIVE_TIME_LIMIT_MS=60000 \
     "${image}" dist/fargate.js 2>&1)" || status=$?
