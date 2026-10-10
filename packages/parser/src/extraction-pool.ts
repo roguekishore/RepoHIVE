@@ -75,6 +75,13 @@ export interface ExtractionInput {
    * error rethrown.
    */
   onProgress?: (completed: number, total: number) => void;
+  /**
+   * Carry on past files that could not be read or parsed: they contribute no
+   * nodes, entries or references, and come back on {@link ExtractionOutput.skipped}
+   * instead of failing the run. Off, the first settled batch with any such error
+   * returns them all and nothing is merged or stitched.
+   */
+  tolerateFileErrors?: boolean;
 }
 
 /** What a successful run produces. */
@@ -85,6 +92,8 @@ export interface ExtractionOutput {
   edges: DependencyEdge[];
   /** Cross-source-root resolution ambiguities, summed over every file. */
   crossScopeAmbiguities: number;
+  /** Files skipped under `tolerateFileErrors`, in canonical file order. Absent otherwise. */
+  skipped?: ParseError[];
 }
 
 /**
@@ -346,12 +355,14 @@ async function drive(
 
   // Every file has been tried. Errors go back in canonical file order, whatever
   // order the workers happened to report them in.
+  const skipped: ParseError[] = [];
   if (errorsByFile.size > 0) {
-    const errors: ParseError[] = [];
     for (const fileIndex of [...errorsByFile.keys()].sort((a, b) => a - b)) {
-      errors.push(...(errorsByFile.get(fileIndex) as ParseError[]));
+      skipped.push(...(errorsByFile.get(fileIndex) as ParseError[]));
     }
-    return err(errors);
+    if (input.tolerateFileErrors !== true) {
+      return err(skipped);
+    }
   }
 
   // --- Merge phase 1, in canonical order --------------------------------------
@@ -389,6 +400,9 @@ async function drive(
     const fileNodes = nodesByFile[fileIndex];
     const fileEntries = entriesByFile[fileIndex];
     if (fileNodes === undefined || fileEntries === undefined) {
+      if (errorsByFile.has(fileIndex)) {
+        continue; // skipped under tolerateFileErrors: it has no nodes by design
+      }
       throw new Error(`no worker reported file ${(files[fileIndex] as CollectedFile).relativePath}`);
     }
     for (const node of fileNodes) {
@@ -413,5 +427,5 @@ async function drive(
     crossScopeAmbiguities += payload.ambiguities;
   }
 
-  return ok({ nodes, edges, crossScopeAmbiguities });
+  return ok({ nodes, edges, crossScopeAmbiguities, skipped });
 }
