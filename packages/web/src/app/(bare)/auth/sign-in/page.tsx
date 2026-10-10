@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AuthForm } from "@/features/account/auth-form";
+import { AuthScreen } from "@repohive/design";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default function SignInPage() {
-  return <AuthForm mode="sign-in" />;
+  return <AuthScreen mode="sign-in" />;
 }
