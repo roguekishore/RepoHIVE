@@ -38,6 +38,7 @@ abstract class JobTestBase {
     @DynamicPropertySource
     static void baseProps(DynamicPropertyRegistry registry) {
         TestEnv.local(registry, DIR);
+        TestEnv.admin(registry);
     }
 
     @LocalServerPort int port;
@@ -56,6 +57,7 @@ abstract class JobTestBase {
         dispatch.reset();
         precheck.reset();
         resetLimits();
+        jdbc.update("DELETE FROM bench_accounts");
         http = new Http(port, TestEnv.LOCAL_ORIGIN, "X-Forwarded-For");
     }
 
