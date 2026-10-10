@@ -379,3 +379,98 @@
     grid-column: 1 / -1;
   }
 }
+
+/* ---------- Decisions ---------- */
+
+.rh-dec-viz svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.rh-dec-svg text {
+  font-family: var(--rh-font-sans);
+  font-size: var(--rh-fs-caption);
+  fill: var(--rh-fg-3);
+}
+
+.rh-dec-svg .rh-dec-mono {
+  font-family: var(--rh-font-mono);
+}
+
+.rh-dec-axis {
+  stroke: var(--rh-line-strong);
+}
+
+.rh-dec-grid {
+  stroke: var(--rh-line);
+}
+
+.rh-dec-kept {
+  fill: var(--rh-fg-2);
+}
+
+.rh-dec-rebuilt {
+  fill: var(--rh-rebuilt);
+}
+
+.rh-dec-sel {
+  stroke: var(--rh-accent);
+  stroke-width: var(--rh-border-accent);
+  fill: none;
+}
+
+.rh-dec-boundary {
+  stroke: var(--rh-accent);
+  stroke-width: var(--rh-border-accent);
+}
+
+.rh-dec-handle {
+  fill: var(--rh-accent);
+}
+
+.rh-dec-svg .rh-dec-handle-label {
+  fill: var(--rh-on-accent);
+  font-family: var(--rh-font-mono);
+  font-size: var(--rh-fs-label);
+}
+
+.rh-dec-point {
+  cursor: pointer;
+}
+
+.rh-dec-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rh-space-2) var(--rh-space-4);
+}
+
+.rh-dec-work {
+  display: grid;
+  gap: var(--rh-space-3);
+}
+
+.rh-dec-work-head {
+  display: grid;
+  gap: var(--rh-space-1);
+  justify-items: start;
+}
+
+.rh-dec-work-name {
+  overflow-wrap: anywhere;
+  font-weight: var(--rh-weight-semibold);
+}
+
+.rh-dec-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rh-space-2) var(--rh-space-4);
+}
+
+.rh-dec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-2);
+}
