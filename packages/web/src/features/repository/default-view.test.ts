@@ -5,6 +5,10 @@ import { repoKeyToViewerPath } from "@/server/worker/repositories";
 import { DEFAULT_REPO_VIEW } from "./default-view";
 
 describe("the default repository view", () => {
+  it("is the Overview, not the Map", () => {
+    expect(DEFAULT_REPO_VIEW).toBe("overview");
+  });
+
   it("is a view the route map knows", () => {
     expect(REPO_VIEWS).toContain(DEFAULT_REPO_VIEW);
   });
