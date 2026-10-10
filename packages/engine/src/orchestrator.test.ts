@@ -189,6 +189,35 @@ test("optional parse counts pass through when the parse stage reports them", asy
   assert.equal(result.value.excludedDirectoryCount, 7);
 });
 
+test("tolerateFileErrors reaches the parser only when set, and the skipped files come back", async () => {
+  const skipped = [{ reason: "file-unparseable" as const, message: "m", path: "a/B.java" }];
+  const seen: Array<Parameters<EngineDeps["parse"]>[0]> = [];
+  const make = () =>
+    makeDeps({
+      parse: async (options) => (seen.push(options), {
+        ok: true,
+        value: {
+          outputPath: options.outputPath ?? "(unset)",
+          nodeCount: 3,
+          edgeCount: 1,
+          ...(options.tolerateFileErrors === true ? { skippedFiles: skipped } : {}),
+        },
+      }),
+    });
+
+  const off = make();
+  const strict = await indexProject({ projectDirectory: "/proj" }, off.deps);
+  assert(strict.ok, "expected success");
+  assert.equal("tolerateFileErrors" in (seen[0] ?? {}), false);
+  assert(!("skippedFiles" in strict.value));
+
+  const on = make();
+  const tolerant = await indexProject({ projectDirectory: "/proj", tolerateFileErrors: true }, on.deps);
+  assert(tolerant.ok, "expected success");
+  assert.equal(seen[1]?.tolerateFileErrors, true);
+  assert.deepEqual(tolerant.value.skippedFiles, skipped);
+});
+
 test("without an in-memory graph the engine reads graph.json back and groups it", async () => {
   const { deps, calls } = makeDeps();
   const result = await indexProject({ projectDirectory: "/proj" }, deps);
