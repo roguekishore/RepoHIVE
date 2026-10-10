@@ -14,6 +14,11 @@ by community detection. Every decision is recorded, and identical input produces
 Pipeline: `parse` (Java sources to `graph.json`), then `group` (to the five-file `index/` contract), then
 `view` (the hierarchical viewer).
 
+Hosted shape: a Spring Boot 3 / Java 21 server (`repohive-server/`) owns accounts, quota and the job ledger in
+SQLite; the TypeScript indexer (`packages/indexer`) is the worker and reports to it; the viewer
+(`packages/web`) is a static export that reads the server's JSON API and the published `artifacts/` objects.
+`docs/engineering/architecture.md` is what is built; the target design is kept in `context/specs/redesign/`.
+
 ## Two repositories
 
 Durable engineering rules are tracked here under `docs/engineering/`. Project state and decisions live in
@@ -32,7 +37,7 @@ code and `docs/engineering/`, and say so in your report.
 
 | Read | When |
 |------|------|
-| `docs/engineering/architecture.md` | Changing package layout, the JSON contract, or crossing the engine/ecosystem boundary |
+| `docs/engineering/architecture.md` | Changing package layout, the JSON contract, the server, or crossing the engine/ecosystem boundary |
 | `docs/engineering/conventions.md` | Anything that affects group membership or output ordering (determinism) |
 | `docs/engineering/stack.md` | Adding a dependency or tool, or looking up a command |
 | `docs/engineering/verification.md` | Before reporting code work as done |
@@ -52,7 +57,7 @@ If a document disagrees with the code, **the code wins**. Fix the document in th
 - **Read before writing.** Never propose changes to code you have not read.
 - **Determinism is not negotiable** for anything deciding group membership.
 - **Respect package boundaries.** Engine packages (`parser`, `core`, `shared`) must not import from
-  ecosystem packages (`web`, `views`, `indexer`).
+  ecosystem packages (`web`, `views`, `indexer`) or from `repohive-server`.
 - **Run the gates** in `docs/engineering/verification.md` before reporting code work as done. A clean exit
   code is not evidence of success.
 - **Label every timing cold or warm.** They differ by roughly eight times on this codebase.
@@ -67,7 +72,7 @@ characters. One commit per observable sub-behaviour, each independently building
 
 | Where | Types |
 |-------|-------|
-| This repository, code under `packages/` | `feat` `fix` `test` `refactor` `perf` `chore` |
+| This repository, code under `packages/` or `repohive-server/` | `feat` `fix` `test` `refactor` `perf` `chore` |
 | This repository, documentation including this file | `docs` |
 | `context/` | `decision`, `state`, `register` |
 
@@ -88,6 +93,7 @@ This project runs on Linux, macOS, and Windows.
 - **Real date before stamping anything**: Linux/macOS `date '+%Y-%m-%d %H:%M'`; Windows
   `Get-Date -Format 'yyyy-MM-dd HH:mm'`. A session can span days.
 
-Use **Node 24**. Only `packages/web` declares an `engines` constraint, so nothing enforces this, and the
-engine test scripts behave differently on Node 21 and later in a way that can report a false pass. See
-`docs/engineering/verification.md`.
+Use **Node 24** and, for `repohive-server/`, **Java 21**. Only `packages/web` declares an `engines` constraint, so
+nothing enforces the Node version, and the engine test scripts behave differently on Node 21 and later in a way that
+can report a false pass. For Java, set `JAVA_HOME` to a JDK 21 or newer before running `./mvnw`: a machine's default
+`java` may be older and Maven then fails on the release level. See `docs/engineering/verification.md`.
