@@ -5,6 +5,7 @@ import static com.repohive.support.Http.credentials;
 import static com.repohive.support.Http.freshEmail;
 import static com.repohive.support.Http.freshIp;
 
+import com.repohive.service.RuntimeLimits;
 import com.repohive.support.FakeDispatchService;
 import com.repohive.support.FakePrecheckRunner;
 import com.repohive.support.Http;
@@ -44,6 +45,7 @@ abstract class JobTestBase {
     @Autowired JdbcTemplate jdbc;
     @Autowired FakeDispatchService dispatch;
     @Autowired FakePrecheckRunner precheck;
+    @Autowired RuntimeLimits runtimeLimits;
 
     Http http;
 
@@ -53,7 +55,17 @@ abstract class JobTestBase {
         Seed.clear(jdbc);
         dispatch.reset();
         precheck.reset();
+        resetLimits();
         http = new Http(port, TestEnv.LOCAL_ORIGIN, "X-Forwarded-For");
+    }
+
+    /** The context is shared by every job test: a limit one test saved must not reach the next. */
+    void resetLimits() {
+        Map<RuntimeLimits.Limit, Integer> defaults = new java.util.EnumMap<>(RuntimeLimits.Limit.class);
+        for (RuntimeLimits.Limit limit : RuntimeLimits.Limit.values()) {
+            defaults.put(limit, null);
+        }
+        runtimeLimits.update(defaults, "test");
     }
 
     String signUp() throws Exception {
