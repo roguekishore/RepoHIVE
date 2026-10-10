@@ -3,3 +3,5 @@ export { OverviewActions, OverviewScreen, OverviewView } from "./overview";
 export type { OverviewScreenProps, OverviewViewProps, OverviewViews } from "./overview";
 export { DecisionsActions, DecisionsScreen, DecisionsView } from "./decisions";
 export type { DecisionsScreenProps, DecisionsViewProps, DecisionsViews } from "./decisions";
+export { AdaptivityScreen, AdaptivityView } from "./adaptivity";
+export type { AdaptivityScreenProps, AdaptivityViewProps, AdaptivityViews } from "./adaptivity";
