@@ -40,3 +40,80 @@
 .rh-auth-card a {
   text-decoration: underline;
 }
+
+/* ---------- Page heads and the three-column grid of Account and the job page ---------- */
+
+.rh-acct-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--rh-space-4);
+}
+
+.rh-acct-head > div:first-child {
+  display: grid;
+  gap: var(--rh-space-1);
+  min-width: 0;
+}
+
+.rh-acct-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--rh-space-4);
+}
+
+.rh-acct-span {
+  grid-column: span 2;
+}
+
+@media (max-width: 1000px) {
+  .rh-acct-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rh-acct-span {
+    grid-column: auto;
+  }
+}
+
+.rh-acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rh-space-3);
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Loading: blocks where the content will be ---------- */
+
+.rh-skeleton-stack {
+  display: grid;
+  gap: var(--rh-space-4);
+}
+
+.rh-skeleton {
+  display: block;
+  background: var(--rh-sunken);
+  border-radius: var(--rh-radius);
+  animation: rh-skeleton-pulse calc(var(--rh-dur-slow) * 4) var(--rh-ease) infinite alternate;
+}
+
+.rh-skeleton-title {
+  height: var(--rh-lh-heading);
+  width: 40%;
+}
+
+.rh-skeleton-panel {
+  height: calc(var(--rh-row-height) * 4);
+}
+
+@keyframes rh-skeleton-pulse {
+  from {
+    opacity: 0.5;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
