@@ -3,9 +3,8 @@
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createMemoryArtifactStore } from "./artifact-store-memory.js";
 import type { FetchFunction } from "./github.js";
-import { buildLatest, jsonBytes, latestKey, snapshotIdOf } from "./layout.js";
+import { snapshotIdOf } from "./layout.js";
 import { parseRepositoryReference, precheck, type PrecheckDeps, type PrecheckResult } from "./precheck.js";
 
 const SHA = "0123456789abcdef0123456789abcdef01234567";
@@ -62,7 +61,6 @@ function mockFetch(mock: Mock, calls: string[] = []): FetchFunction {
 function deps(mock: Mock, extra: Partial<PrecheckDeps> = {}, calls?: string[]): PrecheckDeps {
   return {
     token: "server-token",
-    store: createMemoryArtifactStore(),
     viewsVersion: VIEWS,
     engineVersion: ENGINE,
     configDigest: CONFIG,
@@ -120,7 +118,6 @@ describe("precheck", () => {
     assert.equal(result.javaFiles, 1_001);
     assert.equal(result.javaBytes, 10_010);
     assert.equal(result.tier, "M");
-    assert.equal(result.cacheHit, false);
     assert.equal(result.truncated, false);
     assert.equal(
       result.snapshotId,
@@ -192,49 +189,18 @@ describe("precheck", () => {
     rejected(await precheck("acme/widgets", deps({ throwOn: "/commits/" })), "github-unavailable");
   });
 
-  test("a cache hit needs latest.json to name this exact snapshot", async () => {
-    const store = createMemoryArtifactStore();
-    const snapshotId = snapshotIdOf({
-      repo: "github.com/acme/widgets",
-      commitSha: SHA,
-      engineVersion: ENGINE,
-      viewsVersion: VIEWS,
-      configDigest: CONFIG,
-    });
-    const put = (id: string): Promise<void> =>
-      store.put(
-        latestKey("github.com/acme/widgets"),
-        jsonBytes(
-          buildLatest(
-            { repo: "github.com/acme/widgets", snapshotId: id, commitSha: SHA, engineVersion: ENGINE, viewsVersion: VIEWS },
-            new Date(0),
-          ),
-        ),
-        { contentType: "application/json" },
-      );
-
-    await put("f".repeat(32));
-    const miss = await precheck("acme/widgets", deps({}, { store }));
-    assert.ok(miss.ok);
-    assert.equal(miss.cacheHit, false);
-
-    await put(snapshotId);
-    const hit = await precheck("acme/widgets", deps({}, { store }));
-    assert.ok(hit.ok);
-    assert.equal(hit.cacheHit, true);
-    assert.equal(hit.snapshotId, snapshotId);
-
+  test("the snapshot id is a function of the commit and the engine, views and config versions", async () => {
+    const id = (extra: Partial<PrecheckDeps> = {}) => precheck("acme/widgets", deps({}, extra));
+    const base = await id();
+    assert.ok(base.ok);
+    assert.equal(
+      base.snapshotId,
+      snapshotIdOf({ repo: "github.com/acme/widgets", commitSha: SHA, engineVersion: ENGINE, viewsVersion: VIEWS, configDigest: CONFIG }),
+    );
+    assert.ok(!("cacheHit" in base), "the server decides cache hits");
     // A new engine or views version is a different snapshot even for the same commit.
-    const newer = await precheck("acme/widgets", deps({}, { store, viewsVersion: "views-v2" }));
+    const newer = await id({ viewsVersion: "views-v2" });
     assert.ok(newer.ok);
-    assert.equal(newer.cacheHit, false);
-  });
-
-  test("an unreadable latest.json is a miss, not a failure", async () => {
-    const store = createMemoryArtifactStore();
-    await store.put(latestKey("github.com/acme/widgets"), Buffer.from("{not json"), { contentType: "application/json" });
-    const result = await precheck("acme/widgets", deps({}, { store }));
-    assert.ok(result.ok);
-    assert.equal(result.cacheHit, false);
+    assert.notEqual(newer.snapshotId, base.snapshotId);
   });
 });

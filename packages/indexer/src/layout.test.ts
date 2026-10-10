@@ -7,14 +7,13 @@ import { test } from "node:test";
 import {
   VIEW_FILES,
   architectureLevelKey,
-  buildLatest,
   buildManifest,
   historyKey,
   indexObjectKey,
   indexPrefix,
+  privateSnapshotPrefix,
   isValidRepoName,
   jsonBytes,
-  latestKey,
   manifestKey,
   recordPublish,
   regionDetailKey,
@@ -34,6 +33,9 @@ const INPUTS: SnapshotInputs = {
 };
 
 const ID = "0123456789abcdef0123456789abcdef";
+const REPO = "github.com/acme/widgets";
+const A = `artifacts/acme/widgets/${ID}`;
+const P = `private/acme/widgets/${ID}`;
 
 // --- snapshot id ---------------------------------------------------------------------
 
@@ -94,15 +96,14 @@ test("repoKey lowercases a valid name and rejects an invalid one", () => {
 
 // --- keys ------------------------------------------------------------------------------
 
-test("public keys equal their URL paths", () => {
-  assert.equal(snapshotPrefix(ID), `s/${ID}/`);
-  assert.equal(manifestKey(ID), `s/${ID}/manifest.json`);
-  assert.equal(latestKey("github.com/acme/widgets"), "r/github.com/acme/widgets/latest.json");
+test("public keys equal their URL paths under artifacts/", () => {
+  assert.equal(snapshotPrefix(REPO, ID), `${A}/`);
+  assert.equal(manifestKey(REPO, ID), `${A}/manifest.json`);
 });
 
 test("view keys follow the fixed file names", () => {
   assert.deepEqual(
-    Object.values(VIEW_FILES).map((file) => viewKey(ID, file)),
+    Object.values(VIEW_FILES).map((file) => viewKey(REPO, ID, file)),
     [
       "repo",
       "graph",
@@ -113,30 +114,42 @@ test("view keys follow the fixed file names", () => {
       "architecture",
       "region-detail-index",
       "blast-radius",
-    ].map((name) => `s/${ID}/views/${name}.json`),
+    ].map((name) => `${A}/views/${name}.json`),
   );
-  assert.equal(architectureLevelKey(ID, 0), `s/${ID}/views/architecture/0.json`);
-  assert.equal(regionDetailKey(ID, 12), `s/${ID}/views/region-detail/12.json`);
-  assert.throws(() => architectureLevelKey(ID, -1), RangeError);
-  assert.throws(() => regionDetailKey(ID, 1.5), RangeError);
+  assert.equal(architectureLevelKey(REPO, ID, 0), `${A}/views/architecture/0.json`);
+  assert.equal(regionDetailKey(REPO, ID, 12), `${A}/views/region-detail/12.json`);
+  assert.throws(() => architectureLevelKey(REPO, ID, -1), RangeError);
+  assert.throws(() => regionDetailKey(REPO, ID, 1.5), RangeError);
 });
 
-test("non-public keys sit under idx/ and meta/", () => {
-  assert.equal(indexPrefix(ID), `idx/${ID}/`);
-  assert.equal(indexObjectKey(ID, "hierarchy.json"), `idx/${ID}/hierarchy.json`);
-  assert.equal(historyKey("github.com/acme/widgets"), "meta/github.com/acme/widgets/history.json");
+test("non-public keys sit under private/", () => {
+  assert.equal(privateSnapshotPrefix(REPO, ID), `${P}/`);
+  assert.equal(indexPrefix(REPO, ID), `${P}/index/`);
+  assert.equal(indexObjectKey(REPO, ID, "hierarchy.json"), `${P}/index/hierarchy.json`);
+  assert.equal(historyKey(REPO), "private/acme/widgets/history.json");
   for (const bad of ["", ".", "..", "a/b", "a\\b"]) {
-    assert.throws(() => indexObjectKey(ID, bad), RangeError, bad);
+    assert.throws(() => indexObjectKey(REPO, ID, bad), RangeError, bad);
   }
 });
 
 test("key builders reject a malformed snapshot id or repo", () => {
   for (const bad of ["", ID.toUpperCase(), `${ID}0`, "../x"]) {
-    assert.throws(() => snapshotPrefix(bad), RangeError, bad);
-    assert.throws(() => indexPrefix(bad), RangeError, bad);
+    assert.throws(() => snapshotPrefix(REPO, bad), RangeError, bad);
+    assert.throws(() => indexPrefix(REPO, bad), RangeError, bad);
+    assert.throws(() => privateSnapshotPrefix(REPO, bad), RangeError, bad);
   }
-  assert.throws(() => latestKey("github.com/acme/../x"), RangeError);
-  assert.throws(() => historyKey("GitHub.com/acme/widgets"), RangeError);
+  for (const bad of ["github.com/acme/../x", "GitHub.com/acme/widgets", "acme/widgets", "github.com/Acme/widgets"]) {
+    assert.throws(() => snapshotPrefix(bad, ID), RangeError, bad);
+    assert.throws(() => indexPrefix(bad, ID), RangeError, bad);
+    assert.throws(() => historyKey(bad), RangeError, bad);
+  }
+});
+
+test("there is no latest pointer in the layout any more", async () => {
+  const layout = (await import("./layout.js")) as Record<string, unknown>;
+  for (const name of ["latestKey", "buildLatest", "POINTER_VERSION"]) {
+    assert.equal(layout[name], undefined, name);
+  }
 });
 
 // --- documents ---------------------------------------------------------------------------
@@ -155,10 +168,10 @@ const MANIFEST_FIELDS = {
 
 test("the manifest lists every file sorted by key, with uncompressed size and SHA-256", () => {
   const objects = [
-    { key: `s/${ID}/views/repo.json`, content: Buffer.from('{"r":1}') },
-    { key: `idx/${ID}/nodes.json`, content: Buffer.from("[]") },
-    { key: `s/${ID}/views/architecture/10.json`, content: Buffer.from("{}") },
-    { key: `s/${ID}/views/architecture/2.json`, content: Buffer.from("{ }") },
+    { key: `${A}/views/repo.json`, content: Buffer.from('{"r":1}') },
+    { key: `${P}/index/nodes.json`, content: Buffer.from("[]") },
+    { key: `${A}/views/architecture/10.json`, content: Buffer.from("{}") },
+    { key: `${A}/views/architecture/2.json`, content: Buffer.from("{ }") },
   ];
   const manifest = buildManifest(MANIFEST_FIELDS, objects);
   assert.deepEqual(Object.keys(manifest), [
@@ -174,21 +187,21 @@ test("the manifest lists every file sorted by key, with uncompressed size and SH
   assert.deepEqual(
     manifest.files.map((file) => file.key),
     [
-      `idx/${ID}/nodes.json`,
-      `s/${ID}/views/architecture/10.json`,
-      `s/${ID}/views/architecture/2.json`,
-      `s/${ID}/views/repo.json`,
+      `${A}/views/architecture/10.json`,
+      `${A}/views/architecture/2.json`,
+      `${A}/views/repo.json`,
+      `${P}/index/nodes.json`,
     ],
   );
-  const repoFile = manifest.files[3];
+  const repoFile = manifest.files[2];
   assert.equal(repoFile?.bytes, 7);
   assert.equal(repoFile?.sha256, createHash("sha256").update('{"r":1}').digest("hex"));
 });
 
 test("the manifest is a pure function of its inputs and carries no timestamp", () => {
   const objects = [
-    { key: `s/${ID}/views/b.json`, content: Buffer.from("b") },
-    { key: `s/${ID}/views/a.json`, content: Buffer.from("a") },
+    { key: `${A}/views/b.json`, content: Buffer.from("b") },
+    { key: `${A}/views/a.json`, content: Buffer.from("a") },
   ];
   const first = jsonBytes(buildManifest(MANIFEST_FIELDS, objects));
   const second = jsonBytes(buildManifest(MANIFEST_FIELDS, [...objects].reverse()));
@@ -197,39 +210,8 @@ test("the manifest is a pure function of its inputs and carries no timestamp", (
 });
 
 test("the manifest rejects duplicate keys", () => {
-  const object = { key: `s/${ID}/views/a.json`, content: Buffer.from("a") };
+  const object = { key: `${A}/views/a.json`, content: Buffer.from("a") };
   assert.throws(() => buildManifest(MANIFEST_FIELDS, [object, object]), RangeError);
-});
-
-test("latest.json holds the pointer version, identity and an ISO-8601 UTC publish time", () => {
-  const latest = buildLatest(
-    {
-      repo: INPUTS.repo,
-      snapshotId: ID,
-      commitSha: INPUTS.commitSha,
-      engineVersion: INPUTS.engineVersion,
-      viewsVersion: INPUTS.viewsVersion,
-    },
-    new Date(Date.UTC(2026, 9, 1, 12, 30, 0)),
-  );
-  assert.deepEqual(latest, {
-    pointerVersion: 1,
-    repo: INPUTS.repo,
-    snapshotId: ID,
-    commitSha: INPUTS.commitSha,
-    engineVersion: INPUTS.engineVersion,
-    viewsVersion: INPUTS.viewsVersion,
-    publishedAt: "2026-10-01T12:30:00.000Z",
-  });
-  assert.deepEqual(Object.keys(latest), [
-    "pointerVersion",
-    "repo",
-    "snapshotId",
-    "commitSha",
-    "engineVersion",
-    "viewsVersion",
-    "publishedAt",
-  ]);
 });
 
 test("history puts the new snapshot first and retires the previous current one", () => {

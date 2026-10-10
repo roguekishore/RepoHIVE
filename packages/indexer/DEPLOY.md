@@ -43,9 +43,10 @@ defaults are assumptions, to be measured after ship.
 |----------|-------|
 | `REPOHIVE_RUNTIME` | `lambda` (set in the image), `fargate` or `local` |
 | `REPOHIVE_STORE` | `s3:<bucket>` (or `local:<dir>` for a local run) |
-| `REPOHIVE_LEDGER` | `dynamodb:<table>` (or `memory`, `file:<path>`) |
+| `REPOHIVE_SERVER_URL` | the server's base URL; required for `lambda` and `fargate` |
+| `REPOHIVE_INTERNAL_SECRET` | bearer secret for the server's internal API; or the SSM SecureString named by `REPOHIVE_INTERNAL_SECRET_PARAMETER`, read once per cold start |
 | `REPOHIVE_GITHUB_TOKEN` | the server-side token; required outside `local`; never logged |
-| `AWS_REGION` | set by the platform; required for `s3:` and `dynamodb:` |
+| `AWS_REGION` | set by the platform; required for `s3:` and for either parameter variable |
 | `REPOHIVE_JOB_INPUT` | Fargate only: the job input as JSON |
 | `REPOHIVE_TIME_LIMIT_MS` | Fargate only: the task's time limit; the job aborts 30 s before it |
 
@@ -60,27 +61,20 @@ The Lambda event, and `REPOHIVE_JOB_INPUT` on Fargate, is one JSON object:
   "tier": "S|M|L|XL", "snapshotId": "<32 hex>", "visibility": "public" }
 ```
 
-The intake must have claimed the job in the ledger already (`queued`); the job moves it through the states and always
-writes the final state. The snapshot id is recomputed by the job and must match: build the image and the intake from
+The server has already recorded the job; the job reports each state and its progress to the server
+(`POST /api/internal/jobs/progress`) and always reports its outcome (`POST /api/internal/jobs/complete`). The snapshot id is recomputed by the job and must match: build the image and the intake from
 the same commit.
 
 - Lambda returns the result; Fargate exits `0` for `succeeded` and `retier`, `1` for `failed`.
-- Both write the final result to the ledger; the app reads Fargate's result from there.
-- A `retier` result sends the job back to `queued` with the new tier recorded; the app starts it on the new tier's
-  runtime.
+- Both report the outcome to the server. An L or XL job is started only when the large slot is free; the job holds no slot.
+- A `retier` outcome tells the server to requeue the job on the new tier.
 
 ## What the job needs
 
 - **S3** on the one bucket: `PutObject`, `GetObject`, `ListBucket`, `DeleteObject` (the prune). No bucket versioning
   and no object tags are used; ownership and cost tags belong on the bucket. `ListBucket` must cover the whole bucket,
-  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first pre-check's `latest.json`, a first
-  publish's `history.json`) answers 403 instead of 404, and the store reports it as an error. `ListBucket` must cover the whole bucket,
-  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first pre-check's `latest.json`, a first
-  publish's `history.json`) answers 403 instead of 404, and the store reports it as an error.
-- **DynamoDB** on the one table: `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`. Partition key `pk` (string), no sort
-  key, TTL attribute `expiresAt` (epoch seconds). Records: `JOB#<jobId>` (the job), `REPO#<repo>` (the per-repository
-  lock, created with `attribute_not_exists(pk)`), `INFLIGHT` (the in-flight counter, incremented under a cap) and
-  `SLOT#large` (the large-slot lease).
+  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first publish's `history.json`) answers 403 instead of 404, and the store reports it as an error. `ListBucket` must cover the whole bucket,
+  with no `s3:prefix` condition: otherwise a `GetObject` on a missing key (a first publish's `history.json`) answers 403 instead of 404, and the store reports it as an error.
 - Outbound HTTPS to `api.github.com` and `codeload.github.com` (the tarball redirect).
 - The libuv thread pool is sized to the vCPU count by the entry points themselves; nothing to configure.
 - Telemetry goes to stdout as CloudWatch embedded metric format in the namespace `RepoHIVE/Hosted`; the log group's
@@ -94,4 +88,4 @@ node packages/indexer/dist/cli.js --tarball <repo.tar.gz> --repo <owner>/<repo> 
 ```
 
 The tarball comes from `git archive --format=tar.gz --prefix=<owner>-<repo>-<sha>/ <ref>`. The pre-check's GitHub calls
-are stubbed from the tarball; the store is a directory and the ledger is in memory (or `--ledger <file.json>`).
+are stubbed from the tarball; the store is a directory and progress goes to a memory reporter.

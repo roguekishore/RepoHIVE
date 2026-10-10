@@ -1,22 +1,19 @@
 /**
  * Publish and prune.
  *
- * Order: every object under `s/<id>/` and `idx/<id>/`, then `manifest.json`,
- * then `latest.json`. If any upload fails, `latest.json` is never written, so a
- * reader never sees a half-published snapshot. After the switch, `history.json`
- * is updated and snapshots past retention are deleted; a failure there is
- * logged and does not fail the job, since the new snapshot is already live.
+ * Order: every object under `artifacts/<o>/<r>/<id>/` and `private/<o>/<r>/<id>/`, sorted, then `manifest.json`.
+ * Nothing marks the snapshot active in the store; the server does that when the worker reports success. After the
+ * manifest, `history.json` is updated and snapshots past retention are deleted, never the snapshot the server
+ * reports active; a failure there is logged and does not fail the job, since the new snapshot is already complete.
  */
 import type { ArtifactStore } from "./artifact-store.js";
 import { compareBytewise } from "./canonical-json.js";
 import { prepareObject, prepareObjects, type PreparedObject } from "./compression.js";
 import {
-  buildLatest,
   buildManifest,
   historyKey,
-  indexPrefix,
+  privateSnapshotPrefix,
   jsonBytes,
-  latestKey,
   manifestKey,
   recordPublish,
   snapshotPrefix,
@@ -40,7 +37,7 @@ export interface PublishInput {
   readonly engineVersion: string;
   readonly viewsVersion: string;
   readonly indexFormatVersion: number;
-  /** Every object of the snapshot except the manifest: views under `s/<id>/` and index files under `idx/<id>/`, uncompressed. */
+  /** Every object of the snapshot except the manifest: views under `artifacts/<o>/<r>/<id>/` and index files under `private/<o>/<r>/<id>/index/`, uncompressed. */
   readonly objects: readonly SnapshotObject[];
 }
 
@@ -48,10 +45,15 @@ export interface PublishDeps {
   readonly store: ArtifactStore;
   readonly now: () => Date;
   readonly log: Logger;
+  /**
+   * The snapshot the server currently serves for this repository, read before pruning; it is never deleted.
+   * If the read throws, nothing is deleted this time (history is still written).
+   */
+  readonly activeSnapshotId?: () => Promise<string | undefined>;
 }
 
 export interface PublishResult {
-  /** Objects written under `s/` and `idx/`, including the manifest. */
+  /** Objects written under `artifacts/` and `private/`, including the manifest. */
   readonly objectCount: number;
   /** Stored (compressed) bytes of those objects. */
   readonly storedBytes: number;
@@ -72,7 +74,7 @@ async function putAll(store: ArtifactStore, objects: readonly PreparedObject[]):
 
 export async function publishSnapshot(input: PublishInput, deps: PublishDeps): Promise<PublishResult> {
   const { store } = deps;
-  const prefixes = [snapshotPrefix(input.snapshotId), indexPrefix(input.snapshotId)];
+  const prefixes = [snapshotPrefix(input.repo, input.snapshotId), privateSnapshotPrefix(input.repo, input.snapshotId)];
   for (const object of input.objects) {
     if (!prefixes.some((prefix) => object.key.startsWith(prefix))) {
       throw new RangeError(`publish: ${JSON.stringify(object.key)} is outside this snapshot's prefixes`);
@@ -82,7 +84,7 @@ export async function publishSnapshot(input: PublishInput, deps: PublishDeps): P
   // Compression runs concurrently on the libuv pool; uploads run in a bounded pool of their own.
   const prepared = await prepareObjects([...input.objects].sort((a, b) => compareBytewise(a.key, b.key)));
   const manifest = await prepareObject({
-    key: manifestKey(input.snapshotId),
+    key: manifestKey(input.repo, input.snapshotId),
     content: jsonBytes(
       buildManifest(
         {
@@ -101,19 +103,6 @@ export async function publishSnapshot(input: PublishInput, deps: PublishDeps): P
   await putAll(store, [manifest]);
 
   const publishedAt = deps.now();
-  const latest = buildLatest(
-    {
-      repo: input.repo,
-      snapshotId: input.snapshotId,
-      commitSha: input.commitSha,
-      engineVersion: input.engineVersion,
-      viewsVersion: input.viewsVersion,
-    },
-    publishedAt,
-  );
-  const latestObject = await prepareObject({ key: latestKey(input.repo), content: jsonBytes(latest) });
-  await store.put(latestObject.key, latestObject.body, latestObject.headers);
-
   const pruned = await updateHistoryAndPrune(input, publishedAt, deps);
 
   const all = [...prepared, manifest];
@@ -123,8 +112,7 @@ export async function publishSnapshot(input: PublishInput, deps: PublishDeps): P
 /**
  * Snapshots to delete from `history`: not among the `KEEP_RECENT_SNAPSHOTS` most
  * recent (the list is newest first), and retired at least 24 hours ago. A
- * snapshot that is still current (`retiredAt` null) is never listed, so the one
- * `latest.json` names is safe.
+ * snapshot that is still current (`retiredAt` null) is never listed.
  */
 export function snapshotsToPrune(history: History, now: Date): string[] {
   return history.snapshots
@@ -151,10 +139,22 @@ async function updateHistoryAndPrune(input: PublishInput, publishedAt: Date, dep
   try {
     let history = recordPublish(await readHistory(store, input.repo), input.snapshotId, publishedAt);
     // The new snapshot is current and first, so it is never a candidate; check anyway.
-    const candidates = snapshotsToPrune(history, publishedAt).filter((id) => id !== input.snapshotId);
+    let candidates = snapshotsToPrune(history, publishedAt).filter((id) => id !== input.snapshotId);
+    if (candidates.length > 0 && deps.activeSnapshotId !== undefined) {
+      try {
+        const active = await deps.activeSnapshotId();
+        candidates = candidates.filter((id) => id !== active);
+      } catch (error) {
+        log.log("warn", "could not read the active snapshot; nothing is pruned this time", { error: String(error) });
+        candidates = [];
+      }
+    }
     for (const id of candidates) {
       try {
-        const keys = [...(await store.list(snapshotPrefix(id))), ...(await store.list(indexPrefix(id)))];
+        const keys = [
+          ...(await store.list(snapshotPrefix(input.repo, id))),
+          ...(await store.list(privateSnapshotPrefix(input.repo, id))),
+        ];
         await store.delete(keys);
         deleted.push(id);
       } catch (error) {

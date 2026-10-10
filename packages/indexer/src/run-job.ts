@@ -3,9 +3,11 @@
  * both runtimes. A Lambda handler and a Fargate entry point call `runJob` and
  * differ only in how they receive the input and report the result.
  *
- * Stages: validate, (large slot), fetch, engine run, views, publish. The job
- * knows its time limit: 30 s before it, the job aborts, releases the slot, is
- * marked failed with class `system`, and publishes nothing.
+ * Stages: validate, fetch, engine run, views, publish. The job knows its time
+ * limit: 30 s before it, the job aborts, reports failure with class `system`,
+ * and publishes nothing. The server starts an L or XL job only when the large
+ * slot is free, so the job holds no slot. Progress and the final outcome go to
+ * the server through a {@link JobReporter}.
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,8 +23,8 @@ import { buildSnapshotViews, getViewsVersion } from "@repohive/views";
 import type { ArtifactStore } from "./artifact-store.js";
 import { hostedConfigDigest, hostedEngineOptions } from "./hosted-options.js";
 import type { JobResult } from "./job-result.js";
-import type { JobLedger } from "./job-ledger.js";
-import type { JobInput, JobState, Tier } from "./job-types.js";
+import type { JobOutcome, JobReporter } from "./job-reporter.js";
+import type { JobInput, JobState } from "./job-types.js";
 import { isValidRepoName, snapshotIdOf } from "./layout.js";
 import { isCommitSha } from "./github.js";
 import type { PrecheckResult } from "./precheck.js";
@@ -34,13 +36,13 @@ import type { Logger, Runtime, Telemetry } from "./telemetry.js";
 
 /** The job aborts this long before its time limit. */
 export const ABORT_MARGIN_MS = 30_000;
-/** The large-slot lease outlives the tier timeout by this much. */
-export const SLOT_LEASE_MARGIN_MS = 2 * 60_000;
 
 export interface RunJobDeps {
   readonly fetcher: SourceFetcher;
   readonly store: ArtifactStore;
-  readonly ledger: JobLedger;
+  readonly reporter: JobReporter;
+  /** The snapshot the server serves for a repo key; publish never prunes it. Absent: no exclusion. */
+  readonly activeSnapshotId?: (repo: string) => Promise<string | undefined>;
   readonly runtime: Runtime;
   readonly log: Logger;
   readonly telemetry: Telemetry;
@@ -57,9 +59,6 @@ export interface RunJobDeps {
   readonly now?: () => Date;
   /** Parent of the job's temporary output directory. Default: the OS temp directory. */
   readonly tmpRoot?: string;
-  /** How long to wait between attempts at the large slot. */
-  readonly slotPollMs?: number;
-  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 /** Thrown to unwind a job that reached its abort point. */
@@ -83,8 +82,6 @@ const failed = (failureClass: "user" | "system", code: string, message: string):
   message,
 });
 
-const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
 /** `github.com/<owner>/<repo>` to its parts, or `undefined`. */
 function splitRepo(repo: string): { owner: string; name: string } | undefined {
   const match = /^github\.com\/([^/]+)\/([^/]+)$/.exec(repo);
@@ -94,12 +91,9 @@ function splitRepo(repo: string): { owner: string; name: string } | undefined {
   return { owner: match[1], name: match[2] };
 }
 
-const isLarge = (tier: Tier): boolean => tier === "L" || tier === "XL";
-
 export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResult> {
-  const { ledger, log, telemetry } = deps;
+  const { reporter, log, telemetry } = deps;
   const now = deps.now ?? ((): Date => new Date());
-  const sleep = deps.sleep ?? defaultSleep;
   const started = performance.now();
   const durations = { fetchMs: 0, parseMs: 0, groupMs: 0, viewsMs: 0, publishMs: 0 };
 
@@ -122,22 +116,21 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
     }
   };
 
-  // --- ledger writes, kept in order ----------------------------------------------------
+  // --- reports, kept in order ----------------------------------------------------------
   let queue: Promise<void> = Promise.resolve();
   let state: JobState = "queued";
   const enqueue = (write: () => Promise<void>): void => {
     queue = queue.then(write).catch((error: unknown) => {
-      log.log("warn", "ledger write failed", { error: String(error) });
+      log.log("warn", "progress report failed", { error: String(error) });
     });
   };
   const moveTo = (to: JobState): void => {
     if (state !== to) {
       state = to;
-      enqueue(() => ledger.transition(input.jobId, to));
+      enqueue(() => reporter.progress(input.jobId, { state: to }));
     }
   };
 
-  let slotHeld = false;
   let outputRoot: string | undefined;
   let result: JobResult;
 
@@ -160,27 +153,15 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
         log.log("warn", "could not remove the temporary output", { error: String(error) });
       });
     }
-    if (slotHeld) {
-      await queue;
-      await ledger.releaseLargeSlot(input.jobId).catch((error: unknown) => {
-        log.log("error", "could not release the large slot", { error: String(error) });
-      });
-    }
   }
 
-  // --- report: the final state is always written ---------------------------------------
+  // --- report: the outcome is always sent ---------------------------------------------
   await queue;
   const totalMs = performance.now() - started;
   try {
-    if (result.status === "retier") {
-      await ledger.requeue(input.jobId, result.tier);
-    } else if (result.status === "failed") {
-      await ledger.finish(input.jobId, { state: "failed", failureClass: result.failureClass, failureCode: result.code });
-    } else {
-      await ledger.finish(input.jobId, { state: "succeeded" });
-    }
+    await reporter.complete(input.jobId, outcomeOf(result));
   } catch (error) {
-    log.log("error", "could not write the final job state", { error: String(error) });
+    log.log("error", "could not report the job outcome", { error: String(error) });
   }
 
   if (result.status === "succeeded") {
@@ -199,6 +180,24 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
   return result.status === "succeeded" ? { ...result, durations: { ...durations, totalMs } } : result;
 
   // ------------------------------------------------------------------------------------
+  function outcomeOf(final: JobResult): JobOutcome {
+    if (final.status === "retier") {
+      return { status: "retier", tier: final.tier };
+    }
+    if (final.status === "failed") {
+      return { status: "failed", failureClass: final.failureClass, failureCode: final.code, message: final.message };
+    }
+    return {
+      status: "succeeded",
+      snapshotId: final.snapshotId,
+      commitSha: input.commitSha,
+      engineVersion: deps.engineVersion ?? defaultEngineVersion,
+      viewsVersion: deps.viewsVersion ?? getViewsVersion(),
+      nodeCount: final.counts.hierarchyNodes,
+      edgeCount: final.counts.edges,
+    };
+  }
+
   async function execute(): Promise<JobResult> {
     const engineVersion = deps.engineVersion ?? defaultEngineVersion;
     const viewsVersion = deps.viewsVersion ?? getViewsVersion();
@@ -224,21 +223,6 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
           `PRECHECK_${check.reason.toUpperCase().replaceAll("-", "_")}`,
           check.message,
         );
-      }
-    }
-
-    // The large slot: L and XL share one execution slot, held until the job ends.
-    if (isLarge(input.tier)) {
-      moveTo("waiting-for-slot");
-      for (;;) {
-        checkDeadline();
-        const leaseUntil = now().getTime() + deps.remainingMs() + SLOT_LEASE_MARGIN_MS;
-        await queue;
-        if (await guard(ledger.acquireLargeSlot(input.jobId, leaseUntil))) {
-          slotHeld = true;
-          break;
-        }
-        await guard(sleep(deps.slotPollMs ?? 5_000));
       }
     }
 
@@ -276,7 +260,7 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
           ...(event.completed === undefined ? {} : { completed: event.completed }),
           ...(event.total === undefined ? {} : { total: event.total }),
         };
-        enqueue(() => ledger.writeProgress(input.jobId, progress));
+        enqueue(() => reporter.progress(input.jobId, { progress }));
       }
     };
     const run = await guard(indexProject({ ...hostedEngineOptions(entries, join(outputRoot, "out")), onProgress }));
@@ -293,12 +277,12 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
     moveTo("building-views");
     const viewsStart = performance.now();
     const views = buildSnapshotViews(run.value.groupingOutput, { id: `${parts.owner}/${parts.name}`, name: parts.name });
-    const objects = [...viewObjects(input.snapshotId, views), ...(await indexObjects(input.snapshotId, run.value.indexDirectory))];
+    const objects = [...viewObjects(input.repo, input.snapshotId, views), ...(await indexObjects(input.repo, input.snapshotId, run.value.indexDirectory))];
     durations.viewsMs = performance.now() - viewsStart;
     checkDeadline();
 
     // --- publish --------------------------------------------------------------------------
-    // Not raced against the deadline: `latest.json` is written last, so an abort before this point publishes
+    // Not raced against the deadline: the manifest is written last, so an abort before this point publishes
     // nothing, and past it the 30 s margin is what publishing has.
     moveTo("publishing");
     const publishStart = performance.now();
@@ -312,7 +296,14 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
         indexFormatVersion: INDEX_FORMAT_VERSION,
         objects,
       },
-      { store: deps.store, now, log },
+      {
+        store: deps.store,
+        now,
+        log,
+        ...(deps.activeSnapshotId === undefined
+          ? {}
+          : { activeSnapshotId: () => deps.activeSnapshotId!(input.repo) }),
+      },
     );
     durations.publishMs = performance.now() - publishStart;
 
@@ -323,6 +314,7 @@ export async function runJob(input: JobInput, deps: RunJobDeps): Promise<JobResu
         files: entries.length,
         nodes: run.value.nodeCount,
         edges: run.value.edgeCount,
+        hierarchyNodes: views.hierarchyScale.totalNodes,
         regions: run.value.regionCount,
         objects: published.objectCount,
         storedBytes: published.storedBytes,

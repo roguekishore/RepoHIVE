@@ -1,5 +1,6 @@
 /**
- * Job-state ordering for the ledger.
+ * Job-state ordering. The server applies a reported state only if it moves forward;
+ * the worker uses the same order to avoid reporting a state twice.
  */
 import type { JobState } from "./job-types.js";
 
@@ -30,7 +31,7 @@ export function jobStateIndex(state: JobState): number {
   return index;
 }
 
-/** Whether `transition` may move from `from` to `to` (terminal states use `finish`). */
+/** Whether a report may move from `from` to `to` (terminal states are reported through `complete`). */
 export function isForwardJobTransition(from: JobState, to: JobState): boolean {
   if (from === to || TERMINAL.has(from) || TERMINAL.has(to)) {
     return false;
@@ -38,10 +39,5 @@ export function isForwardJobTransition(from: JobState, to: JobState): boolean {
   return jobStateIndex(to) > jobStateIndex(from);
 }
 
-/** Seconds from `endedAt` until the ledger TTL. */
-export const JOB_TTL_SECONDS = 30 * 24 * 60 * 60;
-
-export const DEFAULT_INFLIGHT_CAP = 5;
-
-/** Minimum interval between throttled progress writes. */
+/** Minimum interval between progress-only reports. */
 export const PROGRESS_WRITE_INTERVAL_MS = 2000;

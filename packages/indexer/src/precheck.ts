@@ -1,15 +1,14 @@
 /**
  * The pre-check: validate a repository, resolve its
- * head commit, pick its tier and detect a cache hit, before any run starts.
+ * head commit, pick its tier and compute its snapshot id, before any run starts.
  * A library function: the intake calls it synchronously and the job re-runs it
  * as validation. It spends no quota and starts no job.
  */
 import { engineVersion as currentEngineVersion, isSelectedSourcePath } from "@repohive/engine";
-import type { ArtifactStore } from "./artifact-store.js";
 import { githubHeaders, repoApiUrl, type FetchFunction } from "./github.js";
 import { hostedConfigDigest } from "./hosted-options.js";
 import type { Tier } from "./job-types.js";
-import { isValidRepoName, latestKey, repoKey, snapshotIdOf } from "./layout.js";
+import { isValidRepoName, repoKey, snapshotIdOf } from "./layout.js";
 import { smallestTierFor } from "./tiers.js";
 
 /** Why a repository was turned away; the intake shows `message` to the user. */
@@ -31,8 +30,6 @@ export interface PrecheckRejection {
 
 export interface PrecheckAccepted {
   readonly ok: true;
-  /** `true` when `latest.json` already names this snapshot: start no job. */
-  readonly cacheHit: boolean;
   /** `github.com/<owner>/<repo>`, lowercase. */
   readonly repo: string;
   readonly commitSha: string;
@@ -49,7 +46,6 @@ export type PrecheckResult = PrecheckAccepted | PrecheckRejection;
 export interface PrecheckDeps {
   /** The server-side GitHub token, never a user's. */
   readonly token: string;
-  readonly store: ArtifactStore;
   readonly viewsVersion: string;
   /** Defaults to the global `fetch`. */
   readonly fetch?: FetchFunction;
@@ -193,16 +189,5 @@ export async function precheck(input: string, deps: PrecheckDeps): Promise<Prech
     configDigest: deps.configDigest ?? hostedConfigDigest(),
   });
 
-  let cacheHit = false;
-  const latest = await deps.store.get(latestKey(name));
-  if (latest !== undefined) {
-    try {
-      const pointer = JSON.parse(Buffer.from(latest.body).toString("utf8")) as { snapshotId?: unknown };
-      cacheHit = pointer.snapshotId === snapshotId;
-    } catch {
-      cacheHit = false;
-    }
-  }
-
-  return { ok: true, cacheHit, repo: name, commitSha, tier, snapshotId, javaFiles, javaBytes, truncated };
+  return { ok: true, repo: name, commitSha, tier, snapshotId, javaFiles, javaBytes, truncated };
 }

@@ -3,7 +3,7 @@
  *
  * Views, manifests and index objects are stored brotli-compressed at quality 9
  * with `Content-Encoding: br` and no `.br` suffix, ready for the CDN to pass
- * through. `latest.json` and `history.json` are stored as-is. Compression runs
+ * through. `history.json` is stored as-is. Compression runs
  * on the libuv thread pool (`zlib.brotliCompress`, not the sync form), so
  * objects prepared together compress concurrently; the entry points size the
  * pool to the vCPU count. Hashes are always of the uncompressed bytes.
@@ -16,7 +16,6 @@ import type { SnapshotObject } from "./layout.js";
 export const BROTLI_QUALITY = 9;
 export const JSON_CONTENT_TYPE = "application/json";
 export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
-export const LATEST_CACHE_CONTROL = "public, max-age=30, stale-while-revalidate=60";
 
 /** Brotli at quality 9, on the libuv thread pool. */
 export function compressBrotli(content: Uint8Array): Promise<Buffer> {
@@ -31,20 +30,33 @@ export function compressBrotli(content: Uint8Array): Promise<Buffer> {
   });
 }
 
-/** The headers an object is stored with, decided by its key's prefix. Throws for a key outside the layout. */
+const NAME = /^[a-z0-9._-]{1,100}$/;
+const SNAPSHOT_ID = /^[0-9a-f]{32}$/;
+const isName = (segment: string | undefined): boolean => segment !== undefined && NAME.test(segment) && segment !== "." && segment !== "..";
+const isFile = (segment: string | undefined): boolean => segment !== undefined && segment !== "" && segment !== "." && segment !== "..";
+
+const BROTLI_IMMUTABLE: ObjectHeaders = { contentType: JSON_CONTENT_TYPE, contentEncoding: "br", cacheControl: IMMUTABLE_CACHE_CONTROL };
+
+/**
+ * The headers an object is stored with, decided by the exact shape of its key:
+ * `artifacts/<o>/<r>/<id>/...` and `private/<o>/<r>/<id>/index/<name>` are brotli JSON cached forever;
+ * `private/<o>/<r>/history.json` is plain JSON. Throws for a key outside the layout.
+ */
 export function headersForKey(key: string): ObjectHeaders {
-  if (key.startsWith("s/")) {
-    return { contentType: JSON_CONTENT_TYPE, contentEncoding: "br", cacheControl: IMMUTABLE_CACHE_CONTROL };
+  const parts = key.split("/");
+  if (parts[0] === "artifacts" && parts.length >= 5 && isName(parts[1]) && isName(parts[2]) && SNAPSHOT_ID.test(parts[3] ?? "")) {
+    if (parts.slice(4).every(isFile)) {
+      return { ...BROTLI_IMMUTABLE };
+    }
   }
-  if (key.startsWith("idx/")) {
-    // Never served; immutable like everything else under a snapshot id.
-    return { contentType: JSON_CONTENT_TYPE, contentEncoding: "br", cacheControl: IMMUTABLE_CACHE_CONTROL };
-  }
-  if (key.startsWith("r/") && key.endsWith("/latest.json")) {
-    return { contentType: JSON_CONTENT_TYPE, cacheControl: LATEST_CACHE_CONTROL };
-  }
-  if (key.startsWith("meta/")) {
-    return { contentType: JSON_CONTENT_TYPE };
+  if (parts[0] === "private" && isName(parts[1]) && isName(parts[2])) {
+    if (parts.length === 6 && SNAPSHOT_ID.test(parts[3] ?? "") && parts[4] === "index" && isFile(parts[5])) {
+      // Never served; immutable like everything else under a snapshot id.
+      return { ...BROTLI_IMMUTABLE };
+    }
+    if (parts.length === 4 && parts[3] === "history.json") {
+      return { contentType: JSON_CONTENT_TYPE };
+    }
   }
   throw new RangeError(`headersForKey: key outside the object layout: ${JSON.stringify(key)}`);
 }

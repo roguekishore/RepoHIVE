@@ -18,9 +18,9 @@ import {
 } from "./layout.js";
 
 /** The view objects of `snapshotId`: `JSON.stringify` of each view, UTF-8, no trailing newline. */
-export function viewObjects(snapshotId: string, views: SnapshotViews): SnapshotObject[] {
+export function viewObjects(repo: string, snapshotId: string, views: SnapshotViews): SnapshotObject[] {
   const object = (file: (typeof VIEW_FILES)[keyof typeof VIEW_FILES], value: unknown): SnapshotObject => ({
-    key: viewKey(snapshotId, file),
+    key: viewKey(repo, snapshotId, file),
     content: jsonBytes(value),
   });
   return [
@@ -34,18 +34,18 @@ export function viewObjects(snapshotId: string, views: SnapshotViews): SnapshotO
     object(VIEW_FILES.regionDetailIndex, views.regionDetailIndex),
     object(VIEW_FILES.blastRadius, views.blastRadius),
     ...views.architectureLevels.map((view, n) => ({
-      key: architectureLevelKey(snapshotId, n),
+      key: architectureLevelKey(repo, snapshotId, n),
       content: jsonBytes(view),
     })),
-    ...views.regionDetails.map((view, n) => ({ key: regionDetailKey(snapshotId, n), content: jsonBytes(view) })),
+    ...views.regionDetails.map((view, n) => ({ key: regionDetailKey(repo, snapshotId, n), content: jsonBytes(view) })),
   ];
 }
 
-/** The compact index files the engine wrote to `indexDirectory`, as `idx/<snapshotId>/<name>` objects. */
-export async function indexObjects(snapshotId: string, indexDirectory: string): Promise<SnapshotObject[]> {
+/** The compact index files the engine wrote to `indexDirectory`, as `private/<owner>/<repo>/<snapshotId>/index/<name>` objects. */
+export async function indexObjects(repo: string, snapshotId: string, indexDirectory: string): Promise<SnapshotObject[]> {
   return Promise.all(
     INDEX_FILE_NAMES.map(async (name) => ({
-      key: indexObjectKey(snapshotId, name),
+      key: indexObjectKey(repo, snapshotId, name),
       content: await readFile(join(indexDirectory, name)),
     })),
   );

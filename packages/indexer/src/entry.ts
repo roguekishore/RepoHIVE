@@ -5,12 +5,13 @@
  */
 import { getViewsVersion } from "@repohive/views";
 import type { ArtifactStore } from "./artifact-store.js";
-import { createLedger, createStore, loadConfig, type IndexerConfig } from "./config.js";
-import { resolveGithubToken } from "./github-token.js";
-import type { JobLedger } from "./job-ledger.js";
+import { createStore, loadConfig, type IndexerConfig } from "./config.js";
+import { resolveGithubToken, resolveInternalSecret } from "./github-token.js";
+import type { JobReporter } from "./job-reporter.js";
 import type { JobResult } from "./job-result.js";
 import type { JobInput } from "./job-types.js";
 import { precheck } from "./precheck.js";
+import { createHttpActiveSnapshotReader, createHttpJobReporter } from "./reporter-http.js";
 import { runJob } from "./run-job.js";
 import { createGithubSourceFetcher } from "./source-fetcher-github.js";
 import { createLogger, createTelemetry, type Logger } from "./telemetry.js";
@@ -20,20 +21,32 @@ interface Shared {
   readonly config: IndexerConfig;
   /** The token, from the environment or read once from SSM. */
   readonly githubToken: string | undefined;
+  readonly internalSecret: string | undefined;
   readonly store: ArtifactStore;
-  readonly ledger: JobLedger;
+  readonly reporter: JobReporter | undefined;
+  readonly activeSnapshotId: ((repo: string) => Promise<string | undefined>) | undefined;
 }
 let shared: Promise<Shared> | undefined;
 
 function sharedDeps(env: NodeJS.ProcessEnv): Promise<Shared> {
   if (shared === undefined) {
     const config = loadConfig(env);
-    const pending = resolveGithubToken(config).then((githubToken) => ({
-      config,
-      githubToken,
-      store: createStore(config),
-      ledger: createLedger(config),
-    }));
+    const pending = Promise.all([resolveGithubToken(config), resolveInternalSecret(config)]).then(
+      ([githubToken, internalSecret]) => {
+        const http =
+          config.serverUrl !== undefined && internalSecret !== undefined
+            ? { serverUrl: config.serverUrl, secret: internalSecret }
+            : undefined;
+        return {
+          config,
+          githubToken,
+          internalSecret,
+          store: createStore(config),
+          reporter: http === undefined ? undefined : createHttpJobReporter(http),
+          activeSnapshotId: http === undefined ? undefined : createHttpActiveSnapshotReader(http),
+        };
+      },
+    );
     // A failed read is not kept: the next invocation tries again.
     pending.catch(() => {
       if (shared === pending) {
@@ -52,12 +65,18 @@ export async function executeJob(
   env: NodeJS.ProcessEnv = process.env,
   log?: Logger,
 ): Promise<JobResult> {
-  const { config, githubToken: token, store, ledger } = await sharedDeps(env);
-  const logger = log ?? createLogger({ jobId: input.jobId, secrets: token === undefined ? [] : [token] });
+  const { config, githubToken: token, internalSecret, store, reporter, activeSnapshotId } = await sharedDeps(env);
+  if (reporter === undefined) {
+    // loadConfig requires both outside a local run; this entry point has no local mode.
+    throw new Error("REPOHIVE_SERVER_URL and REPOHIVE_INTERNAL_SECRET are required to report a job");
+  }
+  const secrets = [token, internalSecret].filter((value): value is string => value !== undefined);
+  const logger = log ?? createLogger({ jobId: input.jobId, secrets });
   return runJob(input, {
     fetcher: createGithubSourceFetcher({ token: token ?? "" }),
     store,
-    ledger,
+    reporter,
+    ...(activeSnapshotId === undefined ? {} : { activeSnapshotId }),
     runtime: config.runtime,
     log: logger,
     telemetry: createTelemetry({ tier: input.tier, runtime: config.runtime }),
@@ -66,7 +85,7 @@ export async function executeJob(
       ? {}
       : {
           validate: (job: JobInput) =>
-            precheck(job.repo.replace(/^github\.com\//, ""), { token, store, viewsVersion: getViewsVersion() }),
+            precheck(job.repo.replace(/^github\.com\//, ""), { token, viewsVersion: getViewsVersion() }),
         }),
   });
 }

@@ -8,7 +8,6 @@ import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 import {
   BROTLI_QUALITY,
   IMMUTABLE_CACHE_CONTROL,
-  LATEST_CACHE_CONTROL,
   compressBrotli,
   headersForKey,
   prepareObject,
@@ -16,6 +15,8 @@ import {
 } from "./compression.js";
 
 const ID = "0123456789abcdef0123456789abcdef";
+const A = `artifacts/acme/widgets/${ID}`;
+const P = `private/acme/widgets/${ID}`;
 const CONTENT = Buffer.from(JSON.stringify({ nodes: Array.from({ length: 500 }, (_, i) => `node-${i}`) }), "utf8");
 
 test("brotli runs at quality 9 and round-trips", async () => {
@@ -32,8 +33,8 @@ test("the same content compresses to the same bytes", async () => {
   assert.deepEqual(a, b);
 });
 
-test("objects under s/ are brotli JSON, cached forever", () => {
-  for (const key of [`s/${ID}/manifest.json`, `s/${ID}/views/repo.json`, `s/${ID}/views/region-detail/3.json`]) {
+test("objects under artifacts/ are brotli JSON, cached forever", () => {
+  for (const key of [`${A}/manifest.json`, `${A}/views/repo.json`, `${A}/views/region-detail/3.json`]) {
     assert.deepEqual(headersForKey(key), {
       contentType: "application/json",
       contentEncoding: "br",
@@ -43,46 +44,63 @@ test("objects under s/ are brotli JSON, cached forever", () => {
   assert.equal(IMMUTABLE_CACHE_CONTROL, "public, max-age=31536000, immutable");
 });
 
-test("index objects are brotli-compressed", () => {
-  assert.equal(headersForKey(`idx/${ID}/nodes.json`).contentEncoding, "br");
-});
-
-test("latest.json is uncompressed with a short cache", () => {
-  assert.deepEqual(headersForKey("r/github.com/acme/widgets/latest.json"), {
+test("private index objects are brotli JSON, cached forever", () => {
+  assert.deepEqual(headersForKey(`${P}/index/nodes.json`), {
     contentType: "application/json",
-    cacheControl: "public, max-age=30, stale-while-revalidate=60",
+    contentEncoding: "br",
+    cacheControl: "public, max-age=31536000, immutable",
   });
-  assert.equal(LATEST_CACHE_CONTROL, "public, max-age=30, stale-while-revalidate=60");
 });
 
 test("history.json is uncompressed and carries no cache header", () => {
-  assert.deepEqual(headersForKey("meta/github.com/acme/widgets/history.json"), { contentType: "application/json" });
+  assert.deepEqual(headersForKey("private/acme/widgets/history.json"), { contentType: "application/json" });
 });
 
-test("a key outside the layout is rejected", () => {
-  for (const key of ["views/repo.json", "r/github.com/acme/widgets/other.json", "x/y"]) {
+test("a key outside the layout is rejected, by exact shape", () => {
+  for (const key of [
+    "views/repo.json",
+    "s/" + ID + "/manifest.json",
+    "idx/" + ID + "/nodes.json",
+    "r/github.com/acme/widgets/latest.json",
+    "meta/github.com/acme/widgets/history.json",
+    "x/y",
+    "artifacts/acme/widgets/manifest.json",
+    `artifacts/acme/${ID}/manifest.json`,
+    `artifacts/acme/widgets/${ID.toUpperCase()}/manifest.json`,
+    `artifacts/acme/widgets/${ID}/`,
+    `artifacts/acme/widgets/${ID}/../x`,
+    `artifacts/../widgets/${ID}/manifest.json`,
+    `private/acme/widgets/${ID}/nodes.json`,
+    `private/acme/widgets/${ID}/index/`,
+    `private/acme/widgets/${ID}/index/a/b.json`,
+    `private/acme/widgets/${ID}/history.json`,
+    "private/acme/widgets/latest.json",
+    "private/acme/widgets/history.json/x",
+    "private/acme/history.json",
+    "private/history.json",
+  ]) {
     assert.throws(() => headersForKey(key), RangeError, key);
   }
 });
 
 test("a prepared object hashes the uncompressed bytes and stores the compressed ones", async () => {
-  const prepared = await prepareObject({ key: `s/${ID}/views/graph.json`, content: CONTENT });
+  const prepared = await prepareObject({ key: `${A}/views/graph.json`, content: CONTENT });
   assert.equal(prepared.bytes, CONTENT.byteLength);
   assert.equal(prepared.sha256, createHash("sha256").update(CONTENT).digest("hex"));
   assert.deepEqual(brotliDecompressSync(prepared.body), CONTENT);
   assert.equal(prepared.headers.contentEncoding, "br");
 });
 
-test("latest.json is stored byte-for-byte", async () => {
-  const content = Buffer.from('{"pointerVersion":1}', "utf8");
-  const prepared = await prepareObject({ key: "r/github.com/acme/widgets/latest.json", content });
+test("history.json is stored byte-for-byte", async () => {
+  const content = Buffer.from('{"snapshots":[]}', "utf8");
+  const prepared = await prepareObject({ key: "private/acme/widgets/history.json", content });
   assert.deepEqual(prepared.body, content);
   assert.equal(prepared.headers.contentEncoding, undefined);
 });
 
 test("objects prepared together keep their input order", async () => {
   const objects = Array.from({ length: 40 }, (_, i) => ({
-    key: `s/${ID}/views/region-detail/${i}.json`,
+    key: `${A}/views/region-detail/${i}.json`,
     content: Buffer.from(JSON.stringify({ i, pad: "x".repeat(i * 100) }), "utf8"),
   }));
   const prepared = await prepareObjects(objects);
