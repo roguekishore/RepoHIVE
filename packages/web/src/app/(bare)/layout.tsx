@@ -8,7 +8,7 @@ import { DesignHost } from "@/features/host/design-host";
 export default function BareLayout({ children }: { children: React.ReactNode }) {
   return (
     <DesignHost>
-      <main id="main-content" className="min-h-dvh bg-[var(--rh-bg)]">
+      <main id="main-content" style={{ minHeight: "100dvh", background: "var(--rh-bg)" }}>
         {children}
       </main>
     </DesignHost>

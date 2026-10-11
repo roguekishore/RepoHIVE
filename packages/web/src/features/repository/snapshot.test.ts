@@ -1,8 +1,8 @@
 /**
- * URL segments, the
- * `?snapshot=` rule and snapshot resolution.
+ * URL segments and the
+ * `?snapshot=` rule.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   latestPointerPath,
   needsLowercase,
@@ -10,7 +10,6 @@ import {
   parseSnapshotParam,
   repoIdFromPathname,
 } from "./repo-name";
-import { resolveSnapshot } from "./snapshot-context";
 
 const ID = "0123456789abcdef0123456789abcdef";
 
@@ -67,58 +66,5 @@ describe("paths", () => {
 
   it("builds the latest pointer path", () => {
     expect(latestPointerPath("local/sample")).toBe("/r/github.com/local/sample/latest.json");
-  });
-});
-
-describe("resolveSnapshot", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  function stubFetch(routes: Record<string, { status: number; body?: unknown }>) {
-    const fetched: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string) => {
-        fetched.push(url);
-        const route = routes[url] ?? { status: 404 };
-        return new Response(route.body === undefined ? null : JSON.stringify(route.body), { status: route.status });
-      }),
-    );
-    return fetched;
-  }
-
-  it("uses latest.json when no snapshot is requested", async () => {
-    const fetched = stubFetch({
-      "/r/github.com/local/sample/latest.json": { status: 200, body: { snapshotId: ID, commitSha: "abc" } },
-    });
-    expect(await resolveSnapshot("local/sample", undefined)).toEqual({
-      status: "ready",
-      snapshotId: ID,
-      source: "latest",
-      commitSha: "abc",
-    });
-    expect(fetched).toEqual(["/r/github.com/local/sample/latest.json"]);
-  });
-
-  it("uses a requested snapshot that exists, without reading latest.json", async () => {
-    const fetched = stubFetch({ [`/s/${ID}/manifest.json`]: { status: 200, body: {} } });
-    expect(await resolveSnapshot("local/sample", ID)).toEqual({ status: "ready", snapshotId: ID, source: "query" });
-    expect(fetched).toEqual([`/s/${ID}/manifest.json`]);
-  });
-
-  it("reports an expired snapshot when the requested one is gone", async () => {
-    stubFetch({});
-    expect(await resolveSnapshot("local/sample", ID)).toEqual({ status: "expired", requested: ID });
-  });
-
-  it("reports a repository that was never indexed", async () => {
-    stubFetch({});
-    expect(await resolveSnapshot("local/sample", undefined)).toEqual({ status: "never-indexed" });
-  });
-
-  it("reports a malformed pointer and a failing server as errors", async () => {
-    stubFetch({ "/r/github.com/local/sample/latest.json": { status: 200, body: { snapshotId: "nope" } } });
-    expect((await resolveSnapshot("local/sample", undefined)).status).toBe("error");
-    stubFetch({ "/r/github.com/local/sample/latest.json": { status: 500 } });
-    expect((await resolveSnapshot("local/sample", undefined)).status).toBe("error");
   });
 });

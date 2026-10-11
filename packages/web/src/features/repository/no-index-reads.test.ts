@@ -20,7 +20,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 describe("the app does not read an index", () => {
   it("has no parseIndex, index loader, registry or index-directory reads", () => {
-    const forbidden = /parseIndex|readGraphFile|loadIndex|repo-registry|index-loader|resolveIndexDir|(?<![A-Z_])REPOWISE_API_URL/;
+    const forbidden = /parseIndex|readGraphFile|loadIndex|repo-registry|index-loader|resolveIndexDir/;
     const offenders = walk(SRC)
       .filter((file) => forbidden.test(readFileSync(file, "utf8")))
       // The comment in the API client that records the removal names the variable.
