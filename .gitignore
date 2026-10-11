@@ -9,6 +9,8 @@ build/
 **/build/
 **/.next/
 **/next-env.d.ts
+**/target/
+*.jar
 *.tsbuildinfo
 
 # Generated engine artifacts
