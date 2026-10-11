@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { ViewBodies } from "../../contracts";
 import { renderWithDesign } from "../../test-utils";
 import { AdaptivityView } from "./adaptivity";
@@ -10,6 +10,11 @@ const SNAPSHOT = "2f866c4d558414aa1c8c5d794c8b9164";
 function renderView(adaptivityBody: ViewBodies["adaptivity"] = adaptivity()) {
   return renderWithDesign(<AdaptivityView owner="acme" name="widgets" snapshotId={SNAPSHOT} views={{ adaptivity: adaptivityBody, regionDecisions: regionDecisions() }} />);
 }
+
+// jsdom has no layout: give charts the width a browser would measure.
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 600 });
+});
 
 describe("AdaptivityView", () => {
   it("leads with the recorded kept share", () => {

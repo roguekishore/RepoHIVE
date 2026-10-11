@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RepositoryRef, SnapshotState, ViewBodies } from "../../contracts";
 import { LinkButton } from "../../components/button";
 import { Chip } from "../../components/controls";
@@ -12,6 +12,7 @@ import { Table, type SortState, type TableColumn } from "../../components/table"
 import { routes } from "../../routes";
 import { formatBoundary, formatCount, formatScore } from "./format";
 import { assessedRegions, decisionOf, isCloseCall, tallyAssessed, type Region } from "./regions";
+import { Measured } from "./measured";
 import { Await, SnapshotGate } from "./snapshot-gate";
 import { useSnapshotViews } from "./use-views";
 
@@ -26,28 +27,29 @@ const FILTERS: readonly { readonly value: RegionFilter; readonly label: string }
   { value: "close", label: "Close calls" },
 ];
 
-const STRIP = { width: 600, height: 156, pad: 16, base: 120, step: 6, mark: 2.5 } as const;
-const PLOT = { width: 400, pad: 40 } as const;
+const STRIP = { height: 156, pad: 16, base: 120, step: 6, mark: 2.5 } as const;
+const PLOT = { pad: 40 } as const;
 
 /** One mark on the strip: kept is a circle, rebuilt a square, so the two differ by shape and not by colour alone. */
-function Mark({ region, x, y, selected }: { readonly region: Region; readonly x: number; readonly y: number; readonly selected: boolean }) {
+function Mark({ region, x, y, selected, onSelect }: { readonly region: Region; readonly x: number; readonly y: number; readonly selected: boolean; readonly onSelect: (regionId: string) => void }) {
   const kept = region.action === "preserve";
   const r = STRIP.mark;
   return (
-    <>
+    <g className="rh-dec-point" onClick={() => onSelect(region.regionId)}>
       {kept ? (
         <circle className="rh-dec-kept" cx={x} cy={y} r={r} />
       ) : (
         <rect className="rh-dec-rebuilt" x={x - r} y={y - r} width={r * 2} height={r * 2} />
       )}
       {selected ? <circle className="rh-dec-sel" cx={x} cy={y} r={r + 3} /> : null}
-    </>
+    </g>
   );
 }
 
 /** Regions on the score axis with the recorded boundary. Positions come from the recorded score and a fixed stacking rule. */
-function ScoreStrip({ regions, boundary, selectedId }: { readonly regions: readonly Region[]; readonly boundary: number; readonly selectedId?: string }) {
-  const { width, height, pad, base, step } = STRIP;
+function ScoreStrip({ regions, boundary, selectedId, onSelect, measured }: { readonly regions: readonly Region[]; readonly boundary: number; readonly selectedId?: string; readonly onSelect: (regionId: string) => void; readonly measured: number }) {
+  const { height, pad, base, step } = STRIP;
+  const width = Math.max(280, measured);
   const x = (score: number) => pad + score * (width - 2 * pad);
   const columns = new Map<number, number>();
   const dots = [...regions]
@@ -60,7 +62,7 @@ function ScoreStrip({ regions, boundary, selectedId }: { readonly regions: reado
     });
   const bx = x(boundary);
   return (
-    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Regions on the score axis, with the recorded boundary at ${formatBoundary(boundary)}`}>
+    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height}`} height={height} role="img" aria-label={`Regions on the score axis, with the recorded boundary at ${formatBoundary(boundary)}`}>
       {Array.from({ length: 11 }, (_, tick) => (
         <g key={tick}>
           <line className="rh-dec-grid" x1={x(tick / 10)} x2={x(tick / 10)} y1={8} y2={base} />
@@ -71,7 +73,7 @@ function ScoreStrip({ regions, boundary, selectedId }: { readonly regions: reado
       ))}
       <line className="rh-dec-axis" x1={pad} x2={width - pad} y1={base} y2={base} />
       {dots.map((dot) => (
-        <Mark key={dot.region.regionId} region={dot.region} x={dot.cx} y={dot.cy} selected={dot.region.regionId === selectedId} />
+        <Mark key={dot.region.regionId} region={dot.region} x={dot.cx} y={dot.cy} selected={dot.region.regionId === selectedId} onSelect={onSelect} />
       ))}
       <line className="rh-dec-boundary" x1={bx} x2={bx} y1={4} y2={base} />
       <rect className="rh-dec-handle" x={bx - 18} y={base - 2} width={36} height={18} rx={3} />
@@ -89,8 +91,9 @@ function ScoreStrip({ regions, boundary, selectedId }: { readonly regions: reado
 }
 
 /** Each region as a point by its recorded cohesion (squashed with the recorded constant) and independence (1 − coupling). */
-function DecisionSpace({ regions, decisions, selectedId, onSelect }: { readonly regions: readonly Region[]; readonly decisions: ViewBodies["regionDecisions"]; readonly selectedId?: string; readonly onSelect: (regionId: string) => void }) {
-  const { width, pad } = PLOT;
+function DecisionSpace({ regions, decisions, selectedId, onSelect, measured }: { readonly regions: readonly Region[]; readonly decisions: ViewBodies["regionDecisions"]; readonly selectedId?: string; readonly onSelect: (regionId: string) => void; readonly measured: number }) {
+  const { pad } = PLOT;
+  const width = Math.max(240, Math.min(measured, 520));
   const size = width - pad - 12;
   const height = size + pad + 8;
   const X = (v: number) => pad + v * size;
@@ -116,7 +119,7 @@ function DecisionSpace({ regions, decisions, selectedId, onSelect }: { readonly 
     return points.length >= 2 ? { from: points[0] as [number, number], to: points[1] as [number, number] } : undefined;
   })();
   return (
-    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height + 16}`} role="img" aria-label="Regions by cohesion and independence">
+    <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height + 16}`} width={width} height={height + 16} role="img" aria-label="Regions by cohesion and independence">
       {[0, 0.5, 1].map((t) => (
         <g key={t}>
           <line className="rh-dec-grid" x1={X(t)} x2={X(t)} y1={Y(0)} y2={Y(1)} />
@@ -193,7 +196,20 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
   const [selectedId, setSelectedId] = useState<string | undefined>(defaultId);
   const [filter, setFilter] = useState<RegionFilter>("all");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortState>({ key: "score", direction: "descending" });
+  const [sort, setSort] = useState<SortState>({ key: "files", direction: "descending" });
+
+  // A selection made by the user scrolls its table row into view; the page's first selection does not.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const scrollToRow = useRef(false);
+  const select = (regionId: string): void => {
+    scrollToRow.current = true;
+    setSelectedId(regionId);
+  };
+  useEffect(() => {
+    if (!scrollToRow.current) return;
+    scrollToRow.current = false;
+    wrapRef.current?.querySelector("tr.rh-on")?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedId]);
 
   const selected = assessed.find((region) => region.regionId === selectedId);
   const rows = useMemo(() => {
@@ -236,9 +252,9 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
           </div>
         }
       >
-        <div className="rh-dec-viz">
-          <ScoreStrip regions={assessed} boundary={decisions.boundary} selectedId={selectedId} />
-        </div>
+        <Measured>
+          {(width) => <ScoreStrip regions={assessed} boundary={decisions.boundary} selectedId={selectedId} onSelect={select} measured={width} />}
+        </Measured>
         <Text role="caption" tone="subtle">
           {formatCount(assessed.length)} assessed regions on the score axis, at the boundary the run recorded. {formatCount(notAssessed)} regions too small to measure are not shown.
         </Text>
@@ -253,9 +269,9 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
             </Text>
           }
         >
-          <div className="rh-dec-viz">
-            <DecisionSpace regions={assessed} decisions={decisions} selectedId={selectedId} onSelect={setSelectedId} />
-          </div>
+          <Measured>
+            {(width) => <DecisionSpace regions={assessed} decisions={decisions} selectedId={selectedId} onSelect={select} measured={width} />}
+          </Measured>
         </Panel>
 
         <Panel
@@ -316,10 +332,10 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
                 </Chip>
               ))}
             </div>
-            <Field icon="search" placeholder="Filter regions" aria-label="Filter regions" value={query} onChange={(event) => setQuery(event.target.value)} autoComplete="off" />
+            <Field className="rh-dec-filter" icon="search" placeholder="Filter regions" aria-label="Filter regions" value={query} onChange={(event) => setQuery(event.target.value)} autoComplete="off" />
           </div>
         </div>
-        <div className="rh-panel">
+        <div className="rh-panel rh-v-scroll" ref={wrapRef}>
           <Table
             caption="All regions"
             columns={columns}
@@ -328,8 +344,8 @@ export function DecisionsView({ views, initialRegionId }: DecisionsViewProps) {
             sort={sort}
             onSort={onSort}
             selectedKey={selectedId}
-            onRowActivate={(region) => setSelectedId(region.regionId)}
-            empty="No regions match. Clear the search or pick another filter."
+            onRowActivate={(region) => select(region.regionId)}
+            emptyRow="No regions match. Clear the search or pick another filter."
           />
         </div>
       </section>

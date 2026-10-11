@@ -384,8 +384,11 @@
 
 .rh-dec-viz svg {
   display: block;
-  width: 100%;
-  height: auto;
+  max-width: 100%;
+}
+
+.rh-dec-filter {
+  width: min(100%, 280px);
 }
 
 .rh-dec-svg text {

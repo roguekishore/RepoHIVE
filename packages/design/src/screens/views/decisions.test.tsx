@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { renderWithDesign } from "../../test-utils";
 import { DecisionsView } from "./decisions";
 import { regionDecisions } from "./fixtures";
@@ -11,6 +11,11 @@ const views = { regionDecisions: regionDecisions() };
 function renderView(initialRegionId?: string) {
   return renderWithDesign(<DecisionsView owner="acme" name="widgets" snapshotId={SNAPSHOT} views={views} initialRegionId={initialRegionId} />);
 }
+
+// jsdom has no layout: give charts the width a browser would measure.
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 600 });
+});
 
 describe("DecisionsView", () => {
   it("reads the recorded boundary and tallies the recorded actions", () => {

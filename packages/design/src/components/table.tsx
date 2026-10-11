@@ -33,9 +33,11 @@ export interface TableProps<Row> {
   readonly selectedKey?: string;
   /** Shown instead of the table body when there are no rows. */
   readonly empty?: ReactNode;
+  /** Shown as a row inside the table (the headers stay) when there are no rows. */
+  readonly emptyRow?: ReactNode;
 }
 
-export function Table<Row>({ caption, columns, rows, rowKey, sort, onSort, onRowActivate, selectedKey, empty }: TableProps<Row>) {
+export function Table<Row>({ caption, columns, rows, rowKey, sort, onSort, onRowActivate, selectedKey, empty, emptyRow }: TableProps<Row>) {
   if (rows.length === 0 && empty !== undefined) return <>{empty}</>;
 
   const activateOnKey = (event: KeyboardEvent, row: Row): void => {
@@ -69,6 +71,13 @@ export function Table<Row>({ caption, columns, rows, rowKey, sort, onSort, onRow
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 && emptyRow !== undefined ? (
+            <tr>
+              <td colSpan={columns.length} className="rh-fg3">
+                {emptyRow}
+              </td>
+            </tr>
+          ) : null}
           {rows.map((row) => {
             const key = rowKey(row);
             const activatable = onRowActivate !== undefined;
