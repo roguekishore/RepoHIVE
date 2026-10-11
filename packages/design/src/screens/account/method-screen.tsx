@@ -1,8 +1,6 @@
 "use client";
 
-import { LinkButton } from "../../components/button";
 import { Text } from "../../components/feedback";
-import { routes } from "../../routes";
 
 const SECTIONS = [
   { id: "m-regions", label: "Regions" },
@@ -44,10 +42,10 @@ export function MethodScreen() {
           <Text as="h1" role="display">
             How RepoHIVE builds a hierarchy
           </Text>
-          <Text role="lead" tone="subtle">
+          <p className="rh-t-lead">
             RepoHIVE reads a repository&rsquo;s source files and the dependencies between them, then decides for each package whether to keep it as written or rebuild it from those dependencies.
             Every decision is recorded with the numbers behind it.
-          </Text>
+          </p>
         </header>
 
         <h2 className="rh-t-title" id="m-regions">
@@ -108,9 +106,6 @@ export function MethodScreen() {
             </li>
           ))}
         </ul>
-        <div>
-          <LinkButton href={routes.repos}>See the repositories</LinkButton>
-        </div>
       </article>
 
       <nav className="rh-doc-toc rh-t-caption" aria-label="On this page">

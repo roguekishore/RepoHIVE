@@ -6,6 +6,7 @@ import { KeyValueList, Panel } from "../../components/panel";
 import { DecisionGlyph } from "../../components/status";
 import { Table, type TableColumn } from "../../components/table";
 import { BLOCK_PHRASE, blockLook, blockOf, cellAt, cellSize, type DsmBlock, type DsmGroup } from "./dsm";
+import { levelName } from "../views/names";
 import { formatCount, regionName } from "./names";
 import { useElementSize } from "./use-element-size";
 import type { ArchitectureBody } from "./view-types";
@@ -167,9 +168,16 @@ export function ArchitectureScreen({ data }: ArchitectureScreenProps) {
 
   const maxCrossing = Math.max(0, ...levels.map((row) => row.crossGroupEdgeCount));
   const levelColumns: readonly TableColumn<LevelRow>[] = [
-    { key: "level", header: "Level", render: (row) => row.level },
-    { key: "groups", header: "Group nodes", numeric: true, render: (row) => formatCount(row.groupNodeCount) },
-    { key: "leaves", header: "Leaf nodes", numeric: true, render: (row) => formatCount(row.leafNodeCount) },
+    {
+      key: "level",
+      header: "Level",
+      render: (row) => (
+        <>
+          {row.level} <span className="rh-fg3">{levelName(row.level, levels.length)}</span>
+        </>
+      ),
+    },
+    { key: "nodes", header: "Nodes", numeric: true, render: (row) => formatCount(row.groupNodeCount + row.leafNodeCount) },
     {
       key: "cross",
       header: "Cross-group edges",
@@ -178,6 +186,7 @@ export function ArchitectureScreen({ data }: ArchitectureScreenProps) {
     },
     {
       key: "bar",
+      width: "28%",
       header: <span className="rh-sr-only">Share of the largest</span>,
       render: (row) => (
         <div className="rh-cv-bar-cell" aria-hidden="true">
