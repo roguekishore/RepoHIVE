@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Text } from "../../components/feedback";
 import type { LandingFigures } from "./figures-types";
 import { FilmCanvas, type FilmHandle } from "./film";
+import { usePrefersReducedMotion } from "./use-reduced-motion";
 
 const number = new Intl.NumberFormat("en-US");
 
@@ -75,55 +76,68 @@ export function storySteps(figures: LandingFigures): readonly Step[] {
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
+/** The frame the story shows for each step when motion is reduced. */
+const STILLS: readonly number[] = [3.0, 11.0, 15.1, 19.6, 22.95];
+/** The part of the 1600 by 1000 stage the story shows. */
+const STORY_CORE = { cx: 1060, cy: 500, w: 820, h: 820 } as const;
+
 /**
  * "How it works": five steps beside a sticky stage that shows the same film, played by where the page is scrolled.
  * The film is a pure function of time, so a scroll position is a time and the picture is the same every visit.
  */
 export function Story({ figures }: { readonly figures: LandingFigures }) {
   const steps = useMemo(() => storySteps(figures), [figures]);
+  const reduced = usePrefersReducedMotion();
   const film = useRef<FilmHandle>(null);
   const refs = useRef<(HTMLElement | null)[]>([]);
+  const progress = useRef<HTMLElement>(null);
   const clock = useRef(steps[0]?.from ?? 0);
   const [active, setActive] = useState(0);
 
   useEffect(() => {
     film.current?.paint(clock.current);
+    let target = clock.current;
     let frame = 0;
+    const run = (): void => {
+      const d = target - clock.current;
+      clock.current = Math.abs(d) < 0.003 ? target : clock.current + d * 0.12;
+      film.current?.paint(clock.current);
+      frame = clock.current === target ? 0 : requestAnimationFrame(run);
+    };
     const update = (): void => {
-      frame = 0;
-      const middle = window.innerHeight * 0.5;
-      let best = -1;
-      let bestDistance = Infinity;
-      refs.current.forEach((element, index) => {
+      const vh = window.innerHeight;
+      let index = 0;
+      let p = 0;
+      refs.current.forEach((element, position) => {
         if (element === null) return;
         const rect = element.getBoundingClientRect();
-        const distance = middle < rect.top ? rect.top - middle : middle > rect.bottom ? middle - rect.bottom : 0;
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          best = index;
+        const pr = (vh * 0.62 - rect.top) / Math.max(1, rect.height);
+        if (pr > 0 || position === 0) {
+          index = position;
+          p = clamp01(pr);
         }
       });
-      const step = steps[best];
-      const element = refs.current[best];
-      if (step === undefined || element === null || element === undefined) return;
-      const rect = element.getBoundingClientRect();
-      const progress = clamp01((middle - rect.top) / Math.max(1, rect.height));
-      clock.current = step.from + (step.to - step.from) * progress;
-      film.current?.paint(clock.current);
-      setActive(best);
-    };
-    const schedule = (): void => {
-      if (frame === 0) frame = requestAnimationFrame(update);
+      const step = steps[index];
+      if (step === undefined) return;
+      setActive(index);
+      if (progress.current) progress.current.style.width = `${(((index + p) / steps.length) * 100).toFixed(2)}%`;
+      target = reduced ? (STILLS[index] ?? step.from) : step.from + (step.to - step.from) * p;
+      if (reduced) {
+        clock.current = target;
+        film.current?.paint(clock.current);
+      } else if (frame === 0) {
+        frame = requestAnimationFrame(run);
+      }
     };
     update();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
     return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
       if (frame !== 0) cancelAnimationFrame(frame);
     };
-  }, [steps]);
+  }, [steps, reduced]);
 
   return (
     <div className="rh-ld-story">
@@ -134,27 +148,24 @@ export function Story({ figures }: { readonly figures: LandingFigures }) {
             ref={(element) => {
               refs.current[index] = element;
             }}
-            className="rh-ld-step"
+            className={index === active ? "rh-ld-step rh-ld-on" : "rh-ld-step"}
             aria-current={index === active ? "step" : undefined}
           >
-            <Text role="label">{step.label}</Text>
+            <span className="rh-ld-n rh-t-label">{step.label}</span>
             <Text as="h3" role="heading">
               {step.title}
             </Text>
-            <Text role="lead" tone="subtle">
-              {step.body}
-            </Text>
+            <p className="rh-t-lead">{step.body}</p>
             <span className="rh-ld-code">{step.note}</span>
           </article>
         ))}
       </div>
       <div className="rh-ld-stage" aria-hidden="true">
-        <div className="rh-ld-stage-frame">
-          <FilmCanvas ref={film} figures={figures} initialTime={clock.current} />
+        <FilmCanvas ref={film} figures={figures} initialTime={clock.current} core={STORY_CORE} />
+        <div className="rh-ld-stage-prog">
+          <i ref={progress} />
         </div>
-        <Text role="label" className="rh-ld-stage-label">
-          {steps[active]?.label}
-        </Text>
+        <span className="rh-ld-stage-label rh-t-label">{steps[active]?.label}</span>
       </div>
     </div>
   );

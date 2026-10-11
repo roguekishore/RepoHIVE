@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithDesign as render, stubClient } from "../../test-utils";
 import { BROADLEAF_FIGURES as F } from "./broadleaf-figures";
 import { LandingScreen } from "./landing-screen";
+import { waffleLayout, waffleOrder } from "./proof";
 
 const number = new Intl.NumberFormat("en-US");
 
@@ -41,19 +42,32 @@ describe("LandingScreen", () => {
 
   it("shows only figures the committed index recorded", () => {
     renderWithDesign(<LandingScreen figures={F} />);
-    for (const value of [F.counts.files, F.counts.nodes, F.counts.edges, F.counts.regions]) {
-      expect(screen.getAllByText(number.format(value)).length).toBeGreaterThan(0);
+    for (const value of [F.counts.files, F.counts.nodes, F.counts.regions, F.counts.assessed, F.counts.preserved, F.counts.reconstructed]) {
+      expect(screen.getAllByText(number.format(value), { selector: "b" }).length).toBeGreaterThan(0);
     }
-    expect(screen.getByText(`${(F.counts.preserveShare * 100).toFixed(1)}%`, { selector: "p, span, div" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: new RegExp(`${F.counts.preserved} kept, ${F.counts.reconstructed} rebuilt, ${F.counts.degenerate} too small to measure`) })).toBeInTheDocument();
     expect(screen.getByText(new RegExp(F.signal.level))).toBeInTheDocument();
   });
 
-  it("draws one waffle square per region, with kept, rebuilt and too-small told apart by shape", () => {
-    const { container } = renderWithDesign(<LandingScreen figures={F} />);
-    expect(container.querySelectorAll("rect.rh-ld-sq-kept")).toHaveLength(F.counts.preserved);
-    expect(container.querySelectorAll("rect.rh-ld-sq-rebuilt")).toHaveLength(F.counts.reconstructed);
-    expect(container.querySelectorAll("rect.rh-ld-sq-small")).toHaveLength(F.counts.degenerate);
+  it("orders the waffle kept first, then rebuilt, then the regions too small to measure", () => {
+    const cells = waffleOrder(F.regions, F.counts.degenerate);
+    expect(cells).toHaveLength(F.counts.regions);
+    expect(cells.filter((cell) => cell !== null && cell[5] === 1)).toHaveLength(F.counts.preserved);
+    expect(cells.filter((cell) => cell !== null && cell[5] === 2)).toHaveLength(F.counts.reconstructed);
+    expect(cells.filter((cell) => cell === null)).toHaveLength(F.counts.degenerate);
+    const firstSmall = cells.indexOf(null);
+    expect(cells.slice(firstSmall).every((cell) => cell === null)).toBe(true);
+    const keptScores = cells.slice(0, F.counts.preserved).map((cell) => cell![4]);
+    expect([...keptScores].sort((a, b) => b - a)).toEqual(keptScores);
+  });
+
+  it("lays the waffle out on a canvas with as many columns as fit", () => {
+    const wide = waffleLayout(1200, 502);
+    expect(wide.gap).toBe(4);
+    expect(wide.cols).toBe(Math.floor((1200 + 4) / (17 + 4)));
+    expect(wide.cell * wide.cols + wide.gap * (wide.cols - 1)).toBeCloseTo(1200, 5);
+    expect(waffleLayout(400, 502).gap).toBe(3);
+    expect(waffleLayout(100, 10).cols).toBe(8);
   });
 
   it("labels the boundary as a what-if and counts the decisions that would change", () => {
@@ -68,8 +82,8 @@ describe("LandingScreen", () => {
   it("shows the recorded values of the featured rebuilt region", () => {
     renderWithDesign(<LandingScreen figures={F} />);
     const row = F.regions.find((r) => r[0] === F.featured.rebuilt)!;
-    const working = screen.getByRole("heading", { level: 3, name: row[0] }).closest("section")!;
-    expect(within(working).getByText(row[4].toFixed(3))).toBeInTheDocument();
+    const working = screen.getByRole("heading", { level: 4, name: row[0] }).closest("section")!;
+    expect(within(working).getByText(`score ${row[4].toFixed(3)}`)).toBeInTheDocument();
   });
 
   it("checks what is typed in the index form before it asks anything of the server", async () => {

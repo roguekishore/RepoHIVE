@@ -93,6 +93,8 @@ const GLYPHS = {
   ),
   repo: <path d="M3.5 2.5h9v11h-9zM6 2.5v11" stroke={STROKE} strokeWidth="1.3" fill="none" />,
   refresh: <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" stroke={STROKE} strokeWidth="1.4" fill="none" />,
+  play: <path d="M4.5 2.5v11l9-5.5z" fill="currentColor" />,
+  pause: <path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor" />,
   arrow: <path d="M3 8h10M9 4l4 4-4 4" stroke={STROKE} strokeWidth="1.4" fill="none" />,
 } satisfies Record<string, ReactNode>;
 
