@@ -83,3 +83,6 @@ deploy/accounts/*
 !deploy/accounts/README.md
 deploy/deploy.env
 deploy/terraform/main/backend.hcl
+
+# README demo recordings: kept on disk, not tracked (the README embeds the uploaded versions)
+docs/media/

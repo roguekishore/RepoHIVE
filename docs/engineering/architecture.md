@@ -223,7 +223,7 @@ fixtures/            sample-java-project (its sources are tracked even though .g
 deploy/              AWS deployment as code (Terraform, box files, scripts, runbook); not a workspace
 docs/engineering/    these documents
 tsconfig.base.json   shared compiler options
-LICENSE / NOTICE     AGPL-3.0-or-later plus upstream attribution
+LICENSE / NOTICE     AGPL-3.0-or-later and the copyright notice
 README.md
 .editorconfig
 ```
