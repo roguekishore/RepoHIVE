@@ -1,5 +1,25 @@
 ﻿/* The Map's tools over the stage and the inspector's lists. Values come from tokens.css only. */
 
+.rh-find {
+  width: 200px;
+  height: var(--rh-control-height-sm);
+}
+
+@media (max-width: 640px) {
+  .rh-find {
+    display: none;
+  }
+}
+
+.rh-map-find {
+  display: contents;
+}
+
+.rh-insp li button em {
+  font-style: normal;
+  color: var(--rh-fg-3);
+}
+
 .rh-map-tools {
   position: absolute;
   top: var(--rh-space-3);
@@ -26,31 +46,3 @@
   margin-left: auto;
 }
 
-.rh-map-links {
-  list-style: none;
-  margin: var(--rh-space-1) 0 0;
-  padding: 0;
-  display: grid;
-}
-
-.rh-map-link {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--rh-space-2);
-  width: 100%;
-  padding: var(--rh-space-1) 0;
-  background: none;
-  border: 0;
-  color: var(--rh-fg-2);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.rh-map-link:hover {
-  color: var(--rh-fg);
-}
-
-.rh-map-path {
-  overflow-wrap: anywhere;
-}

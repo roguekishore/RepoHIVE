@@ -13,7 +13,7 @@ import { rgbaCss } from "../../canvas/colors";
 import type { DrawFrame } from "../../canvas/controller";
 import { fitText } from "../../canvas/text";
 import type { ColorToken } from "../../tokens/names";
-import { TITLE_STRIP, type MapKind, type MapModel, type MapNode } from "./model";
+import type { MapKind, MapModel, MapNode } from "./model";
 
 /** Token values the canvas needs beyond colours and type sizes; read once by the screen. */
 export interface MapLengths {
@@ -265,19 +265,6 @@ export function drawMap(frame: DrawFrame<number>, model: MapModel, state: MapDra
     ctx.globalAlpha = 1;
   };
 
-  const drawTitle = (node: MapNode, r: Rect, alpha: number): void => {
-    const strip = r.h * TITLE_STRIP;
-    if (strip < text.caption + 4 || alpha <= 0.02) return;
-    const pad = Math.min(text.body - 2, Math.max(4, Math.min(r.w, r.h) * 0.035));
-    ctx.globalAlpha = alpha;
-    ctx.font = `600 ${text.caption}px ${palette.sans}`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = colour(node.i === state.selected ? "accent" : "fg-2");
-    ctx.fillText(fitText(ctx, node.name, r.w - pad * 2), r.x + pad, r.y + pad + strip / 2);
-    ctx.globalAlpha = 1;
-  };
-
   const drawEdges = (parent: MapNode, alpha: number): void => {
     const relations = model.relations.get(parent.i);
     if (relations === undefined) return;
@@ -400,7 +387,6 @@ export function drawMap(frame: DrawFrame<number>, model: MapModel, state: MapDra
     ctx.beginPath();
     ctx.rect(own.x, own.y, own.w, own.h);
     ctx.clip();
-    drawTitle(node, own, childAlpha);
     drawEdges(node, childAlpha);
     for (const kid of node.kids) {
       const child = model.nodes[kid];

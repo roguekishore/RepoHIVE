@@ -181,8 +181,21 @@
   max-width: 22ch;
 }
 
-.rh-crumb a:hover {
+.rh-crumb a:hover,
+.rh-crumb button:hover {
   color: var(--rh-fg);
+}
+
+.rh-crumb button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--rh-fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
 }
 
 .rh-crumb-sep {

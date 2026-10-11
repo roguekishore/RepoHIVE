@@ -285,14 +285,6 @@ svg.rh-sun:focus-visible {
 
 /* ---------- Baseline (flat file graph) ---------- */
 
-.rh-flat-zoom {
-  position: absolute;
-  top: var(--rh-space-3);
-  right: var(--rh-space-3);
-  display: flex;
-  gap: var(--rh-space-1);
-}
-
 .rh-flat-links {
   list-style: none;
   margin: var(--rh-space-1) 0 0;
