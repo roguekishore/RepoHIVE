@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useHive } from "./context";
 import { startExplorerScene, type ExplorerHandle } from "./explorer-scene";
-import { READOUT_HINT, readoutFor, ringLabels, type Readout } from "./model";
+import { READOUT_HINT, readoutFor, RING_LABELS, type Readout } from "./model";
 
 const LEVELS = [
   { level: 0, label: "All" },
@@ -42,7 +42,7 @@ export function HiveExplorer() {
   const [view, setView] = useState<number | null>(DEFAULT_ELEVATION);
   const [readout, setReadout] = useState<Readout>(() => readoutFor(figures, strata, -1, false, 0));
 
-  const labels = useMemo(() => ringLabels(figures, strata), [figures, strata]);
+  const idle = readout.files === "";
 
   useEffect(() => {
     const cv = canvas.current;
@@ -134,17 +134,16 @@ export function HiveExplorer() {
           This explorer needs WebGL.
         </div>
         <div className="hv-xp-over">
-          {labels.map((t, i) => (
+          {RING_LABELS.map((t, i) => (
             <div
               className="hv-strata-tag"
-              key={t.before}
+              key={t.head}
               ref={(el) => {
                 tags.current[i] = el;
               }}
             >
-              {t.before}
-              <b>{t.count}</b>
-              {t.after}
+              <b>{t.head}</b>
+              {t.tail}
             </div>
           ))}
         </div>
@@ -229,10 +228,11 @@ export function HiveExplorer() {
           </button>
         </div>
 
-        <div className="hv-xp-panel hv-xp-read" aria-live="polite">
+        <div className={idle ? "hv-xp-panel hv-xp-read hv-idle" : "hv-xp-panel hv-xp-read"} aria-live="polite">
           <span className="hv-label">{readout.level}</span>
+          {/* At rest the figures are not drawn but keep their room, so the panel does not jump when a piece is read. */}
           <div className="hv-rd-big">
-            <b>{readout.files}</b>
+            <b>{readout.files || " "}</b>
             <span>files</span>
           </div>
           <span className="hv-rd-tag">
@@ -242,15 +242,15 @@ export function HiveExplorer() {
           <dl className="hv-rd-dl">
             <div>
               <dt>Share</dt>
-              <dd>{readout.share}</dd>
+              <dd>{readout.share || " "}</dd>
             </div>
             <div>
               <dt>Inside</dt>
-              <dd>{readout.inside}</dd>
+              <dd>{readout.inside || " "}</dd>
             </div>
             <div>
               <dt>Below it</dt>
-              <dd>{readout.below}</dd>
+              <dd>{readout.below || " "}</dd>
             </div>
           </dl>
           <p className="hv-rd-hint">{readout.hint || READOUT_HINT}</p>

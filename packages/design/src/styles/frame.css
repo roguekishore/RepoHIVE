@@ -338,7 +338,9 @@
 }
 
 .rh-insp .rh-kv {
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* The label keeps its width and the value takes the rest and wraps; an `auto` value column would size to its longest
+     unbroken line (a region name) and push the label out from under it. */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--rh-space-1) var(--rh-space-2);
 }
 

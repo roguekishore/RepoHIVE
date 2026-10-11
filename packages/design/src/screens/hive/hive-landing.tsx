@@ -4,16 +4,25 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../../icons/icons";
 import { Mark } from "../../icons/mark";
 import { useLink } from "../../provider/design-provider";
+import { useSession } from "../../provider/use-session";
 import { routes } from "../../routes";
 import { useTheme } from "../../theme/theme";
 import { IndexRequestDialog } from "../dashboard/index-dialog";
 import type { LandingFigures } from "../landing/figures-types";
-import { HiveContext, type HiveContextValue, type TipApi } from "./context";
+import { HiveContext, useHive, type HiveContextValue, type TipApi } from "./context";
 import { HiveDeck } from "./deck";
 import { HiveExplorer } from "./explorer";
 import { HiveIndexForm } from "./form";
 import { buildHiveModel, buildStrata } from "./model";
 import { HiveStage } from "./stage";
+
+/**
+ * The one statement of scale on the page, in place of the figures that used to run through the animation. It is not from
+ * `figures`. The owner set the repository count to "1000+" on 2026-10-10. The recorded hosted benchmark of 2026-10-04
+ * covers 31 public Java repositories (30 indexed, the largest 19,684 files), so the count is the owner's figure and is
+ * not backed by a register; the file count still comes from that benchmark.
+ */
+const PROOF = "Run against 1000+ public Java repositories, the largest close to 20,000 files.";
 
 function Brand() {
   return (
@@ -50,6 +59,30 @@ function ThemeToggle() {
   );
 }
 
+/**
+ * The account slot: one 36px square in both states, so the nav keeps its width. Signed out (and while the session is
+ * still loading) it is the outline person that leads to sign-in; signed in it is a filled disc with the first letter of
+ * the email that leads to the account, so the two states cannot be mistaken for each other.
+ */
+function AccountSlot() {
+  const Link = useLink();
+  const { session } = useHive();
+  if (session?.signedIn !== true) {
+    return (
+      <Link className="hv-btn hv-ghost hv-icon" href={routes.signIn} aria-label="Sign in" title="Sign in">
+        <Icon name="user" size={16} />
+      </Link>
+    );
+  }
+  const email = session.email;
+  const label = email === undefined ? "Account" : `Account, ${email}`;
+  return (
+    <Link className="hv-btn hv-icon hv-avatar" href={routes.account} aria-label={label} title={label}>
+      {email === undefined ? <Icon name="user" size={16} /> : email.slice(0, 1).toUpperCase()}
+    </Link>
+  );
+}
+
 function Nav() {
   const Link = useLink();
   const [solid, setSolid] = useState(false);
@@ -65,9 +98,7 @@ function Nav() {
         <Brand />
         <div className="hv-nav-right">
           <ThemeToggle />
-          <Link className="hv-btn hv-ghost hv-icon" href={routes.signIn} aria-label="Sign in">
-            <Icon name="user" size={16} />
-          </Link>
+          <AccountSlot />
           <Link className="hv-btn" href={routes.repos}>
             Explore
           </Link>
@@ -100,6 +131,7 @@ export function HiveLanding({ figures }: { readonly figures: LandingFigures }) {
   const root = useRef<HTMLDivElement>(null);
   const tipEl = useRef<HTMLDivElement>(null);
   const [dialogRepo, setDialogRepo] = useState<string | undefined>();
+  const session = useSession();
 
   const model = useMemo(() => buildHiveModel(figures), [figures]);
   const strata = useMemo(() => buildStrata(figures), [figures]);
@@ -132,7 +164,7 @@ export function HiveLanding({ figures }: { readonly figures: LandingFigures }) {
     };
   }, []);
 
-  const value = useMemo<HiveContextValue>(() => ({ figures, model, strata, root, tip, requestIndex: setDialogRepo }), [figures, model, strata, tip]);
+  const value = useMemo<HiveContextValue>(() => ({ figures, model, strata, root, tip, requestIndex: setDialogRepo, session }), [figures, model, strata, tip, session]);
   return (
     <HiveContext.Provider value={value}>
       <div className="rh-hv hv" ref={root} id="top">
@@ -163,6 +195,7 @@ export function HiveLanding({ figures }: { readonly figures: LandingFigures }) {
                 Find the hive <span className="hv-acc">in yours.</span>
               </h2>
               <HiveIndexForm idPrefix="end" idle="Public Java repositories on GitHub." />
+              <p className="hv-proof">{PROOF}</p>
             </div>
           </section>
         </div>

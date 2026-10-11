@@ -1,11 +1,19 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Session } from "../../contracts";
 import { renderWithDesign as render, stubClient } from "../../test-utils";
 import { BROADLEAF_FIGURES as F } from "../landing/broadleaf-figures";
 import { HiveLanding } from "./hive-landing";
 
-const renderPage = () => render(<HiveLanding figures={F} />, { client: stubClient({ quota: () => new Promise(() => undefined) }) });
+const SIGNED_OUT: Session = { signedIn: false };
+
+/** Renders the page for a visitor with `session`; `navigate` stands in for the host's router. */
+const renderPage = (session: Session = SIGNED_OUT, navigate: (href: string) => void = () => undefined) =>
+  render(<HiveLanding figures={F} />, {
+    client: stubClient({ quota: () => new Promise(() => undefined), session: () => Promise.resolve(session) }),
+    navigate,
+  });
 
 beforeEach(() => {
   vi.stubGlobal("requestAnimationFrame", () => 0);
@@ -52,13 +60,39 @@ describe("HiveLanding", () => {
     document.documentElement.removeAttribute("data-theme");
   });
 
-  it("states only figures the committed index recorded", () => {
+  it("states no repository figure outside the explorer, which gives one only for a piece that is read", () => {
     renderPage();
     const c = F.counts;
-    expect(screen.getByText(`Kept, ${c.preserved}`)).toBeInTheDocument();
-    expect(screen.getByText(`Rebuilt, ${c.reconstructed}`)).toBeInTheDocument();
-    expect(screen.getByText(`Too small, ${c.degenerate}`)).toBeInTheDocument();
-    expect(screen.getByText(`${c.files.toLocaleString("en-US")} files pack into a honeycomb`, { exact: false })).toBeInTheDocument();
+    const stage = document.querySelector(".hv-stage") as HTMLElement;
+    const deck = document.querySelector(".hv-deck") as HTMLElement;
+    for (const root of [stage, deck]) {
+      for (const n of [c.files, c.regions, c.assessed, c.preserved, c.reconstructed, c.degenerate]) {
+        expect(root.textContent).not.toContain(n.toLocaleString("en-US"));
+      }
+    }
+    expect(screen.getByText("Files pack into a honeycomb, one patch per region.")).toBeInTheDocument();
+  });
+
+  it("draws the kept, rebuilt and too-small regions in proportion, each named", () => {
+    renderPage();
+    const c = F.counts;
+    const split = screen.getByRole("img", { name: /kept, rebuilt and too small/ });
+    expect([...split.children].map((el) => (el as HTMLElement).style.flexGrow)).toEqual([c.preserved, c.reconstructed, c.degenerate].map(String));
+    const legend = split.closest(".hv-legend") as HTMLElement;
+    expect(within(legend).getByText("Kept")).toBeInTheDocument();
+    expect(within(legend).getByText("Rebuilt")).toBeInTheDocument();
+    expect(within(legend).getByText("Too small")).toBeInTheDocument();
+  });
+
+  it("captions each step of the animation with a word, not a count", () => {
+    renderPage();
+    expect(document.querySelector(".hv-count")).toHaveTextContent("Tangled");
+  });
+
+  it("states its scale once, near the way in", () => {
+    renderPage();
+    const line = screen.getByText(/Run against 1000\+ public Java repositories/);
+    expect(line.closest("#start")).not.toBeNull();
   });
 
   it("gives each step of the animation one line of copy, and starts on the first", () => {
@@ -75,10 +109,10 @@ describe("HiveLanding", () => {
     expect(screen.getByText("Structure maps for Java repositories on GitHub.").closest(".hv-phase")).toHaveClass("on");
   });
 
-  it("labels the strata the way the design does", () => {
+  it("names the strata and counts none", () => {
     renderPage();
     // Once for the animation and once for the explorer.
-    for (const text of ["Repository · 2,985 files", "Level 1 · 2 groups", "Level 2 · 26 groups", "Level 3 · 292 pieces", "Level 4 · 344 pieces"]) {
+    for (const text of ["Repository", "Level 1 · groups", "Level 2 · groups", "Level 3 · pieces", "Level 4 · pieces"]) {
       expect(screen.getAllByText((_, el) => el?.classList.contains("hv-strata-tag") === true && el.textContent === text)).toHaveLength(2);
     }
   });
@@ -142,12 +176,12 @@ describe("the explorer's controls", () => {
     expect(screen.getByRole("button", { name: "Angle" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("reads the repository until a piece is picked", () => {
+  it("names the repository and states no figure until a piece is read", () => {
     renderPage();
     const panel = document.querySelector(".hv-xp-read") as HTMLElement;
-    expect(within(panel).getByText("2,985")).toBeInTheDocument();
-    expect(within(panel).getByText("100% of the repository")).toBeInTheDocument();
-    expect(within(panel).getByText("2 groups on level 1")).toBeInTheDocument();
+    expect(panel).toHaveClass("hv-idle");
+    expect(within(panel).getByText(F.repository)).toBeInTheDocument();
+    expect(panel.textContent).not.toMatch(/\d/);
   });
 
   it("gives the 3D canvas a keyboard route and a description", () => {
@@ -176,7 +210,8 @@ describe("the index form", () => {
 
   it("opens the request dialog for a good repository, outside the animation's transformed layer", async () => {
     const user = userEvent.setup();
-    renderPage();
+    renderPage({ signedIn: true, email: "me@example.com" });
+    await screen.findByRole("link", { name: "Account, me@example.com" });
     const [input] = screen.getAllByRole("textbox", { name: "Repository" });
     await user.type(input!, "https://github.com/apache/kafka.git");
     await user.click(screen.getAllByRole("button", { name: "Index it" })[0]!);
@@ -185,5 +220,90 @@ describe("the index form", () => {
     // Transformed ancestors trap `position: fixed`, so the dialog must not sit inside a phase of the animation.
     expect(dialog.closest(".hv-phase")).toBeNull();
     expect(dialog.closest(".rh-hv")).not.toBeNull();
+  });
+});
+
+describe("the account slot", () => {
+  it("is the outline person that leads to sign-in while the session loads and when signed out", async () => {
+    render(<HiveLanding figures={F} />, { client: stubClient({ quota: () => new Promise(() => undefined), session: () => new Promise(() => undefined) }) });
+    const link = screen.getByRole("link", { name: "Sign in" });
+    expect(link).toHaveAttribute("href", "/auth/sign-in");
+    expect(link).not.toHaveClass("hv-avatar");
+  });
+
+  it("is signed out when the session probe fails", async () => {
+    render(<HiveLanding figures={F} />, { client: stubClient({ quota: () => new Promise(() => undefined) }) });
+    expect(await screen.findByText("to index a public Java repository.", { exact: false })).toBeInTheDocument();
+    const nav = document.querySelector(".hv-nav") as HTMLElement;
+    expect(within(nav).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/auth/sign-in");
+  });
+
+  it("is a disc with the email's initial that leads to the account when signed in", async () => {
+    renderPage({ signedIn: true, email: "me@example.com" });
+    const link = await screen.findByRole("link", { name: "Account, me@example.com" });
+    expect(link).toHaveAttribute("href", "/account");
+    expect(link).toHaveClass("hv-avatar", "hv-icon");
+    expect(link).toHaveTextContent("M");
+    expect(screen.queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
+  it("is named Account when the session has no email", async () => {
+    renderPage({ signedIn: true });
+    expect(await screen.findByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+  });
+});
+
+describe("the sign-in gate on the index form", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  it("says under the closing form that signing in comes first, once a visitor is known to be signed out", async () => {
+    renderPage();
+    const note = (await screen.findByText("to index a public Java repository.", { exact: false })).closest("p") as HTMLElement;
+    expect(note.closest("#start")).not.toBeNull();
+    expect(within(note).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/auth/sign-in?next=%2F%23start");
+    // The hero form has no idle line, and gets none.
+    expect(document.querySelectorAll(".hv-note")).toHaveLength(2);
+  });
+
+  it("takes a signed-out visitor to sign in with the repository carried, and opens no dialog", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    renderPage(SIGNED_OUT, navigate);
+    await screen.findByText("to index a public Java repository.", { exact: false });
+    const [input] = screen.getAllByRole("textbox", { name: "Repository" });
+    await user.type(input!, "apache/kafka");
+    await user.click(screen.getAllByRole("button", { name: "Index it" })[0]!);
+    expect(navigate).toHaveBeenCalledWith("/auth/sign-in?next=%2F%3Frepo%3Dapache%252Fkafka%23start");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("still checks what was typed before it sends a signed-out visitor away", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    renderPage(SIGNED_OUT, navigate);
+    await screen.findByText("to index a public Java repository.", { exact: false });
+    await user.type(screen.getAllByRole("textbox", { name: "Repository" })[0]!, "not a repo");
+    await user.click(screen.getAllByRole("button", { name: "Index it" })[0]!);
+    expect(screen.getByText("Use owner/repo or a github.com link, for example apache/kafka.")).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("fills the repository back in when sign-in returns to the page", () => {
+    window.history.replaceState(null, "", "/?repo=apache%2Fkafka");
+    renderPage();
+    for (const input of screen.getAllByRole("textbox", { name: "Repository" })) expect(input).toHaveValue("apache/kafka");
+  });
+
+  it("ignores a carried repository that is not owner/repo", () => {
+    window.history.replaceState(null, "", "/?repo=%3Cscript%3E");
+    renderPage();
+    for (const input of screen.getAllByRole("textbox", { name: "Repository" })) expect(input).toHaveValue("");
+  });
+
+  it("leaves the idle line alone for a signed-in visitor", async () => {
+    renderPage({ signedIn: true, email: "me@example.com" });
+    await screen.findByRole("link", { name: "Account, me@example.com" });
+    expect(screen.getByText("Public Java repositories on GitHub.")).toBeInTheDocument();
+    expect(screen.queryByText("to index a public Java repository.", { exact: false })).not.toBeInTheDocument();
   });
 });

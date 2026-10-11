@@ -264,19 +264,17 @@ export const pieceHeight = (kind: ArcKindCode): number => RING.height * (kind ==
 
 const ringNoun = (ring: number): string => (ring <= 2 ? "groups" : "pieces");
 
-/** The five labels on the stack: the repository, then one per level. `count` is bold. */
+/** A label on a plate or a ring: the level, which is bold, then what lives on it. It names the structure and counts nothing. */
 export interface RingLabel {
-  readonly before: string;
-  readonly count: string;
-  readonly after: string;
+  readonly head: string;
+  readonly tail: string;
 }
 
-export function ringLabels(figures: LandingFigures, strata: Strata): RingLabel[] {
-  return [
-    { before: "Repository · ", count: number.format(figures.counts.files), after: " files" },
-    ...([1, 2, 3, 4] as const).map((ring) => ({ before: `Level ${ring} · `, count: number.format(strata.perRing[ring]), after: ` ${ringNoun(ring)}` })),
-  ];
-}
+/** The five labels on the stack: the repository, then one per level. */
+export const RING_LABELS: readonly RingLabel[] = [
+  { head: "Repository", tail: "" },
+  ...([1, 2, 3, 4] as const).map((ring) => ({ head: `Level ${ring}`, tail: ` · ${ringNoun(ring)}` })),
+];
 
 // ---- the explorer's readout ----
 
@@ -299,21 +297,13 @@ export const READOUT_HINT = "Hover a piece to read it. Click it to follow its br
 
 /**
  * `k` is the arc to describe (-1 for the repository), `selected` whether it is the clicked piece, and `lit` how many
- * pieces the followed branch lights, or 0 when none is followed.
+ * pieces the followed branch lights, or 0 when none is followed. Figures are on demand: the repository at rest states
+ * none, so every size on the page is one the visitor asked for by pointing at a piece. An empty field is not drawn.
  */
 export function readoutFor(figures: LandingFigures, strata: Strata, k: number, selected: boolean, lit: number): Readout {
   const hint = lit > 0 ? `Following this branch: ${lit} pieces lit. Click empty space or press Escape to clear.` : READOUT_HINT;
   if (k < 0) {
-    return {
-      level: "Repository",
-      files: number.format(figures.counts.files),
-      swatch: "k",
-      tag: figures.repository,
-      share: "100% of the repository",
-      inside: "Nothing; this is the top",
-      below: `${strata.perRing[1]} groups on level 1`,
-      hint,
-    };
+    return { level: "Repository", files: "", swatch: "k", tag: figures.repository, share: "", inside: "", below: "", hint };
   }
   const [ring, , , files, kind] = strata.arcs[k]!;
   const parent = strata.parentOf[k]!;

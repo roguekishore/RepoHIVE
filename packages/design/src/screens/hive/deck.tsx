@@ -4,18 +4,16 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useLink } from "../../provider/design-provider";
 import { routes } from "../../routes";
 import { useHive } from "./context";
-import { clamp, number } from "./model";
+import { clamp } from "./model";
 import { prefersReducedMotion, readScopedPalette, watchScopedPalette } from "./palette";
 import { paintThumb, VIEWS, type ViewId } from "./thumbs";
 
 /** The fixed nav's height in pixels; the same value as `--rh-hv-nav`. */
 const NAV = 64;
 
-/** The overview preview is markup, not a canvas: the repository in figures and its five largest regions. */
+/** The overview preview is markup, not a canvas: the repository's five largest regions, in proportion and by name. */
 function Overview() {
   const { figures } = useHive();
-  const c = figures.counts;
-  const share = ((c.preserved / c.assessed) * 100).toFixed(1);
   const top = figures.regions
     .slice()
     .sort((a, b) => b[1] - a[1])
@@ -23,36 +21,38 @@ function Overview() {
   const mx = top[0]?.[1] ?? 1;
   return (
     <div className="hv-ov">
-      <div className="hv-ov-figs">
-        <div>
-          <b>{number.format(c.files)}</b>
-          <span>files</span>
-        </div>
-        <div>
-          <b>{number.format(c.regions)}</b>
-          <span>regions</span>
-        </div>
-        <div>
-          <b>{share}%</b>
-          <span>kept, of measured</span>
-        </div>
-      </div>
       <div className="hv-ov-bars">
         {top.map((r) => {
           const w = Math.max(6, (r[1] / mx) * 62);
           return (
-            <div key={r[0]}>
-              <em className={r[5] === 1 ? "k" : "r"} style={{ "--w": `${w}%` } as CSSProperties}>
-                <i style={{ width: `${w}%` }} />
-                <span>{r[0]}</span>
-              </em>
-              <b>{number.format(r[1])}</b>
-            </div>
+            <em key={r[0]} className={r[5] === 1 ? "k" : "r"} style={{ "--w": `${w}%` } as CSSProperties}>
+              <i style={{ width: `${w}%` }} />
+              <span>{r[0]}</span>
+            </em>
           );
         })}
       </div>
     </div>
   );
+}
+
+/**
+ * Previews paint one per frame. Six canvases painted in the same frame, as the deck scrolls into reach, is a pause the
+ * reader feels; spread over six frames it is not. A job is idempotent: it reads the current size and palette when it runs.
+ */
+const paintQueue = new Set<() => void>();
+let paintFrame = 0;
+function pumpPaints(): void {
+  paintFrame = 0;
+  const next = paintQueue.values().next();
+  if (next.done) return;
+  paintQueue.delete(next.value);
+  next.value();
+  if (paintQueue.size > 0) paintFrame = requestAnimationFrame(pumpPaints);
+}
+function queuePaint(job: () => void): void {
+  paintQueue.add(job);
+  if (paintFrame === 0) paintFrame = requestAnimationFrame(pumpPaints);
 }
 
 /** One view's preview: a canvas that repaints on resize and on a theme change. */
@@ -72,31 +72,37 @@ function Thumb({ id }: { readonly id: ViewId }) {
     // while it was away; painting all six at load is main-thread work nobody can see.
     let near = typeof IntersectionObserver !== "function";
     let stale = true;
-    const paint = (): void => {
-      stale = true;
-      if (!near) return;
-      const r = el.getBoundingClientRect();
-      if (r.width < 4 || r.height < 4 || !palette) return;
-      const d = Math.min(2, window.devicePixelRatio || 1);
-      const w = Math.round(r.width * d);
-      const h = Math.round(r.height * d);
+    // Every layer is scaled down and tilted in the stack, so a preview does not need the screen's full pixel ratio. The
+    // size is the layout size: a bounding rectangle would be the tilted shape's, which is larger and changes as it moves.
+    const draw = (): void => {
+      if (!stale || !near || !palette) return;
+      const cssW = el.offsetWidth;
+      const cssH = el.offsetHeight;
+      if (cssW < 4 || cssH < 4) return;
+      const d = Math.min(1.5, window.devicePixelRatio || 1);
+      const w = Math.round(cssW * d);
+      const h = Math.round(cssH * d);
       // Assigning a size clears the canvas and drops its backing store, so only do it when the size changed.
       if (cv.width !== w) cv.width = w;
       if (cv.height !== h) cv.height = h;
       const ctx = cv.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(d, 0, 0, d, 0, 0);
-      paintThumb(id, ctx, r.width, r.height, palette, figures);
+      paintThumb(id, ctx, cssW, cssH, palette, figures);
       stale = false;
+    };
+    const paint = (): void => {
+      stale = true;
+      if (near) queuePaint(draw);
     };
     const io =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
             (entries) => {
               near = entries.some((e) => e.isIntersecting);
-              if (near && stale) paint();
+              if (near && stale) queuePaint(draw);
             },
-            { rootMargin: "100% 0px" },
+            { rootMargin: "200% 0px" },
           )
         : undefined;
     io?.observe(el);
@@ -109,6 +115,7 @@ function Thumb({ id }: { readonly id: ViewId }) {
       paint();
     });
     return () => {
+      paintQueue.delete(draw);
       io?.disconnect();
       ro?.disconnect();
       stop();
@@ -182,8 +189,12 @@ export function HiveDeck() {
           op = d > 4.5 ? Math.max(0, 5.5 - d) : 1;
           z = 100 - Math.round(d * 10);
         }
+        // A layer that has faded out is taken out of painting and compositing, not just made transparent.
+        const visibility = op < 0.01 ? "hidden" : "visible";
+        if (layer.style.visibility !== visibility) layer.style.visibility = visibility;
+        if (op < 0.01) return;
         layer.style.transform = tf;
-        layer.style.opacity = String(op);
+        layer.style.opacity = op.toFixed(3);
         layer.style.zIndex = String(z);
       });
       const k = Math.round(a);
@@ -200,8 +211,10 @@ export function HiveDeck() {
       raf = 0;
       if (flatRef.current) return;
       shown += (target.current - shown) * (prefersReducedMotion() ? 1 : 0.12);
-      const moving = Math.abs(target.current - shown) > 0.0005;
-      if (moving || curRef.current < 0) place(shown);
+      // Within 0.002 of a layer the picture has arrived: snap to it, place it once more and let the loop stop.
+      const moving = Math.abs(target.current - shown) > 0.002;
+      if (!moving) shown = target.current;
+      place(shown);
       if (moving) raf = requestAnimationFrame(loop);
     };
     function kick(): void {

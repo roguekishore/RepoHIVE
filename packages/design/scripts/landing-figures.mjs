@@ -93,27 +93,53 @@ function readIndexBytes(dir) {
   return files;
 }
 
-/** Seeded force layout of the file graph, fitted to a 1000 by 1000 square (the thumbnail's own viewBox). */
+/** Where the connected files end and the halo of loose files begins, and the halo's outer edge, in the 1000 square. */
+const CORE_RADIUS = 300;
+const HALO_RADIUS = 465;
+
+/**
+ * Seeded layout of the file graph, fitted to a 1000 by 1000 square (the thumbnail's own viewBox).
+ *
+ * Files with no dependency have nothing to hold them: in a force layout they only repel one another, so they sweep out
+ * to the edge as a ring around the connected files with a gap between. So the forces run on the connected files alone,
+ * and the loose files are scattered in a halo that starts where the connected ones thin out and spreads at the same
+ * density, the way a drawn graph shows its isolated nodes.
+ */
 function flatLayout(count, links) {
-  const px = new Float64Array(count);
-  const py = new Float64Array(count);
-  const dx = new Float64Array(count);
-  const dy = new Float64Array(count);
+  const degree = new Uint32Array(count);
+  for (const [a, b] of links) {
+    degree[a] += 1;
+    degree[b] += 1;
+  }
+  const linked = [];
+  const loose = [];
+  for (let i = 0; i < count; i++) (degree[i] > 0 ? linked : loose).push(i);
+  const slot = new Int32Array(count).fill(-1);
+  linked.forEach((file, s) => {
+    slot[file] = s;
+  });
+  const pairs = links.map(([a, b]) => [slot[a], slot[b]]);
+
+  const n = linked.length;
+  const px = new Float64Array(n);
+  const py = new Float64Array(n);
+  const dx = new Float64Array(n);
+  const dy = new Float64Array(n);
   const rand = mulberry(LAYOUT_SEED);
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < n; i++) {
     const a = rand() * Math.PI * 2;
     const rr = Math.sqrt(rand());
     px[i] = Math.cos(a) * rr;
     py[i] = Math.sin(a) * rr;
   }
-  const k = Math.sqrt(Math.PI / count);
+  const k = Math.sqrt(Math.PI / n);
   const k2 = k * k;
   const iterations = 150;
   for (let it = 0; it < iterations; it++) {
     dx.fill(0);
     dy.fill(0);
-    for (let i = 0; i < count; i++) {
-      for (let j = i + 1; j < count; j++) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
         const ex = px[i] - px[j];
         const ey = py[i] - py[j];
         const f = k2 / (ex * ex + ey * ey + 1e-6);
@@ -123,7 +149,7 @@ function flatLayout(count, links) {
         dy[j] -= ey * f;
       }
     }
-    for (const [a, b] of links) {
+    for (const [a, b] of pairs) {
       const fx = px[a] - px[b];
       const fy = py[a] - py[b];
       const g = (Math.sqrt(fx * fx + fy * fy) + 1e-6) / k;
@@ -133,7 +159,7 @@ function flatLayout(count, links) {
       dy[b] += fy * g;
     }
     const temp = 0.1 * (1 - it / iterations) + 0.002;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < n; i++) {
       dx[i] -= px[i] * 0.7;
       dy[i] -= py[i] * 0.7;
       const len = Math.sqrt(dx[i] * dx[i] + dy[i] * dy[i]) + 1e-9;
@@ -144,19 +170,33 @@ function flatLayout(count, links) {
   }
   let mx = 0;
   let my = 0;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < n; i++) {
     mx += px[i];
     my += py[i];
   }
-  mx /= count;
-  my /= count;
+  mx /= n;
+  my /= n;
   const radii = [];
-  for (let i = 0; i < count; i++) radii.push(Math.hypot(px[i] - mx, py[i] - my));
-  radii.sort((a, b) => a - b);
-  const scale = 470 / radii[Math.floor(count * 0.98)];
+  for (let i = 0; i < n; i++) radii.push(Math.hypot(px[i] - mx, py[i] - my));
+  const sorted = [...radii].sort((a, b) => a - b);
+  // The connected files fill the core; a straggler pulled far out is held inside the halo's edge.
+  const scale = Math.min(CORE_RADIUS / sorted[Math.floor(n * 0.95)], (HALO_RADIUS - 10) / sorted[n - 1]);
+
   const clamp = (v) => Math.max(0, Math.min(1000, Math.round(v)));
-  const points = [];
-  for (let i = 0; i < count; i++) points.push([clamp(500 + (px[i] - mx) * scale), clamp(500 + (py[i] - my) * scale)]);
+  const points = new Array(count);
+  linked.forEach((file, s) => {
+    points[file] = [clamp(500 + (px[s] - mx) * scale), clamp(500 + (py[s] - my) * scale)];
+  });
+  // The loose files: a golden-angle spiral from the core's edge outward, equal area per file, nudged off the exact
+  // spiral so it does not read as a pattern.
+  const m = loose.length;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const inner = CORE_RADIUS * 0.8;
+  loose.forEach((file, i) => {
+    const r = Math.sqrt(inner * inner + ((i + 0.5) / m) * (HALO_RADIUS * HALO_RADIUS - inner * inner)) + (rand() - 0.5) * 14;
+    const a = i * golden + (rand() - 0.5) * 0.5;
+    points[file] = [clamp(500 + Math.cos(a) * r), clamp(500 + Math.sin(a) * r)];
+  });
   return points;
 }
 

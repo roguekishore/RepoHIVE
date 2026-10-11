@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useHive } from "./context";
 import { HiveIndexForm } from "./form";
-import { clamp, number, ringLabels } from "./model";
+import { clamp, RING_LABELS, type RingLabel } from "./model";
 import { startStageScene, type StageControl } from "./stage-scene";
 
 /**
@@ -23,20 +23,25 @@ export function HiveStage() {
   const [cur, setCur] = useState(0);
   const [noGl, setNoGl] = useState(false);
 
-  const labels = useMemo(() => ringLabels(figures, strata), [figures, strata]);
-  const files = number.format(c.files);
-  const plateText = [
-    { before: "Files · ", count: files, after: "" },
-    { before: "Level 3 · ", count: number.format(model.leaves), after: " regions" },
-    { before: "Level 2 · ", count: number.format(strata.perRing[2]), after: " groups" },
-    { before: "Level 1 · ", count: number.format(strata.perRing[1]), after: " groups" },
+  // The picture names its parts and leaves the sizes to the explorer, where a visitor asks for one by pointing at it.
+  const plateText: readonly RingLabel[] = [
+    { head: "Files", tail: "" },
+    { head: "Level 3", tail: " · regions" },
+    { head: "Level 2", tail: " · groups" },
+    { head: "Level 1", tail: " · groups" },
   ];
   const counter: readonly (readonly [string, string])[] = [
-    [files, "files in a flat graph"],
-    [files, "cells, one per file"],
-    [number.format(c.assessed), "regions measured"],
-    ["4", "plates, one per level"],
-    [number.format(strata.total), "pieces on four levels"],
+    ["Tangled", "one flat graph"],
+    ["Cells", "one per file"],
+    ["Judged", "kept or rebuilt, region by region"],
+    ["Layered", "one plate per level"],
+    ["Mapped", "four levels, one hive"],
+  ];
+  // The split of the regions is drawn in proportion, with no figure beside it.
+  const split: readonly (readonly [string, number, string])[] = [
+    ["k", c.preserved, "Kept"],
+    ["r", c.reconstructed, "Rebuilt"],
+    ["u", c.degenerate, "Too small"],
   ];
 
   // Scroll sets the phase and the progress; this part works without WebGL. The section's position and length are
@@ -125,7 +130,7 @@ export function HiveStage() {
         <canvas
           className="hv-gl"
           ref={canvas}
-          aria-label={`${figures.repository}'s ${files} files as hexagonal cells. Scrolling packs them into a hive, raises the kept regions, splits the hive into one plate per level, and turns the plates into the rings of the hierarchy.`}
+          aria-label={`${figures.repository}'s files as hexagonal cells. Scrolling packs them into a hive, raises the kept regions, splits the hive into one plate per level, and turns the plates into the rings of the hierarchy.`}
         />
         <div className="hv-fallback" hidden={!noGl}>
           This picture needs WebGL. The story below still reads in full.
@@ -150,7 +155,7 @@ export function HiveStage() {
             <h2>
               Every file gets <span>a cell.</span>
             </h2>
-            <p>{files} files pack into a honeycomb, one patch per region.</p>
+            <p>Files pack into a honeycomb, one patch per region.</p>
           </div>
 
           <div className={phase(2)} data-p="2">
@@ -158,18 +163,17 @@ export function HiveStage() {
               Keep what holds. <span>Rebuild the rest.</span>
             </h2>
             <div className="hv-legend">
-              <span>
-                <i className="hv-sw k" />
-                Kept, {c.preserved}
-              </span>
-              <span>
-                <i className="hv-sw r" />
-                Rebuilt, {c.reconstructed}
-              </span>
-              <span>
-                <i className="hv-sw u" />
-                Too small, {c.degenerate}
-              </span>
+              <div className="hv-split" role="img" aria-label="The regions kept, rebuilt and too small to measure, drawn in proportion">
+                {split.map(([kind, n]) => (
+                  <i key={kind} className={kind} style={{ flexGrow: n }} />
+                ))}
+              </div>
+              {split.map(([kind, , word]) => (
+                <span key={kind}>
+                  <i className={`hv-sw ${kind}`} />
+                  {word}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -192,27 +196,25 @@ export function HiveStage() {
           {plateText.map((t, i) => (
             <div
               className="hv-plate-tag"
-              key={t.before}
+              key={t.head}
               ref={(el) => {
                 plateTags.current[i] = el;
               }}
             >
-              {t.before}
-              <b>{t.count}</b>
-              {t.after}
+              <b>{t.head}</b>
+              {t.tail}
             </div>
           ))}
-          {labels.map((t, i) => (
+          {RING_LABELS.map((t, i) => (
             <div
               className="hv-strata-tag"
-              key={t.before}
+              key={t.head}
               ref={(el) => {
                 ringTags.current[i] = el;
               }}
             >
-              {t.before}
-              <b>{t.count}</b>
-              {t.after}
+              <b>{t.head}</b>
+              {t.tail}
             </div>
           ))}
 

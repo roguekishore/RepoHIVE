@@ -192,6 +192,20 @@ html:has(.rh-hv) {
   color: var(--rh-fg);
 }
 
+/* Signed in: the account slot keeps the icon button's 36px square but is a soft disc with an initial, not the outline person. */
+.hv-btn.hv-avatar {
+  border-radius: 50%;
+  background: var(--rh-accent-soft);
+  border-color: var(--rh-accent);
+  color: var(--rh-accent);
+  font-weight: 600;
+}
+
+.hv-btn.hv-avatar:hover {
+  background: var(--rh-accent-soft);
+  border-color: var(--rh-fg);
+}
+
 .hv-btn.hv-primary {
   background: var(--rh-accent);
   border-color: var(--rh-accent);
@@ -375,42 +389,14 @@ html:has(.rh-hv) {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 16px;
   padding: clamp(14px, 2vw, 24px);
 }
 
-.hv-ov-figs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.hv-ov-figs b {
-  display: block;
-  font-size: var(--rh-hv-fs-title);
-  line-height: var(--rh-hv-lh-title);
-  font-weight: var(--rh-hv-weight-heading);
-  letter-spacing: var(--rh-hv-track-title);
-  font-variant-numeric: tabular-nums;
-}
-
-.hv-ov-figs span {
-  color: var(--rh-fg-2);
-  font-size: var(--rh-hv-fs-caption);
-}
-
+/* The five largest regions by name; the length of a bar is the region's share of them. */
 .hv-ov-bars {
   display: grid;
-  align-content: end;
-  gap: 6px;
-}
-
-.hv-ov-bars > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  align-content: center;
   gap: 10px;
-  align-items: center;
   font-family: var(--rh-font-mono);
   font-size: var(--rh-hv-fs-label);
   color: var(--rh-fg-2);
@@ -432,10 +418,6 @@ html:has(.rh-hv) {
   background: var(--rh-accent);
 }
 
-.hv-ov-bars em.u i {
-  background: var(--rh-line-strong);
-}
-
 .hv-ov-bars em span {
   position: absolute;
   left: calc(var(--w) + 8px);
@@ -445,12 +427,6 @@ html:has(.rh-hv) {
   text-overflow: ellipsis;
   max-width: calc(100% - var(--w) - 8px);
   line-height: var(--rh-hv-lh-label);
-}
-
-.hv-ov-bars b {
-  font-weight: 400;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Determinism ---------- */
@@ -545,6 +521,12 @@ html:has(.rh-hv) {
   line-height: var(--rh-hv-lh-hero);
   letter-spacing: var(--rh-hv-track-hero);
   font-weight: var(--rh-hv-weight-heading);
+}
+
+.hv-proof {
+  color: var(--rh-fg-2);
+  font-size: var(--rh-hv-fs-small);
+  max-width: 56ch;
 }
 
 .hv-foot {
@@ -745,6 +727,31 @@ html:has(.rh-hv) {
   letter-spacing: var(--rh-hv-track-label);
   text-transform: uppercase;
   color: var(--rh-fg-2);
+}
+
+/* The kept, rebuilt and too-small regions in proportion, across the legend's full width. */
+.hv-split {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.hv-split i {
+  display: block;
+  min-width: 3px;
+}
+
+.hv-split .k {
+  background: var(--rh-fg);
+}
+
+.hv-split .r {
+  background: var(--rh-accent);
+}
+
+.hv-split .u {
+  background: var(--rh-line-strong);
 }
 
 .hv-plate-tag {
@@ -974,6 +981,12 @@ html:has(.rh-hv) {
   font-size: var(--rh-hv-fs-small);
 }
 
+/* At rest the readout states no figures; they keep their room so the panel does not jump when a piece is read. */
+.hv-idle .hv-rd-big,
+.hv-idle .hv-rd-dl {
+  visibility: hidden;
+}
+
 .hv-rd-tag {
   justify-self: start;
   display: inline-flex;
@@ -1187,7 +1200,8 @@ html:has(.rh-hv) {
   border-radius: 6px;
   background: var(--rh-surface);
   overflow: hidden;
-  box-shadow: 0 30px 60px -36px var(--rh-scrim);
+  /* A tight shadow: a wide blur is rasterised into every layer's texture, seven times over, and widens each of them. */
+  box-shadow: 0 14px 24px -18px var(--rh-scrim);
 }
 
 .hv-layer-bar {
@@ -1260,6 +1274,7 @@ html:has(.rh-hv) {
   top: auto;
   transform: none !important;
   opacity: 1 !important;
+  visibility: visible !important;
   aspect-ratio: auto;
 }
 

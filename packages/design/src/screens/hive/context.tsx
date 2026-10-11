@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type RefObject } from "react";
+import type { Session } from "../../contracts";
 import type { LandingFigures } from "../landing/figures-types";
 import type { HiveModel, Strata } from "./model";
 
@@ -19,6 +20,8 @@ export interface HiveContextValue {
   readonly tip: TipApi;
   /** Opens the real index-request dialog for `owner/repo`. The dialog lives at the page root, outside any transformed ancestor. */
   readonly requestIndex: (repo: string) => void;
+  /** Who is looking: `undefined` until the host answers. Only a known signed-out visitor is sent to sign in. */
+  readonly session: Session | undefined;
 }
 
 export const HiveContext = createContext<HiveContextValue | undefined>(undefined);

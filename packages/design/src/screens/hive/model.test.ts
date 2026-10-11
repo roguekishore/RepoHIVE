@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { BROADLEAF_FIGURES as F } from "../landing/broadleaf-figures";
-import { branchOf, buildHiveModel, buildStrata, clamp, number, pieceHeight, readoutFor, ringLabels, sm } from "./model";
+import { branchOf, buildHiveModel, buildStrata, clamp, number, pieceHeight, readoutFor, RING_LABELS, sm } from "./model";
 
 const M = buildHiveModel(F);
 const S = buildStrata(F);
@@ -85,16 +85,16 @@ describe("the strata", () => {
     expect(pieceHeight(2)).toBeGreaterThan(pieceHeight(3));
   });
 
-  it("labels the stack the way the approved design does", () => {
-    const labels = ringLabels(F, S).map((l) => `${l.before}${l.count}${l.after}`);
-    expect(labels).toEqual(["Repository · 2,985 files", "Level 1 · 2 groups", "Level 2 · 26 groups", "Level 3 · 292 pieces", "Level 4 · 344 pieces"]);
+  it("names the levels of the stack and counts none of them", () => {
+    const labels = RING_LABELS.map((l) => `${l.head}${l.tail}`);
+    expect(labels).toEqual(["Repository", "Level 1 · groups", "Level 2 · groups", "Level 3 · pieces", "Level 4 · pieces"]);
   });
 });
 
 describe("the explorer's readout", () => {
-  it("describes the repository when nothing is picked", () => {
+  it("names the repository and states no figure while nothing is picked", () => {
     const r = readoutFor(F, S, -1, false, 0);
-    expect(r).toMatchObject({ level: "Repository", files: "2,985", share: "100% of the repository", below: "2 groups on level 1" });
+    expect(r).toMatchObject({ level: "Repository", files: "", share: "", inside: "", below: "" });
     expect(r.tag).toBe(F.repository);
   });
 
