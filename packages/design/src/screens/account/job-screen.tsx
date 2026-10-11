@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LinkButton } from "../../components/button";
 import { Alert, EmptyState, Page, Text } from "../../components/feedback";
 import { KeyValueList, Panel } from "../../components/panel";
 import { StatusTag } from "../../components/status";
-import { JOB_STATES, isTerminalJobState, type Job, type JobState } from "../../contracts";
+import { JOB_STATES, isTerminalJobState, type Job, type JobListItem, type JobState } from "../../contracts";
 import { useClient } from "../../provider/design-provider";
 import { routes } from "../../routes";
-import { describeFailureCode, formatCount, repoIdFromJobRepo } from "../dashboard/format";
+import { describeFailureCode, formatCount, formatElapsed, formatWhen, repoIdFromJobRepo } from "../dashboard/format";
 import { JOB_STATE_LABEL, jobStateWord, jobTone, stageLabel } from "../dashboard/job-labels";
+import { useRepoFigures } from "../dashboard/use-figures";
 
 /** What the Job page is showing. `useJobState` reads it and the screen draws it. */
 export type JobPageState =
@@ -75,7 +76,39 @@ function stepKinds(job: Job): StepKind[] {
   return STAGES.map((_stage, index) => (index < recorded ? "done" : index === recorded ? (job.state === "failed" ? "fail" : "cur") : "pending"));
 }
 
-const STEP_WORD: Readonly<Record<StepKind, string>> = { done: "Done", cur: "In progress", fail: "Failed", pending: "Not reached" };
+/** The note at the end of a stage's row: only the current stage has one. */
+function stageNote(kind: StepKind, job: Job): ReactNode {
+  if (kind === "fail") return <span className="rh-t-caption rh-tone-err">Failed</span>;
+  if (kind !== "cur") return null;
+  if (job.state === "queued" || job.state === "waiting-for-slot") return <span className="rh-t-caption rh-fg3">Now</span>;
+  const { completed, total } = job.progress ?? {};
+  return completed !== undefined && total !== undefined ? (
+    <span className="rh-t-caption rh-mono rh-num">
+      {formatCount(completed)} / {formatCount(total)}
+    </span>
+  ) : null;
+}
+
+/** This job's entry in the signed-in account's list, which carries when it was requested and ended. Absent when unread. */
+function useJobListItem(jobId: string): JobListItem | undefined {
+  const client = useClient();
+  const [item, setItem] = useState<JobListItem | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    client
+      .jobs()
+      .then((list) => {
+        if (!cancelled) setItem(list?.items.find((entry) => entry.jobId === jobId));
+      })
+      .catch(() => {
+        // The details are a convenience; the page works without them.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, jobId]);
+  return item;
+}
 
 export interface JobScreenProps {
   readonly jobId: string;
@@ -84,6 +117,11 @@ export interface JobScreenProps {
 
 /** The Job page: where one indexing job is, what it produced, and why it stopped when it did. Every value is the job's record. */
 export function JobScreen({ jobId, state }: JobScreenProps) {
+  const listItem = useJobListItem(jobId);
+  const now = useMemo(() => new Date(), []);
+  const resultSnapshot = state.status === "ready" ? state.job.result?.snapshotId : undefined;
+  const figures = useRepoFigures(useMemo(() => (resultSnapshot === undefined ? [] : [resultSnapshot]), [resultSnapshot]));
+  const resultFigures = resultSnapshot === undefined ? undefined : (figures.get(resultSnapshot) ?? undefined);
   if (state.status === "loading") {
     return (
       <Page narrow>
@@ -147,10 +185,12 @@ export function JobScreen({ jobId, state }: JobScreenProps) {
       <div className="rh-job-grid">
         <Panel
           title="Stages"
+          className="rh-job-stages"
+          tight
           actions={
-            counted ? (
+            counted && job.state !== "failed" && !isTerminalJobState(job.state) ? (
               <Text role="caption" tone="subtle" className="rh-mono">
-                {formatCount(progress.completed ?? 0)} / {formatCount(progress.total ?? 0)}
+                {Math.round(((progress.completed ?? 0) / (progress.total ?? 1)) * 100)}%
               </Text>
             ) : undefined
           }
@@ -162,7 +202,7 @@ export function JobScreen({ jobId, state }: JobScreenProps) {
                 <li key={stage} className={`rh-step-${kind}`} aria-current={kind === "cur" ? "step" : undefined}>
                   <span className="rh-step-ic" aria-hidden />
                   <span>{JOB_STATE_LABEL[stage]}</span>
-                  <span className="rh-t-caption rh-fg3">{STEP_WORD[kind]}</span>
+                  {stageNote(kind, job)}
                 </li>
               );
             })}
@@ -178,9 +218,10 @@ export function JobScreen({ jobId, state }: JobScreenProps) {
           <Panel title="Details">
             <KeyValueList
               items={[
-                { label: "Repository", value: repoId },
-                { label: "State", value: JOB_STATE_LABEL[job.state] },
-                ...(job.result === undefined ? [] : [{ label: "Snapshot", value: <span className="rh-mono">{job.result.snapshotId.slice(0, 8)}</span> }]),
+                ...(listItem === undefined ? [] : [{ label: "Requested", value: formatWhen(listItem.requestedAt, now) }]),
+                ...(listItem?.endedAt === undefined ? [] : [{ label: "Elapsed", value: <span className="rh-mono">{formatElapsed(listItem.requestedAt, listItem.endedAt) ?? "—"}</span> }]),
+                { label: "Branch", value: "Default branch" },
+                ...(progress?.total === undefined ? [] : [{ label: "Files found", value: <span className="rh-mono">{formatCount(progress.total)}</span> }]),
               ]}
             />
             {isTerminalJobState(job.state) ? null : (
@@ -199,9 +240,30 @@ export function JobScreen({ jobId, state }: JobScreenProps) {
                 </LinkButton>
               }
             >
-              <Text role="caption" tone="subtle">
-                The snapshot is published. Its views open from the repository.
-              </Text>
+              {resultFigures === undefined ? (
+                <Text role="caption" tone="subtle">
+                  The snapshot is published. Its views open from the repository.
+                </Text>
+              ) : (
+                <div className="rh-job-figs">
+                  <div>
+                    <Text role="heading" figure>
+                      {formatCount(resultFigures.files)}
+                    </Text>
+                    <Text role="caption" tone="subtle">
+                      files indexed
+                    </Text>
+                  </div>
+                  <div>
+                    <Text role="heading" figure>
+                      {formatCount(resultFigures.regions)}
+                    </Text>
+                    <Text role="caption" tone="subtle">
+                      regions
+                    </Text>
+                  </div>
+                </div>
+              )}
             </Panel>
           )}
         </div>

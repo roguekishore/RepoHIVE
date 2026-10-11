@@ -28,7 +28,7 @@ describe("JobScreen", () => {
   it("marks every stage done and links the result once the job has succeeded", async () => {
     render({ repo: "github.com/acme/widgets", state: "succeeded", result: { snapshotId: SNAPSHOT } });
     expect(await screen.findByText("Succeeded", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getAllByText("Done")).toHaveLength(7);
+    expect(document.querySelectorAll(".rh-step-done")).toHaveLength(7);
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/repos/acme/widgets");
   });
 
@@ -36,7 +36,21 @@ describe("JobScreen", () => {
     render({ repo: "github.com/acme/widgets", state: "failed", progress: { stage: "fetching" }, failure: { code: "clone-timeout", message: "Fetching took too long." } });
     expect(await screen.findByText("Fetching took too long.")).toBeInTheDocument();
     expect(screen.getByText("clone-timeout")).toBeInTheDocument();
-    expect(screen.getByText("Failed", { selector: "span.rh-fg3" })).toBeInTheDocument();
+    const stopped = document.querySelector(".rh-step-fail");
+    expect(stopped).not.toBeNull();
+    expect(within(stopped as HTMLElement).getByText("Failed")).toBeInTheDocument();
+  });
+
+  it("reads when the job was requested from the account's job list, and leaves the row out without it", async () => {
+    const job: Job = { repo: "github.com/acme/widgets", state: "succeeded", result: { snapshotId: SNAPSHOT } };
+    const item = { jobId: "j_1", repo: job.repo, state: job.state, tier: "S" as const, requestedAt: "2026-10-01T10:00:00.000Z", endedAt: "2026-10-01T10:01:08.000Z" };
+    const { unmount } = render(job, { jobs: () => Promise.resolve({ items: [item] }) });
+    expect(await screen.findByText("1m 08s")).toBeInTheDocument();
+    expect(screen.getByText("Requested")).toBeInTheDocument();
+    unmount();
+    render(job);
+    await screen.findByRole("heading", { level: 1, name: "acme/widgets" });
+    expect(screen.queryByText("Requested")).toBeNull();
   });
 
   it("falls back to the failure code's words when no message was recorded", async () => {

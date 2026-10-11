@@ -23,7 +23,6 @@ import { keptPercent, type RepoFigures } from "./figures";
 import { describeFailureCode, formatCount, formatDay } from "./format";
 import type { DashboardFrame } from "./frame-prop";
 import { IndexRequestDialog } from "./index-dialog";
-import { JOB_STATE_LABEL } from "./job-labels";
 import { RepoPrint } from "./repo-print";
 import { useRepoFigures } from "./use-figures";
 
@@ -52,13 +51,10 @@ const TONE: Readonly<Record<RepoCardModel["status"], StatusTone>> = { ok: "ok", 
 function statusText(card: RepoCardModel, now: Date): string {
   const job = card.job;
   if (card.status === "run" && job !== undefined) {
-    const label = JOB_STATE_LABEL[job.state];
     const { completed, total } = job.progress ?? {};
-    return completed !== undefined && total !== undefined && total > 0
-      ? `Indexing · ${label.toLowerCase()} ${formatCount(completed)} of ${formatCount(total)}`
-      : `Indexing · ${label.toLowerCase()}`;
+    return completed !== undefined && total !== undefined && total > 0 ? `Indexing · ${Math.round((completed / total) * 100)}%` : "Indexing";
   }
-  if (card.status === "err" && job !== undefined) return `Failed · ${describeFailureCode(job.failure?.code ?? "failed")}`;
+  if (card.status === "err" && job !== undefined) return describeFailureCode(job.failure?.code ?? "failed");
   return (card.indexed === undefined ? undefined : formatDay(card.indexed.indexedAt, now)) ?? "Indexed";
 }
 

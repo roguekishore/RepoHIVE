@@ -18,6 +18,8 @@ export interface TableColumn<Row> {
   readonly numeric?: boolean;
   /** Makes the header a button that calls `onSort` with this column's key. */
   readonly sortable?: boolean;
+  /** A CSS width for the column, such as `22%`. */
+  readonly width?: string;
 }
 
 export interface TableProps<Row> {
@@ -56,7 +58,7 @@ export function Table<Row>({ caption, columns, rows, rowKey, sort, onSort, onRow
             {columns.map((column) => {
               const sorted = sort?.key === column.key ? sort.direction : undefined;
               return (
-                <th key={column.key} scope="col" className={cx(column.numeric && "rh-n")} aria-sort={sorted ?? (column.sortable ? "none" : undefined)}>
+                <th key={column.key} scope="col" className={cx(column.numeric && "rh-n")} style={column.width === undefined ? undefined : { width: column.width }} aria-sort={sorted ?? (column.sortable ? "none" : undefined)}>
                   {column.sortable ? (
                     <button type="button" onClick={() => onSort?.(column.key)}>
                       {column.header}

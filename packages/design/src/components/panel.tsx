@@ -9,10 +9,12 @@ export interface PanelProps {
   readonly className?: string;
   /** Set to false when the content brings its own padding, such as a table. */
   readonly padded?: boolean;
+  /** Less padding above and below the content, for a list that has its own row padding. */
+  readonly tight?: boolean;
 }
 
 /** A bordered surface with an optional header. */
-export function Panel({ title, actions, children, className, padded = true }: PanelProps) {
+export function Panel({ title, actions, children, className, padded = true, tight = false }: PanelProps) {
   return (
     <section className={cx("rh-panel", className)}>
       {title === undefined && actions === undefined ? null : (
@@ -21,7 +23,7 @@ export function Panel({ title, actions, children, className, padded = true }: Pa
           {actions}
         </header>
       )}
-      {padded ? <div className="rh-panel-body">{children}</div> : children}
+      {padded ? <div className={cx("rh-panel-body", tight && "rh-panel-body-tight")}>{children}</div> : children}
     </section>
   );
 }
