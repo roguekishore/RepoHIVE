@@ -16,9 +16,9 @@ const labels = (groups: ReturnType<typeof navigationGroups>, group: string) =>
   groups.find((entry) => entry.label === group)?.items.map((item) => item.label);
 
 describe("navigationGroups", () => {
-  it("lists the pages, without Activity, and no views outside a repository", () => {
+  it("lists the pages, Activity included, and no views outside a repository", () => {
     const groups = navigationGroups("/repos", [], "");
-    expect(labels(groups, "Pages")).toEqual(["Repositories", "Method"]);
+    expect(labels(groups, "Pages")).toEqual(["Repositories", "Activity", "Method"]);
     expect(labels(groups, "Views")).toEqual([]);
   });
 

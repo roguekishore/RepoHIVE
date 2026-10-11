@@ -22,7 +22,7 @@ export function navigationGroups(
   query: string,
 ): readonly PaletteGroup[] {
   const repo = parseRepoPath(pathname);
-  const pages: PaletteItem[] = globalNav(false).map((entry) => ({
+  const pages: PaletteItem[] = globalNav(true).map((entry) => ({
     id: `page:${entry.id}`,
     label: entry.label,
     icon: entry.icon,
