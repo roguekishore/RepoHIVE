@@ -1,5 +1,5 @@
 /**
- * Zoom_Map_Adapter (spec R5) — the single pure function that projects a parsed
+ * Zoom_Map_Adapter (spec R5) - the single pure function that projects a parsed
  * Index_File_Set onto the vendored `ZoomMap` contract. It is the only place
  * that knows both contracts (R5.11).
  *
@@ -52,7 +52,7 @@ function fileSourcePath(id: string): string {
  * Decision_Encoding (spec R7), carried on the `summary` channel so the
  * unmodified canvas (large cards) and detail panel both surface it, and it
  * stays perceivable without colour (R7.6). Read straight from the recorded
- * per-Region decision — never recomputed (R7.2/R5.9). Score and confidence are
+ * per-Region decision - never recomputed (R7.2/R5.9). Score and confidence are
  * shown to two places for a glance; the exact values live in the (deferred)
  * Decision Audit view.
  */
@@ -115,7 +115,7 @@ export function adaptIndexToZoomMap(
   // Exact join: the engine records each group's originating Region on the node
   // itself (Gap 12), so the group→decision link is read, not inferred. This
   // replaced a package-prefix heuristic that was exact only for a preserved
-  // package and approximate for reconstructed sub-clusters — which is precisely
+  // package and approximate for reconstructed sub-clusters - which is precisely
   // where the adaptive contribution is most worth seeing. A group that carries
   // no `regionId` is a Repository-fan-out wrapper belonging to no region, and
   // correctly shows no decision.
@@ -163,7 +163,7 @@ export function adaptIndexToZoomMap(
       metrics: {
         file_count: fileLeafCount.get(node.id) ?? 0,
         descendant_count: descendantCount.get(node.id) ?? 0,
-        // No engine data for these — emit neutral zeros (R5.10).
+        // No engine data for these - emit neutral zeros (R5.10).
         hotspot_count: 0,
         dead_count: 0,
         entry_point_count: 0,

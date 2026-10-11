@@ -1,12 +1,12 @@
 /**
  * End-to-end integration tests over the full grouping seam: a hand-written,
  * contract-conforming RawDependencyGraph (the documented "safety valve"
- * shape — one healthy package that stays preserved, one cross-package tangle
+ * shape - one healthy package that stays preserved, one cross-package tangle
  * that gets reconstructed, one degenerate singleton) pushed through
  * groupGraph, the serialize→parse round trip, and the blast-radius analyzer;
  * plus the checked-in sample-java-project fixture when present.
  *
- * Example-based by design — the property layer lives in the sibling *.test.ts
+ * Example-based by design - the property layer lives in the sibling *.test.ts
  * files.
  */
 
@@ -27,7 +27,7 @@ import { groupGraph, type GroupingOutput } from "./orchestrator.js";
 // Three Java packages, 8 files, 2 class nodes:
 // - com.acme.core: well connected (3 intra-package import edges, strong
 //   signals) → cohesion high, coupling low → preserved under the 0.5 boundary;
-// - com.acme.app: a tangle — almost every edge leaves the package → low score
+// - com.acme.app: a tangle - almost every edge leaves the package → low score
 //   → reconstructed;
 // - com.acme.util: a singleton package → degenerate (score 0) → reconstructed.
 

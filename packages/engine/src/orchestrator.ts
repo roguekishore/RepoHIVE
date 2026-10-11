@@ -7,7 +7,7 @@
  * 1. **Validate engine options** (`concurrency`). An invalid option costs an
  *    error message, not a completed parse.
  * 2. **Prepare the output root** (default `<projectDirectory>/.repohive`),
- *    guarded on the project directory actually being a directory — the guard
+ *    guarded on the project directory actually being a directory - the guard
  *    exists so a bad `projectDirectory` still gets the parser's canonical input
  *    error, rather than the engine first fabricating directories under a path
  *    the parser is about to reject (which would flip a `path-not-found` into a
@@ -29,7 +29,7 @@
  *    grouping config, groups (reporting each sub-stage and yielding to the event
  *    loop between them), and writes the files concurrently, all-or-nothing.
  * 6. Return an {@link EngineSuccess} carrying paths, counts, `parseSkipped`
- *    (always `false` in v1 — the engine always parses; skip-when-current is the
+ *    (always `false` in v1 - the engine always parses; skip-when-current is the
  *    snapshot-id seam), and monotonic-clock durations. Timing data lives only
  *    on this in-memory result and never reaches an artifact.
  *
@@ -153,7 +153,7 @@ export interface EngineOptions {
    * Grouping configuration, passed through to core untouched. Core resolves it
    * over its defaults and validates it at the start of the group stage; an
    * invalid config therefore surfaces as a group-stage `INVALID_CONFIG` failure
-   * (after the parse has run — core does not export its config validator, so
+   * (after the parse has run - core does not export its config validator, so
    * the engine cannot pre-flight this; recorded as a follow-up candidate).
    */
   grouping?: PartialGroupingConfig;
@@ -190,8 +190,8 @@ export interface EngineOptions {
   writeGraph?: boolean;
   /**
    * Progress callback. Lives in options rather than as a parameter so the
-   * public signature stays `indexProject(options, deps)` — the house
-   * dependency-injection pattern — and mirroring how the parser's collector
+   * public signature stays `indexProject(options, deps)` - the house
+   * dependency-injection pattern - and mirroring how the parser's collector
    * already threads callbacks through its options object.
    *
    * Events: stage `start` and `complete` (a failing stage emits `start` but no
@@ -313,7 +313,7 @@ function graphPathField(writtenPath: string | undefined): { graphPath?: string }
 
 
 /**
- * Run the full pipeline — parse then group — over a local Java project.
+ * Run the full pipeline - parse then group - over a local Java project.
  *
  * See the module docstring for the sequence, the failure semantics of each
  * stage, and the artifact layout. On success, `<outputRoot>/graph.json` and

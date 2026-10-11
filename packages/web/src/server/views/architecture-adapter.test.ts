@@ -10,7 +10,7 @@ import {
 
 /**
  * Two regions, each split into two groups at level 2, plus a region-less
- * wrapper at level 1 — the shape that makes the block ordering testable:
+ * wrapper at level 1 - the shape that makes the block ordering testable:
  *
  *   r
  *   ├─ g_wrap (level 1, no region)
@@ -125,7 +125,7 @@ function buildMetadata(): Metadata {
 
 describe("chooseDsmLevel", () => {
   it("prefers a level whose groups carry recorded regions", () => {
-    // Level 1 has a group too, but it is a region-less wrapper — a matrix over
+    // Level 1 has a group too, but it is a region-less wrapper - a matrix over
     // it would have no blocks at all.
     expect(chooseDsmLevel(buildHierarchy(), buildMetadata())).toBe(2);
   });
@@ -154,7 +154,7 @@ describe("adaptGroupDsm", () => {
     const dsm = adaptGroupDsm(buildHierarchy(), buildMetadata());
     const byId = new Map(dsm.groups.map((g) => [g.id, g]));
     expect(byId.get("g_a0")!.state).toBe("preserve");
-    // pkg:b is score 0 with cohesion 0 — assigned by rule, not measured.
+    // pkg:b is score 0 with cohesion 0 - assigned by rule, not measured.
     expect(byId.get("g_b0")!.state).toBe("degenerate");
   });
 
@@ -246,7 +246,7 @@ describe("adaptFragmentation", () => {
     expect(frag.regions[0]!.files).toBe(2);
     expect(frag.regions[0]!.groupSizes).toEqual([1, 1]);
     expect(frag.maxSplit).toBe(2);
-    // pkg:b is degenerate — never assessed — so its split is not evidence.
+    // pkg:b is degenerate - never assessed - so its split is not evidence.
     expect(frag.regions.some((r) => r.regionId === "pkg:b")).toBe(false);
   });
 

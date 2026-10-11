@@ -1,13 +1,13 @@
 /**
- * Index_Serializer: write the five-file Index_File_Set —
- * repository.json, hierarchy.json, nodes.json, edges.json, metadata.json — in the
+ * Index_Serializer: write the five-file Index_File_Set -
+ * repository.json, hierarchy.json, nodes.json, edges.json, metadata.json - in the
  * compact format (`index-format.ts`) via the stable minifying stringifier, so
  * identical hierarchies serialize byte-identically. A failed write is reported as WRITE_FAILED naming the
  * file.
  *
  * The write is **all-or-nothing** (Gap 10). Writing the five files in sequence
- * meant a failure partway through — a read-only member, ENOSPC, a permissions
- * change — left a directory holding some new files and some old ones, which
+ * meant a failure partway through - a read-only member, ENOSPC, a permissions
+ * change - left a directory holding some new files and some old ones, which
  * `parseIndex` happily accepted because each file was individually well-formed.
  * The fix mirrors the parser's serializer: render every payload in memory,
  * stage the whole set into a sibling directory, and only then promote. Every
@@ -268,7 +268,7 @@ export function serializeIndex(
   }
 
   // 4. Promote only once all five exist. These are renames within one directory
-  //    tree, so each is atomic and cannot fail for space or content reasons —
+  //    tree, so each is atomic and cannot fail for space or content reasons -
   //    the window in which the set is mixed is five metadata operations wide.
   try {
     deps.mkdirSync(dir);

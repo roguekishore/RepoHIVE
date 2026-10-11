@@ -26,7 +26,7 @@ function shuffled<T>(items: readonly T[], seed: number): T[] {
 /**
  * Node-id-like strings, including ones with spaces and quotes: the membership
  * key is JSON-encoded before hashing, so ["a b"] vs ["a", "b"] must NOT
- * collide — this arbitrary deliberately covers that case.
+ * collide - this arbitrary deliberately covers that case.
  */
 const arbitraryNodeId = fc.string({ minLength: 1, maxLength: 20 });
 
@@ -213,7 +213,7 @@ test("compareIds is a total order, byte-wise over UTF-8", () => {
 // --- Property: edge order never depends on input position (Gap 13) ---------
 //
 // Property 25 already covers order-independence, but it generates only
-// well-typed graphs — which is exactly why this hole survived. These generators
+// well-typed graphs - which is exactly why this hole survived. These generators
 // deliberately emit the contract-violating signal values that reach the
 // comparator when something upstream of `ingest` hands it raw JSON.
 
@@ -228,7 +228,7 @@ const arbitrarySignal = fc.oneof(
 
 /**
  * Edges over a two-node id space, so parallel `(source, target)` pairs are the
- * common case rather than a rarity — parallel edges are the whole subject here.
+ * common case rather than a rarity - parallel edges are the whole subject here.
  */
 const arbitraryEdges = fc.array(
   fc.record({
@@ -245,7 +245,7 @@ const arbitraryEdges = fc.array(
  * An unambiguous rendering of one edge, for sequence comparison.
  *
  * `stableStringify` would be the more direct vehicle, but it now refuses
- * non-finite numbers (Gap 9) — and non-finite signals are exactly what this
+ * non-finite numbers (Gap 9) - and non-finite signals are exactly what this
  * property must quantify over. `JSON.stringify` on each field preserves the
  * type distinctions (`"2"` vs `2`, `null` vs `undefined`) that the comparator
  * must respect, which is what the assertion is really about.
@@ -304,7 +304,7 @@ test("the comparator stays a total order on NaN and non-numeric signals", () => 
     }) as unknown as Parameters<typeof compareDependencyEdges>[0];
 
   // NaN compares equal to itself and sorts after every real number, rather than
-  // returning NaN — which sort() would have read as "equal", silently falling
+  // returning NaN - which sort() would have read as "equal", silently falling
   // back to input order for differing elements.
   assert.equal(compareDependencyEdges(edge(Number.NaN), edge(Number.NaN)), 0);
   assert.ok(compareDependencyEdges(edge(Number.NaN), edge(0)) > 0);

@@ -11,8 +11,8 @@
  * The digest assertions compare against measurements recorded in
  * `docs/engineering/verification.md` (group digest confirmed 2026-08-22, parse
  * digest recorded 2026-08-16, both in an earlier workspace). A
- * mismatch is signal — either a determinism regression or a legitimate output
- * change — and must be investigated, never recaptured silently.
+ * mismatch is signal - either a determinism regression or a legitimate output
+ * change - and must be investigated, never recaptured silently.
  */
 
 import assert from "node:assert/strict";

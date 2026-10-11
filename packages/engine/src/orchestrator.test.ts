@@ -1,7 +1,7 @@
 /**
  * Unit tests for {@link indexProject}: sequencing, stage-tagged failure
  * discrimination, path resolution, durations, progress events, and option
- * validation — all over injected fake collaborators, no real pipeline or
+ * validation - all over injected fake collaborators, no real pipeline or
  * filesystem.
  */
 

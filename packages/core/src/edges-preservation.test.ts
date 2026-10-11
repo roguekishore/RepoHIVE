@@ -109,7 +109,7 @@ test("Property 26: all leaf edges are retained with direction and strength (R8.1
       assert.ok(result.ok, "valid graph must group");
       const { hierarchy } = result.value;
 
-      // Exactly one leaf edge per input edge — multiset semantics, so
+      // Exactly one leaf edge per input edge - multiset semantics, so
       // parallel (source, target) edges with different content count too.
       assert.equal(hierarchy.leafEdges.length, graph.edges.length);
 

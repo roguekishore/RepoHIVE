@@ -61,7 +61,7 @@ test("groupGraph output with explicitly-undefined options equals the default-con
   });
   assert.ok(withDefaults.ok && withUndefined.ok);
 
-  // Same scores and decisions — no NaN-poisoned metric path.
+  // Same scores and decisions - no NaN-poisoned metric path.
   assert.deepEqual(withUndefined.value.metadata.regionDecisions, withDefaults.value.metadata.regionDecisions);
   assert.equal(
     withUndefined.value.metadata.cohesionSquashConstant,
@@ -72,14 +72,14 @@ test("groupGraph output with explicitly-undefined options equals the default-con
   }
 });
 
-// --- No exception escapes a public entry point (Fix 2 — Gap 3) -------------
+// --- No exception escapes a public entry point (Fix 2 - Gap 3) -------------
 //
 // Both packages promise errors-as-values, but reachable paths threw: a `null`
 // element in an untrusted graph.json raised a TypeError straight out of
 // `ingest`. A thrown error crosses every boundary uncaught and takes the run
 // with it, so the promise has to be total, not merely usual.
 
-/** Inputs no producer should emit — the space a boundary must survive. */
+/** Inputs no producer should emit - the space a boundary must survive. */
 const arbitraryHostileGraph = fc.oneof(
   fc.constant(null),
   fc.constant(undefined),
@@ -160,7 +160,7 @@ test("groupGraphToIndex converts a serializer failure into a value, writing noth
 // --- Configuration is validated before any work (Gap 9) -------------------
 //
 // Nothing checked these values. A NaN boundary made every `score > boundary`
-// comparison false, so the run silently reconstructed every region — then wrote
+// comparison false, so the run silently reconstructed every region - then wrote
 // NaN into metadata.json, which JSON.stringify renders as null and the engine's
 // own parseIndex rejects. The same missing gate sat behind negative
 // coefficients, a non-positive squash constant, and a degenerateScore > 1.
@@ -253,7 +253,7 @@ test("every out-of-domain config field is rejected before ingest, naming the fie
   }
 });
 
-test("a boundary outside [0,1] but finite stays legal — the all-reconstruct baseline", () => {
+test("a boundary outside [0,1] but finite stays legal - the all-reconstruct baseline", () => {
   // demo-baselines expresses "always reconstruct" as boundary 1.000001. Only
   // finiteness is required, so that keeps working.
   const result = groupGraph(validGraph, { structuralQualityBoundary: 1.000001 });
@@ -272,7 +272,7 @@ test("a NaN boundary writes nothing at all, replacing the mixed-index failure", 
     });
     assert.ok(!result.ok);
     assert.equal(result.error.code, "INVALID_CONFIG");
-    // Previously this wrote an index carrying `null` where NaN had been — one
+    // Previously this wrote an index carrying `null` where NaN had been - one
     // that the engine's own parseIndex then rejected.
     assert.deepEqual(readdirSync(dir), []);
   } finally {

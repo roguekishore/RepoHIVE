@@ -69,7 +69,7 @@ describe("how recorded numbers are written", () => {
     expect(formatCount(30889)).toBe("30,889");
     expect(formatScore(0.5)).toBe("0.500");
     expect(formatShare(0.13286713286713286)).toBe("13.3%");
-    expect(formatShare(null)).toBe("—");
+    expect(formatShare(null)).toBe("-");
     expect(formatBoundary(0.5)).toBe("0.50");
     expect(formatBoundary(0.375)).toBe("0.375");
     expect(shortId("2f866c4d558414aa1c8c5d794c8b9164")).toBe("2f866c4d");

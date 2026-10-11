@@ -4,8 +4,8 @@
  * Covers the two correctness properties this module underpins:
  * - Property 8 (Canonical ordering, R9.2/R9.3): emitted nodes are sorted
  *   ascending by id; emitted edges ascending by `(source, target)`.
- * - Property 1 (byte-identity, R9.6): equal graph content — regardless of the
- *   order nodes/edges are presented in — stringifies to byte-identical text.
+ * - Property 1 (byte-identity, R9.6): equal graph content - regardless of the
+ *   order nodes/edges are presented in - stringifies to byte-identical text.
  *
  * Uses `fast-check` over `node:test`, per the design's testing strategy.
  */
@@ -56,7 +56,7 @@ function nodeArb(id: string): fc.Arbitrary<GraphNode> {
 /**
  * A graph with unique node ids and unique `(source, target)` edge pairs, drawn
  * so both the ordering and byte-identity properties are well-defined (the
- * canonical order is total only when pairs are unique — R9.3).
+ * canonical order is total only when pairs are unique - R9.3).
  */
 const graphArb: fc.Arbitrary<RawDependencyGraph> = fc
   .uniqueArray(idArb, { minLength: 0, maxLength: 8 })
@@ -302,7 +302,7 @@ test("compareUtf8 is the shared canonical order, byte-wise over UTF-8 (R9.2, R9.
   );
 
   // The pair that used to divide the two packages: the BMP character's UTF-8
-  // lead byte (EF) is below the supplementary plane's (F0), so it sorts first —
+  // lead byte (EF) is below the supplementary plane's (F0), so it sorts first -
   // the opposite of what UTF-16 code-unit order says.
   assert.ok(compareUtf8("｡", "\u{10000}") < 0);
 });

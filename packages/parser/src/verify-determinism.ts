@@ -9,10 +9,10 @@
  *
  * It is designed for two consumers:
  *
- * 1. **Property / end-to-end tests** — call {@link verifyDeterminism} with the
+ * 1. **Property / end-to-end tests** - call {@link verifyDeterminism} with the
  *    real pipeline (or with injected {@link ParseDeps}, e.g. a shuffled-order
  *    collector) and assert `result.deterministic === true` (R9.1, R9.5).
- * 2. **A `npm run` demo aid** — {@link runDeterminismDemo} wraps
+ * 2. **A `npm run` demo aid** - {@link runDeterminismDemo} wraps
  *    the harness for CLI use, printing the shared digest so a live demo can show
  *    "same input → same SHA-256" without a test runner.
  *
@@ -109,7 +109,7 @@ async function digestOf(filePath: string): Promise<string> {
  * observe one another; the digest is taken from the on-disk bytes. Returns a
  * {@link DeterminismSuccess} when all runs succeed and agree, otherwise a
  * {@link DeterminismFailure} describing the first divergence. The harness never
- * throws for a parse failure or a mismatch — it reports them in the result.
+ * throws for a parse failure or a mismatch - it reports them in the result.
  */
 export async function verifyDeterminism(
   options: VerifyDeterminismOptions,
@@ -157,7 +157,7 @@ export async function verifyDeterminism(
     await nodeFs.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
   }
 
-  // Stated positively (Fix 18 — Gap 18): the requested number of runs actually
+  // Stated positively (Fix 18 - Gap 18): the requested number of runs actually
   // completed, and each produced a well-formed digest. An absence-of-mismatch
   // test is satisfied by an empty list, which is how a zero-run check could
   // report success having verified nothing.
@@ -223,7 +223,7 @@ export async function runDeterminismDemo(
     // eslint-disable-next-line no-console
     console.log(
       [
-        `RepoHIVE parser — determinism check`,
+        `RepoHIVE parser - determinism check`,
         `  project : ${projectDirectory}`,
         `  runs    : ${result.runs.length}`,
         `  nodes   : ${result.runs[0]!.nodeCount}`,
@@ -238,7 +238,7 @@ export async function runDeterminismDemo(
   // eslint-disable-next-line no-console
   console.error(
     [
-      `RepoHIVE parser — determinism check FAILED`,
+      `RepoHIVE parser - determinism check FAILED`,
       `  project : ${projectDirectory}`,
       `  reason  : ${result.reason}`,
       result.distinctDigests

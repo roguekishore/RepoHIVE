@@ -411,7 +411,7 @@ test("default exclusions skip build/VCS/dependency dirs and do not descend them"
     result.value.map((f) => f.relativePath),
     ["src/com/example/A.java"],
   );
-  // The excluded top-level dirs were skipped (recorded), not descended — so the
+  // The excluded top-level dirs were skipped (recorded), not descended - so the
   // nested target/generated-sources is never even seen.
   assert.deepEqual(
     [...excluded].sort(),
@@ -424,7 +424,7 @@ test("a package directory named 'build' is excluded by default; an override re-i
     { path: "src/com/build/Thing.java", leafType: "file" },
     { path: "src/A.java", leafType: "file" },
   ]);
-  // Default: the 'build' segment is excluded, so Thing.java is dropped — this is
+  // Default: the 'build' segment is excluded, so Thing.java is dropped - this is
   // the documented false-positive the override exists for.
   const def = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model));
   assert.equal(def.ok, true);
@@ -444,8 +444,8 @@ test("a package directory named 'build' is excluded by default; an override re-i
 
 test("exclusion is segment-exact and case-sensitive: 'Build' is not excluded", async () => {
   const model = buildModel([
-    { path: "Build/C.java", leafType: "file" }, // capital B — not a default segment
-    { path: "building/D.java", leafType: "file" }, // substring of 'build' — not excluded
+    { path: "Build/C.java", leafType: "file" }, // capital B - not a default segment
+    { path: "building/D.java", leafType: "file" }, // substring of 'build' - not excluded
   ]);
   const result = await collectSourceFiles({ absolutePath: BASE }, memDeps(BASE, model));
   assert.equal(result.ok, true);
@@ -470,11 +470,11 @@ test("a custom excluded segment is skipped alongside the defaults", async () => 
 });
 
 // --------------------------------------------------------------------------
-// Unrepresentable paths are recoverable, not fatal (Fix 2 — Gap 3).
+// Unrepresentable paths are recoverable, not fatal (Fix 2 - Gap 3).
 //
 // A backslash is a legal character in a Linux filename. It reached
-// `assertRootRelativePosixPath` in ids.ts, which threw — and `extract` wraps
-// its call in try/finally with no catch — so one oddly-named file crashed the
+// `assertRootRelativePosixPath` in ids.ts, which threw - and `extract` wraps
+// its call in try/finally with no catch - so one oddly-named file crashed the
 // whole run with a raw stack trace.
 // --------------------------------------------------------------------------
 

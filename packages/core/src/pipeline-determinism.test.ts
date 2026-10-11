@@ -25,7 +25,7 @@ test("Property 24: two full builds on the same input serialize byte-identically 
       assert.ok(first.ok, "valid graph must group (first run)");
       assert.ok(second.ok, "valid graph must group (second run)");
 
-      // Structural checks first — redundant with byte equality below, but
+      // Structural checks first - redundant with byte equality below, but
       // they localize a failure to node ids or depth instead of a byte diff.
       assert.deepEqual(
         new Set(second.value.hierarchy.nodes.keys()),

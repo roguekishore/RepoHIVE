@@ -1,7 +1,7 @@
 /**
  * Error model of the grouping algorithm.
  *
- * Errors are returned as values via `Result<T>` — never thrown — so every
+ * Errors are returned as values via `Result<T>` - never thrown - so every
  * error path is part of the type and testable as a value. The pipeline fails
  * fast and atomically: a stage that detects invalid input returns an error
  * and produces no partial output.
@@ -17,7 +17,7 @@ import type { NodeId } from "@repohive/shared";
  *   violations as a value instead of a thrown TypeError.
  * - `INVALID_DEFINED_IN_FILE` extends Requirement 1's structural validation
  *   to the shared contract's definedInFile invariant (class/function nodes
- *   declare an existing `file` node) — without it, contract-violating input
+ *   declare an existing `file` node) - without it, contract-violating input
  *   silently corrupts the hierarchy downstream.
  * - `MALFORMED_NODE` / `MALFORMED_EDGE` carry Requirement 1's field-validity
  *   check: `graph.json` is untrusted disk input, and the contract's own doc

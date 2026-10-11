@@ -1,22 +1,22 @@
 /**
- * Source-root derivation (Fix 24 — Gap 2: source-root-scoped identity).
+ * Source-root derivation (Fix 24 - Gap 2: source-root-scoped identity).
  *
  * A Java fully qualified name (FQN) is unique only *within one source root*
  * (one classpath), not across a whole repository. Multi-module repos legally
  * declare the same FQN in two roots (e.g. `src/main` vs `src/test`, or two Maven
- * modules), which — with FQN-only ids — produces duplicate node ids that the
+ * modules), which - with FQN-only ids - produces duplicate node ids that the
  * grouping ingestor rejects. Scoping identity (and resolution) by source root
  * removes the collision.
  *
  * The source root is derived purely from the language's package↔directory
- * correspondence — no `pom.xml` / `build.gradle` parsing — so every build system
+ * correspondence - no `pom.xml` / `build.gradle` parsing - so every build system
  * (Maven, Gradle, Bazel, flat) is handled uniformly:
  *
  * - Strip the package-as-directories + filename off the file's path; what
  *   remains is the source root.
  * - When the package does not correspond to the directory tail (legal but
  *   unusual), fall back to the **full relative path**, which is globally unique
- *   and so can never collide — this makes the scheme total.
+ *   and so can never collide - this makes the scheme total.
  *
  * This module is pure and deterministic: {@link deriveSourceRoot} is a function
  * of its two string inputs only (no clock, counter, or randomness), so an id
@@ -32,8 +32,8 @@
  * @param packagePath the file's declared dotted package, or `""` for the
  *   default package.
  * @returns the source-root path (possibly `""` when the source root is the
- *   repository root), or — when the package does not correspond to the
- *   directory tail — the full `relativePath` as a globally-unique fallback.
+ *   repository root), or - when the package does not correspond to the
+ *   directory tail - the full `relativePath` as a globally-unique fallback.
  *
  * @example
  *   deriveSourceRoot("src/main/java/com/example/Foo.java", "com.example") === "src/main/java"
@@ -68,7 +68,7 @@ export function deriveSourceRoot(relativePath: string, packagePath: string): str
   }
 
   // Degenerate: the declared package does not correspond to the directory tail.
-  // Use the full relative path as the scope — a path is globally unique, so
+  // Use the full relative path as the scope - a path is globally unique, so
   // identity can never collide, which makes the scheme total over all inputs.
   return relativePath;
 }

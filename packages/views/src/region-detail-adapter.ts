@@ -1,14 +1,14 @@
 /**
- * Region_Detail adapter — the pure projection behind the boundary-morph and
+ * Region_Detail adapter - the pure projection behind the boundary-morph and
  * provenance surfaces: one region's recorded decision joined to its file
  * membership, its authored partition (packagePath), its derived partition
  * (the engine's recorded region→group provenance), and the recorded
  * dependency edges among those files.
  *
- * Follows the house adapter convention (`zoom-map-adapter.ts`): pure — no fs,
+ * Follows the house adapter convention (`zoom-map-adapter.ts`): pure - no fs,
  * network, clock or RNG; joins by engine-recorded ids (`regionId`, Gap 12),
  * never path heuristics; canonical ordering everywhere with id tie-breaks;
- * nothing is computed that the engine did not record — the only arithmetic is
+ * nothing is computed that the engine did not record - the only arithmetic is
  * counting and summing what is already in the index.
  */
 
@@ -28,7 +28,7 @@ const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
  * File membership per region: a file belongs to the region recorded on its
  * nearest ancestor group (Gap 12). Files whose ancestry carries no region
  * (repository fan-out wrappers all the way up) belong to no region and are
- * omitted — that absence is engine-recorded, not an adapter guess.
+ * omitted - that absence is engine-recorded, not an adapter guess.
  *
  * Returns file ids in canonical (ascending id) order per region.
  */

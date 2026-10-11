@@ -1,5 +1,5 @@
 /**
- * @repohive/core — the grouping algorithm.
+ * @repohive/core - the grouping algorithm.
  *
  * Pipeline: ingest → weight → assess → adaptively construct → build hierarchy
  * → emit the five-file index/. Consumes the @repohive/shared JSON contract.

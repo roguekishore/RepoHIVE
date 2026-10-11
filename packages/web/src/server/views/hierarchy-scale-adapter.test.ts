@@ -6,7 +6,7 @@ import { adaptHierarchyScale } from "@repohive/views";
  * Synthetic tree with the shapes that matter:
  *
  *   r
- *   ├─ g_wrap        (no regionId — a fan-out wrapper)
+ *   ├─ g_wrap        (no regionId - a fan-out wrapper)
  *   │   └─ g_a       (pkg:a, reconstructed) → 3 files
  *   └─ g_b           (pkg:b, degenerate)    → 1 file
  */

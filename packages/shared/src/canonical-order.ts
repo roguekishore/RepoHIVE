@@ -5,8 +5,8 @@
  * thing by "canonical order". The parser has always compared byte-wise over the
  * UTF-8 encoding (R9.2, R9.3); the core originally used JavaScript's `<`/`>`,
  * which compares UTF-16 code units. The two disagree whenever a supplementary-
- * plane character meets a high-BMP one — for example `U+FF61` sorts *before*
- * `U+10000` byte-wise but *after* it by code unit — so "canonical order" was two
+ * plane character meets a high-BMP one - for example `U+FF61` sorts *before*
+ * `U+10000` byte-wise but *after* it by code unit - so "canonical order" was two
  * orders, not one.
  *
  * Byte-wise UTF-8 is the order this module defines, because it is the only one a
@@ -24,7 +24,7 @@
  * Sorting is O(n log n) *comparisons* but only O(n) *distinct strings*, so
  * encoding once per identifier rather than once per comparison is what keeps
  * byte-wise ordering affordable on repositories with thousands of files. The
- * cache is a pure memo — it changes cost, never results.
+ * cache is a pure memo - it changes cost, never results.
  */
 const utf8 = new Map<string, Buffer>();
 

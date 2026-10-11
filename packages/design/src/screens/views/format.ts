@@ -17,7 +17,7 @@ export function formatScore(value: number): string {
 
 /** A recorded fraction as a percentage to one place; `null` (nothing was assessed) is a dash. */
 export function formatShare(fraction: number | null): string {
-  return fraction === null ? "—" : `${(fraction * 100).toFixed(1)}%`;
+  return fraction === null ? "-" : `${(fraction * 100).toFixed(1)}%`;
 }
 
 /** The recorded boundary as the engine's configuration prints it: two places at least, no padding beyond that. */

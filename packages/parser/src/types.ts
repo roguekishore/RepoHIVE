@@ -1,7 +1,7 @@
 /**
  * Internal working types for the parser pipeline.
  *
- * NONE of these types are serialized to `graph.json` — only the shared
+ * NONE of these types are serialized to `graph.json` - only the shared
  * contract types ({@link @repohive/shared}) describe the on-disk shape. These
  * working types live only in memory and are discarded when `parseProject`
  * returns (design: "Internal working types (never serialized)").
@@ -58,7 +58,7 @@ export interface ExtractionResult {
 }
 
 /**
- * A record of a cross-source-root resolution ambiguity (Fix 24 — Gap 2).
+ * A record of a cross-source-root resolution ambiguity (Fix 24 - Gap 2).
  *
  * Emitted when a reference's FQN is not found in the referring file's own
  * source root but exists in **more than one** other source root, so no

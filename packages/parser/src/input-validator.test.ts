@@ -53,7 +53,7 @@ function deps(overrides: Partial<ValidatorDeps> = {}): ValidatorDeps {
   };
 }
 
-describe("InputValidator — no path provided (R1.3)", () => {
+describe("InputValidator - no path provided (R1.3)", () => {
   const cases: Array<[string, string | null | undefined]> = [
     ["null", null],
     ["undefined", undefined],
@@ -84,7 +84,7 @@ describe("InputValidator — no path provided (R1.3)", () => {
   });
 });
 
-describe("InputValidator — path not found (R1.4)", () => {
+describe("InputValidator - path not found (R1.4)", () => {
   test("rejects a missing path with path-not-found and includes the path", async () => {
     const missing = "does/not/exist/here";
     const result = await validateInput(
@@ -103,7 +103,7 @@ describe("InputValidator — path not found (R1.4)", () => {
   });
 });
 
-describe("InputValidator — path is not a directory (R1.5)", () => {
+describe("InputValidator - path is not a directory (R1.5)", () => {
   test("rejects a file path with path-not-directory and includes the path", async () => {
     const filePath = "some/file.txt";
     const result = await validateInput(
@@ -120,7 +120,7 @@ describe("InputValidator — path is not a directory (R1.5)", () => {
   });
 });
 
-describe("InputValidator — directory unreadable (R1.6)", () => {
+describe("InputValidator - directory unreadable (R1.6)", () => {
   test("EACCES from stat surfaces as directory-unreadable", async () => {
     const dirPath = "locked/dir";
     const result = await validateInput(
@@ -190,7 +190,7 @@ describe("InputValidator — directory unreadable (R1.6)", () => {
   });
 });
 
-describe("InputValidator — accepts a valid directory (R1.1)", () => {
+describe("InputValidator - accepts a valid directory (R1.1)", () => {
   test("returns ok with a resolved absolute path", async () => {
     const result = await validateInput("some/project", deps());
     assert.equal(result.ok, true);
@@ -218,7 +218,7 @@ describe("InputValidator — accepts a valid directory (R1.1)", () => {
   });
 });
 
-describe("InputValidator — real filesystem integration", () => {
+describe("InputValidator - real filesystem integration", () => {
   let tmpRoot: string;
 
   before(async () => {

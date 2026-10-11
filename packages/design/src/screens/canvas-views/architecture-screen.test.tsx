@@ -67,7 +67,7 @@ describe("ArchitectureScreen", () => {
     renderWithDesign(<ArchitectureScreen data={ARCHITECTURE} />);
     const rows = within(screen.getByRole("table", { name: "Levels" })).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]!).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["1 Level 1", "104", "—", ""]);
+    expect(within(rows[0]!).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["1 Level 1", "104", "-", ""]);
     expect(within(rows[1]!).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["2 Level 2", "106", "40", ""]);
   });
 

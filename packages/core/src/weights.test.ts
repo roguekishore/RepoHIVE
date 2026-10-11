@@ -22,7 +22,7 @@ test("Property 4: every edge gets exactly one finite, non-negative strength (R2.
       const model = ingestOk(graph);
       const weighted = computeWeights(model);
 
-      // Exactly one weighted entry per input edge INSTANCE — parallel
+      // Exactly one weighted entry per input edge INSTANCE - parallel
       // (source, target) edges are legal input, so count per key must match
       // the input's multiset, not be globally unique.
       assert.equal(weighted.weightedEdges.length, model.edges.length);

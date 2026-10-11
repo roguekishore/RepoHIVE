@@ -208,7 +208,7 @@ test("Property 30: serialize-then-parse round-trip preserves the hierarchy (R9.5
         assert.ok(parsed.ok, "a freshly serialized index must parse");
         const roundTripped = parsed.value;
 
-        // Full structural fidelity: every HierarchyNode record survives —
+        // Full structural fidelity: every HierarchyNode record survives -
         // kind, level, parentId, and childIds ordering included.
         assert.deepEqual(
           new Set(roundTripped.hierarchy.nodes.keys()),
@@ -464,7 +464,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
   );
 });
 
-// --- A null array element must not escape as a throw (Fix 2 — Gap 3) -------
+// --- A null array element must not escape as a throw (Fix 2 - Gap 3) -------
 //
 // Every validation loop in parseIndex reads `entry.<field>`. JSON.parse happily
 // yields `null` inside an array, so a null element raised a TypeError straight
@@ -731,7 +731,7 @@ test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)",
 // --- The five-file write is all-or-nothing (Gap 10) -----------------------
 //
 // Writing the five files in sequence meant a failure partway through left some
-// new files beside some old ones — and parseIndex accepted the mixture, because
+// new files beside some old ones - and parseIndex accepted the mixture, because
 // each file was individually well-formed. Reproduced with a read-only
 // metadata.json: repository/hierarchy/nodes/edges were replaced and metadata
 // was not, so the index described one hierarchy with another's parameters.
@@ -949,7 +949,7 @@ test("Property 41: a staging failure at any position leaves the target unchanged
   );
 });
 
-test("a count mismatch across the file set is rejected — the mixed-index signature", () => {
+test("a count mismatch across the file set is rejected - the mixed-index signature", () => {
   const output = runPipeline(smallGraph);
 
   const tamperAndParse = (
@@ -993,7 +993,7 @@ test("a count mismatch across the file set is rejected — the mixed-index signa
 //
 // metadata.json recorded the boundary, weights, squash constant and decisions,
 // but not maxGroupSize, minPartitionThreshold, the seed, the coefficients or
-// degenerateScore — so a run's hierarchy *shape* could not be reproduced from
+// degenerateScore - so a run's hierarchy *shape* could not be reproduced from
 // its own record, though Req 7.1 states determinism "with identical
 // configuration".
 
@@ -1032,7 +1032,7 @@ test("metadata records the full resolved configuration, and it round-trips", () 
     assert.deepEqual(parsed.value.metadata.configuration, configuration);
 
     // The override map is a plain object with sorted keys, so it serializes
-    // deterministically — a Map would have stringified to `{}`.
+    // deterministically - a Map would have stringified to `{}`.
     const written = readJson(dir, "metadata.json") as {
       configuration: { overrides: Record<string, string> };
     };

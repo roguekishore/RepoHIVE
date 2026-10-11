@@ -242,7 +242,7 @@ test("Property 18: recorded boundary and scores reproduce the original decisions
 
       // Req 5.7 is about the RECORDED values: push the decisions and the
       // boundary through a JSON round-trip (what metadata.json does) and
-      // replay the comparison over the parsed values — this catches any
+      // replay the comparison over the parsed values - this catches any
       // serialization precision loss that could flip a near-boundary
       // decision, which an in-memory replay never would.
       const recorded = JSON.parse(
@@ -312,7 +312,7 @@ test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywh
   }
 
   // ...while a boundary just above 1 makes it universally false. Pure
-  // configuration flips every decision — no code change.
+  // configuration flips every decision - no code change.
   const reconstructed = construct(
     weighted,
     assessment,

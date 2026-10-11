@@ -1,5 +1,5 @@
 /**
- * GraphSerializer (R7, R8, R9) — emit the in-memory graph as the canonical
+ * GraphSerializer (R7, R8, R9) - emit the in-memory graph as the canonical
  * `graph.json`, conforming to the shared JSON contract and writing atomically.
  *
  * Responsibilities (design: "GraphSerializer (R7, R8, R9)"):
@@ -190,7 +190,7 @@ function normalizeEdge(edge: DependencyEdge): DependencyEdge {
  * stringification.
  *
  * Nodes are normalized for field omission; a global uniqueness gate rejects
- * any graph containing duplicate node ids (R3.12, Fix 7 — Gap 5), returning a
+ * any graph containing duplicate node ids (R3.12, Fix 7 - Gap 5), returning a
  * structured diagnostic naming both defining files. Edges are normalized for
  * field projection and then swept so that any edge whose `source` or `target`
  * is not an emitted node id is dropped with a diagnostic (R7.6). Ordering is
@@ -203,7 +203,7 @@ function buildGraph(
 ): { graph: RawDependencyGraph; duplicateError?: ParseError } {
   const normalizedNodes = nodes.map(normalizeNode);
 
-  // Global node-id uniqueness gate (R3.12, Fix 7 — Gap 5).
+  // Global node-id uniqueness gate (R3.12, Fix 7 - Gap 5).
   // Two structurally distinct declarations producing the same id is a parser
   // defect; surface it as a structured error naming both defining files so the
   // diagnostic is actionable rather than silently dropping one.

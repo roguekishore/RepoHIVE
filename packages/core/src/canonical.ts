@@ -2,7 +2,7 @@
  * Canonical ordering + stable serialization primitives.
  *
  * Determinism rule (design, cross-cutting): any iteration over nodes or edges
- * that can affect output happens over a list sorted with these comparators —
+ * that can affect output happens over a list sorted with these comparators -
  * never over insertion order. The stable stringifier guarantees byte-identical
  * output for equal values (fixed key order via sorted-key serialization,
  * `\n` line endings, no BOM).
@@ -20,7 +20,7 @@ import { compareCanonical } from "@repohive/shared";
  * differently (Gap 17). The single implementation lives in `@repohive/shared`.
  *
  * `compareIds` feeds `sortIds`, which feeds `partitionChildren`'s slicing and
- * the content-addressed group-id membership key — so for a repository with
+ * the content-addressed group-id membership key - so for a repository with
  * supplementary-plane identifiers this changes child ordering and group ids.
  * ASCII-only repositories are byte-for-byte unaffected.
  */
@@ -67,7 +67,7 @@ function compareNumbers(a: number, b: number): number {
  * Total-order comparator for dependency edges: (source, target) first, then
  * the full signal content as a tiebreaker. Parallel edges (same source and
  * target, different content) therefore have a canonical order independent of
- * input position — without this, a stable sort would preserve input order for
+ * input position - without this, a stable sort would preserve input order for
  * ties and reordered input could change downstream accumulation and output
  * (Req 7.2).
  *
@@ -75,7 +75,7 @@ function compareNumbers(a: number, b: number): number {
  * now rejects non-numeric signals outright (Gap 13), but this comparator is part
  * of `packages/core`'s public API and is reachable without passing through
  * `ingest`, so it defends itself: a string-valued signal previously produced a
- * `NaN` tiebreak and left parallel edges in input order — a reproduced violation
+ * `NaN` tiebreak and left parallel edges in input order - a reproduced violation
  * of Req 7.2, the project's hardest guarantee.
  */
 export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
@@ -86,8 +86,8 @@ export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
     compareNumbers(Number(a.methodCallFrequency), Number(b.methodCallFrequency)) ||
     compareNumbers(Number(a.sharedTypeCount), Number(b.sharedTypeCount)) ||
     // Final tiebreak on the canonical string rendering. Numeric coercion maps
-    // distinct values onto one number — `"1"`, `1` and `true` all become 1,
-    // `null` and `0` both become 0 — so comparing only the coerced numbers
+    // distinct values onto one number - `"1"`, `1` and `true` all become 1,
+    // `null` and `0` both become 0 - so comparing only the coerced numbers
     // leaves genuinely different edges tied, and a stable sort then falls back
     // to input order: the same Req 7.2 hole in a smaller shape. For conforming
     // input every signal is already an integer, so this never fires and no
@@ -101,13 +101,13 @@ export function compareDependencyEdges(a: EdgeLike, b: EdgeLike): number {
  *
  * Rendered with `JSON.stringify`, deliberately: the tiebreak has to be exactly
  * as discriminating as {@link stableStringify}, which is what decides the output
- * bytes. `String` is not — it maps `"2"` and `2` onto the same text while the
+ * bytes. `String` is not - it maps `"2"` and `2` onto the same text while the
  * serializer emits `"2"` and `2`, so the comparator tied on two edges that
  * serialize differently and input order broke the tie. Where the serializer
  * cannot tell two values apart either (`NaN` and `Infinity` both emit `null`),
  * a tie here is harmless, because the rendered output is identical anyway.
  * `undefined` stringifies to the value `undefined`, which `String` renders as
- * `"undefined"` — distinct from `"null"`, matching the serializer's rule that an
+ * `"undefined"` - distinct from `"null"`, matching the serializer's rule that an
  * `undefined` entry is omitted rather than emitted as null.
  */
 function renderSignals(edge: EdgeLike): string {

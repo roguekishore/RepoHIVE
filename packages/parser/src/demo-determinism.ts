@@ -40,7 +40,7 @@ async function main(): Promise<void> {
       : defaultFixtureDirectory();
 
   // An out-of-range `runs` was silently replaced with 3, so `... 0` reported a
-  // successful 3-run check the caller never asked for (Fix 18 — Gap 18). Two is
+  // successful 3-run check the caller never asked for (Fix 18 - Gap 18). Two is
   // the minimum that can demonstrate anything: one run has nothing to compare
   // against.
   const runs = runsArg === undefined ? 3 : Number(runsArg);

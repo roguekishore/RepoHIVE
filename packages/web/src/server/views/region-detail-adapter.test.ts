@@ -50,10 +50,10 @@ function buildHierarchy(): Hierarchy {
     nodes: new Map(list.map((n) => [n.id, n])),
     leafAttributes: leafAttributes as unknown as Hierarchy["leafAttributes"],
     leafEdges: [
-      // Class-level, both inside pkg:a — must lift to files and aggregate.
+      // Class-level, both inside pkg:a - must lift to files and aggregate.
       { source: "class:a|One", target: "class:a|Two", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0, strength: 2 },
       { source: "class:a|Two", target: "class:a|One", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0, strength: 3 },
-      // Crosses regions — excluded from pkg:a's detail.
+      // Crosses regions - excluded from pkg:a's detail.
       { source: "file:a/Two.java", target: "file:b/B.java", importFrequency: 1, methodCallFrequency: 0, sharedTypeCount: 0, strength: 1 },
     ],
     crossGroupEdges: [],

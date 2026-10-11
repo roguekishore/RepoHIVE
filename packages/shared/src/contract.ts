@@ -1,5 +1,5 @@
 /**
- * RepoHIVE shared JSON contract — the universal seam of the engine.
+ * RepoHIVE shared JSON contract - the universal seam of the engine.
  *
  * These interfaces define the exact on-disk shape of `graph.json`. The parser
  * (`packages/parser`) writes this shape and every downstream consumer (the

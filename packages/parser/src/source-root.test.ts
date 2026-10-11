@@ -1,7 +1,7 @@
 /**
  * Tests for source-root derivation (source-root.ts).
  *
- * Covers Fix 24 — Gap 2: identity and resolution are scoped by source root,
+ * Covers Fix 24 - Gap 2: identity and resolution are scoped by source root,
  * derived purely from the package↔directory correspondence. These tests pin
  * every row of the derivation table and the degenerate fallback, plus the
  * purity property that a stable id can rely on (R3.10, R3.11).
@@ -16,7 +16,7 @@ import fc from "fast-check";
 import { deriveSourceRoot } from "./source-root.js";
 
 // ---------------------------------------------------------------------------
-// Example-based unit tests — one per row of the derivation table.
+// Example-based unit tests - one per row of the derivation table.
 // ---------------------------------------------------------------------------
 
 test("standard Maven layout: strips the package tail to leave the source root", () => {
@@ -75,7 +75,7 @@ test("single-segment package strips one directory level", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Property — purity/determinism: deriveSourceRoot is a pure function of its
+// Property - purity/determinism: deriveSourceRoot is a pure function of its
 // inputs (no clock/counter/randomness), so it never varies across calls, and
 // never emits host-path material (backslashes) that its POSIX input lacks.
 // ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ const segment = fc.constantFrom("a", "b", "com", "example", "src", "main", "java
 const posixDir = fc.array(segment, { minLength: 0, maxLength: 6 }).map((s) => s.join("/"));
 const pkg = fc.array(segment, { minLength: 0, maxLength: 4 }).map((s) => s.join("."));
 
-// Feature: dependency-graph-parser, Property (Fix 24 — Gap 2): source-root
+// Feature: dependency-graph-parser, Property (Fix 24 - Gap 2): source-root
 // derivation is a pure function of (relativePath, packagePath) and introduces
 // no host-path material.
 test("property: deriveSourceRoot is pure and POSIX-clean", () => {
@@ -96,7 +96,7 @@ test("property: deriveSourceRoot is pure and POSIX-clean", () => {
       assert.equal(once, twice);
       assert.ok(!once.includes("\\"));
       // The result is always either a prefix of the input path or the whole
-      // input path (the degenerate fallback) — never invented material.
+      // input path (the degenerate fallback) - never invented material.
       assert.ok(rel === once || rel.startsWith(once));
     }),
     { numRuns: 200 },

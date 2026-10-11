@@ -219,7 +219,7 @@ export function JobScreen({ jobId, state }: JobScreenProps) {
             <KeyValueList
               items={[
                 ...(listItem === undefined ? [] : [{ label: "Requested", value: formatWhen(listItem.requestedAt, now) }]),
-                ...(listItem?.endedAt === undefined ? [] : [{ label: "Elapsed", value: <span className="rh-mono">{formatElapsed(listItem.requestedAt, listItem.endedAt) ?? "—"}</span> }]),
+                ...(listItem?.endedAt === undefined ? [] : [{ label: "Elapsed", value: <span className="rh-mono">{formatElapsed(listItem.requestedAt, listItem.endedAt) ?? "-"}</span> }]),
                 { label: "Branch", value: "Default branch" },
                 ...(progress?.total === undefined ? [] : [{ label: "Files found", value: <span className="rh-mono">{formatCount(progress.total)}</span> }]),
               ]}

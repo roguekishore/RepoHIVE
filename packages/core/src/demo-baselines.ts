@@ -1,7 +1,7 @@
 /**
  * Evaluation aid: run the three construction policies from the
- * design's Evaluation Design over the same graph — always-preserve,
- * always-reconstruct, and adaptive — purely through configuration (boundary
+ * design's Evaluation Design over the same graph - always-preserve,
+ * always-reconstruct, and adaptive - purely through configuration (boundary
  * placement), and print the per-Region decisions plus the navigation-oriented
  * metadata statistics side by side. No special code path exists for the
  * baselines, so differences are attributable to the adaptive policy alone.
@@ -60,7 +60,7 @@ function navigationStats(metadata: Metadata): string {
   ].join("\n    ");
 }
 
-console.log("RepoHIVE core — construction-policy comparison (Evaluation Design)");
+console.log("RepoHIVE core - construction-policy comparison (Evaluation Design)");
 console.log(`  input: ${graphPath}`);
 for (const policy of POLICIES) {
   const result = groupGraph(graph.value, policy.config);

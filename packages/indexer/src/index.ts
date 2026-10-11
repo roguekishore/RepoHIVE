@@ -1,5 +1,5 @@
 /**
- * @repohive/indexer — the hosted indexing job: a GitHub repository goes in, an
+ * @repohive/indexer - the hosted indexing job: a GitHub repository goes in, an
  * immutable published snapshot comes out.
  *
  * Every AWS and network touchpoint sits behind an interface with a local

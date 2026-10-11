@@ -1,5 +1,5 @@
 /**
- * Tests for the determinism demos' verdict (Fix 18 — Gap 18).
+ * Tests for the determinism demos' verdict (Fix 18 - Gap 18).
  *
  * The scripts computed their verdict as `digests.every(d => d === digests[0])`,
  * which an empty array satisfies: `runs = 0` skipped the loop and the script

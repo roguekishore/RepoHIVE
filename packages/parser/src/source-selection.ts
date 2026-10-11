@@ -18,7 +18,7 @@
  */
 
 /**
- * Default directory-name segments excluded from collection (Fix 16 — Gap 19).
+ * Default directory-name segments excluded from collection (Fix 16 - Gap 19).
  * These hold machine-generated or vendored `.java` that is not authored source;
  * indexing them inflates every count and (per Gap 2) manufactures duplicate
  * FQNs. Matching is segment-exact and case-sensitive, so a real package named
@@ -48,7 +48,7 @@ export const DEFAULT_EXCLUDED_SEGMENTS: readonly string[] = [
  * still a first-class thing with an error channel. Deciding here leaves the
  * `ids.ts` guards as the genuinely-unreachable internal assertions they were
  * written to be, instead of the only place a legal-but-unrepresentable filename
- * could surface — as a raw stack trace (R9.4, R10.2).
+ * could surface - as a raw stack trace (R9.4, R10.2).
  */
 export function isRepresentablePosixRelative(relativePath: string): boolean {
   return (

@@ -1,6 +1,6 @@
 /**
  * Metadata accumulator (Requirements 5, 11.3, 11.4): assemble the audit
- * record — boundary, per-metric weights, k_cohesion, per-Region decisions —
+ * record - boundary, per-metric weights, k_cohesion, per-Region decisions -
  * plus the scalability statistics computed deterministically from the
  * Hierarchy (per-level node/edge counts, total Cross_Group_Edges, average
  * branching factor).

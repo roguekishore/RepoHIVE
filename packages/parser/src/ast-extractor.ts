@@ -1,5 +1,5 @@
 /**
- * AstExtractor (R3) — parse a single Java source file with the Tree-Sitter Java
+ * AstExtractor (R3) - parse a single Java source file with the Tree-Sitter Java
  * grammar into a transient AST and extract its `file` / `class` / `function`
  * nodes.
  *
@@ -184,7 +184,7 @@ function normalizeTypeText(text: string): string {
 /**
  * Derive the exact dotted name of a scoped_identifier or bare identifier
  * node by joining its identifier descendants with ".", ignoring whitespace
- * trivia and comments entirely (Fix 11 — Gap 7: structural qualified names).
+ * trivia and comments entirely (Fix 11 - Gap 7: structural qualified names).
  *
  * Reading the raw text span via node.text is wrong because "package com .
  * example;" produces "com . example" rather than "com.example", and a
@@ -225,7 +225,7 @@ function dottedNameOf(node: Node): string {
  *
  * Uses {@link dottedNameOf} to build the name structurally, so whitespace and
  * comments inside the qualified name are ignored and the result is always in
- * canonical dotted form (Fix 11 — Gap 7).
+ * canonical dotted form (Fix 11 - Gap 7).
  */
 function readPackagePath(root: Node): string {
   for (const child of root.namedChildren) {
@@ -242,7 +242,7 @@ function readPackagePath(root: Node): string {
 
 /**
  * Derive the declared type text from a single parameter node in a type-driven
- * way (Fix 9 — Gap 6): only the declared type, never the parameter name,
+ * way (Fix 9 - Gap 6): only the declared type, never the parameter name,
  * annotations, or comments.
  *
  * - For formal_parameter: read the "type" field, append "dimensions" field if
@@ -326,7 +326,7 @@ function recordHeaderTypesOf(declaration: Node): string[] | null {
  * Extract the declared parameter-type list of a callable, in source order, so
  * overloads are distinguished by their signature (R3.4).
  *
- * Type-driven (Fix 9 — Gap 6): only formal_parameter and spread_parameter nodes
+ * Type-driven (Fix 9 - Gap 6): only formal_parameter and spread_parameter nodes
  * are processed; comments, annotations, receiver_parameters, and any other
  * named children of the parameter list are ignored. The type text comes from
  * the declared "type" field (never the parameter name or raw text), so renaming
@@ -363,7 +363,7 @@ function parameterTypesOf(declaration: Node): string[] {
 }
 
 /**
- * Walk up the tree from a node to find the nearest enclosing scope —
+ * Walk up the tree from a node to find the nearest enclosing scope -
  * a block (method/constructor/initializer body) or class_body (class
  * declaration body). This is used to determine the correct scope for
  * computing anonymous-class occurrence indices.
@@ -383,7 +383,7 @@ function findEnclosingScope(node: Node): Node | null {
 }
 
 /**
- * Derive the base type name for an object_creation_expression node — the
+ * Derive the base type name for an object_creation_expression node - the
  * instantiated type as written, normalized. Returns "" when no type can be
  * found (should not happen for well-formed code).
  */
@@ -399,8 +399,8 @@ function anonymousBaseTypeName(node: Node): string {
  * within the given scope node (the enclosing block, class body, or method body),
  * ordered by their start byte position (source order).
  *
- * Source order is content — positions are stable across repeated parses of
- * the same file — so this is a pure function of the tree with no run counter
+ * Source order is content - positions are stable across repeated parses of
+ * the same file - so this is a pure function of the tree with no run counter
  * (R3.10, R3.11).
  */
 function anonymousOccurrenceIndex(scope: Node, target: Node, baseType: string): number {
@@ -427,7 +427,7 @@ function anonymousOccurrenceIndex(scope: Node, target: Node, baseType: string): 
 /**
  * Derive the scope segment for a function declaration, used when recursing
  * into its body so that local classes declared inside are correctly scoped.
- * The segment has the form "name(paramTypes)" — the same substring that
+ * The segment has the form "name(paramTypes)" - the same substring that
  * appears after "#" in the function's own id.
  */
 function functionScopeSegment(child: Node, typeChain: readonly string[]): string {
@@ -443,7 +443,7 @@ function functionScopeSegment(child: Node, typeChain: readonly string[]): string
  * empty at file scope. Nodes are de-duplicated by id so no two distinct nodes
  * ever share an identifier (R3.12).
  *
- * Scope segments (Fix 8 — Gap 4): every naming scope pushes a segment onto
+ * Scope segments (Fix 8 - Gap 4): every naming scope pushes a segment onto
  * the chain, not only named type declarations:
  * - named type declarations (as before): push the declared simple name
  * - enum_constant with a class body: push the constant name as a segment
@@ -490,8 +490,8 @@ function walkDeclarations(
       continue;
     }
 
-    // Enum constant with a class body (Fix 8 — Gap 4): the constant's name IS
-    // a naming scope — push it so methods/types declared in different enum
+    // Enum constant with a class body (Fix 8 - Gap 4): the constant's name IS
+    // a naming scope - push it so methods/types declared in different enum
     // constants are distinct. Only recurse when a body actually exists;
     // plain constants with no body need no extra segment.
     // The grammar field is named "body" (not "class_body") on enum_constant.
@@ -506,12 +506,12 @@ function walkDeclarations(
       continue;
     }
 
-    // Anonymous class body (Fix 8 — Gap 4): object_creation_expression with
+    // Anonymous class body (Fix 8 - Gap 4): object_creation_expression with
     // a class_body child is an anonymous class instantiation. Emit a class node
     // for the anonymous class itself and recurse with an extended chain so
     // its members are correctly scoped. The segment is "<BaseType>#<k>" where
     // k is the occurrence index of this anonymous body among same-type siblings
-    // in source order — a pure function of the tree, never a run counter.
+    // in source order - a pure function of the tree, never a run counter.
     // NOTE: class_body is in grammar's "children" array, not in "fields",
     // so we must find it as a named child, not via childForFieldName().
     if (
@@ -528,7 +528,7 @@ function walkDeclarations(
       const segment = `${seg}#${k}`;
       const nextChain = [...typeChain, segment];
 
-      // Emit a class node for the anonymous class itself (R3.3 — "each class
+      // Emit a class node for the anonymous class itself (R3.3 - "each class
       // declaration"; anonymous classes are class declarations in the JLS).
       if (nextChain.length > 0) {
         const classId = buildClassId(packagePath, nextChain, sourceRoot);
@@ -574,11 +574,11 @@ function walkDeclarations(
           nodesById.set(functionId, functionNode);
         }
       }
-      // Recurse into the body with a method-scope segment (Fix 8 — Gap 4) so
+      // Recurse into the body with a method-scope segment (Fix 8 - Gap 4) so
       // local classes declared inside different methods with the same simple
       // name are disambiguated: Helper inside a() -> "a()$Helper", inside
       // b() -> "b()$Helper". Only push the segment when we are already inside
-      // a type (typeChain non-empty) — file-scope callables are skipped above.
+      // a type (typeChain non-empty) - file-scope callables are skipped above.
       if (typeChain.length > 0) {
         const methodSeg = functionScopeSegment(child, typeChain);
         walkDeclarations(
@@ -609,7 +609,7 @@ function walkDeclarations(
  * Node types whose `type` *field* carries a declared Java type.
  * Verified empirically against the pinned tree-sitter-java WASM grammar.
  * Note: `spread_parameter` is handled separately in collectTypeReferences
- * because it has no `type` field — the type is a direct named child.
+ * because it has no `type` field - the type is a direct named child.
  */
 const TYPED_BY_FIELD = new Set<string>([
   "field_declaration",
@@ -650,7 +650,7 @@ const TYPE_NAME_NODE_TYPES = new Set<string>(["type_identifier", "scoped_type_id
 export function typeNamesOf(typeNode: Node, out: string[]): void {
   if (TYPE_NAME_NODE_TYPES.has(typeNode.type)) {
     const text = normalizeTypeText(typeNode.text);
-    // Skip the `var` keyword — it is a synthetic type_identifier in the
+    // Skip the `var` keyword - it is a synthetic type_identifier in the
     // grammar but carries no class reference (Grammar trap 3).
     if (text !== "var") {
       out.push(text); // do NOT recurse: scoped names are atomic (Grammar trap 2)
@@ -673,7 +673,7 @@ export function typeNamesOf(typeNode: Node, out: string[]): void {
     }
     return;
   }
-  // type_list is the concrete child of super_interfaces / throws — it holds a
+  // type_list is the concrete child of super_interfaces / throws - it holds a
   // comma-separated list of type_identifier or generic_type nodes.
   if (typeNode.type === "type_list") {
     for (const child of typeNode.namedChildren) {
@@ -682,7 +682,7 @@ export function typeNamesOf(typeNode: Node, out: string[]): void {
     return;
   }
   // Primitives, wildcards, dimensions, annotation nodes at the type level:
-  // contribute no type name — fall through silently.
+  // contribute no type name - fall through silently.
 }
 
 /**
@@ -690,14 +690,14 @@ export function typeNamesOf(typeNode: Node, out: string[]): void {
  * type name as a `"type-use"` {@link RawReference}.
  *
  * References are **file-scoped** (`fromNodeId = fileId`), matching how import
- * references are modelled — the grouping core attributes edges to files.
+ * references are modelled - the grouping core attributes edges to files.
  *
  * Grammar traps (all verified empirically):
- * 1. Type positions use `type_identifier`, not `identifier` — the distinction
+ * 1. Type positions use `type_identifier`, not `identifier` - the distinction
  *    makes collection tractable without name-resolution guesswork.
- * 2. `scoped_type_identifier` must NOT be descended into — handled by
+ * 2. `scoped_type_identifier` must NOT be descended into - handled by
  *    {@link typeNamesOf}.
- * 3. `var` appears as a `type_identifier` — excluded by {@link typeNamesOf}.
+ * 3. `var` appears as a `type_identifier` - excluded by {@link typeNamesOf}.
  *
  * The `spread_parameter` node has no `type` *field* (Grammar trap 1 from the
  * design), so it is handled separately by walking its named children.
@@ -749,7 +749,7 @@ export function collectTypeReferences(root: Node, fileId: NodeId): RawReference[
           references.push({ fromNodeId: fileId, targetName: name, kind: "type-use" });
         }
         names.length = 0;
-        // Do NOT recurse further into wrapper nodes — their children are type
+        // Do NOT recurse further into wrapper nodes - their children are type
         // names, not declaration bodies.
         continue;
       }
@@ -768,7 +768,7 @@ export function collectTypeReferences(root: Node, fileId: NodeId): RawReference[
  * {@link import("./stitcher.js")} to resolve against the symbol table (R3.1
  * feeds R5 stitching).
  *
- * Phase 1 populates **import declarations** — the references that drive
+ * Phase 1 populates **import declarations** - the references that drive
  * `importFrequency`, the only frequency signal computed in Phase 1 (design:
  * "AstExtractor (R3)" and "Stitcher (R5, R6)"). Type-use and method-call
  * references are intentionally left for a later phase: their frequency signals
@@ -778,8 +778,8 @@ export function collectTypeReferences(root: Node, fileId: NodeId): RawReference[
  *
  * Import references are file-scoped: an `import` names a type (or static
  * member) that the whole compilation unit may depend on, so `fromNodeId` is the
- * file node's id. The imported name is recorded exactly as written — a dotted
- * `scoped_identifier` (or a bare `identifier` for a single segment) — so the
+ * file node's id. The imported name is recorded exactly as written - a dotted
+ * `scoped_identifier` (or a bare `identifier` for a single segment) - so the
  * stitcher can resolve it through the symbol table; wildcard imports keep their
  * trailing `.*` and simply resolve to nothing (no matching FQN), which is the
  * correct Phase-1 behavior.
@@ -804,7 +804,7 @@ function collectReferences(root: Node, fileId: NodeId): RawReference[] {
       if (named.type === "scoped_identifier" || named.type === "identifier") {
         // Use dottedNameOf for structural traversal so whitespace/comments in
         // the import name (e.g. `import com . example . Foo;`) are stripped
-        // canonically rather than preserved (Fix 11 — Gap 7).
+        // canonically rather than preserved (Fix 11 - Gap 7).
         name = dottedNameOf(named);
       } else if (named.type === "asterisk") {
         wildcard = true;
@@ -831,7 +831,7 @@ function extractFromRoot(root: Node, file: CollectedFile): ExtractionResult {
   const directoryPath = directoryPathOf(file.relativePath);
   const fileId = buildFileId(file.relativePath);
   // Source root scopes class/function ids so the same FQN in two modules does
-  // not collide (Fix 24 — Gap 2). Derived from the package↔directory law.
+  // not collide (Fix 24 - Gap 2). Derived from the package↔directory law.
   const sourceRoot = deriveSourceRoot(file.relativePath, packagePath);
 
   const nodesById = new Map<NodeId, GraphNode>();

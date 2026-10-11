@@ -1,5 +1,5 @@
 /**
- * SourceFileCollector (R2) — recursively discover the Java source files that
+ * SourceFileCollector (R2) - recursively discover the Java source files that
  * are eligible for parsing within a validated Project_Directory.
  *
  * Behavior (design: "SourceFileCollector (R2)"):
@@ -78,7 +78,7 @@ const defaultDeps: CollectorDeps = {
 // source; these re-exports keep the collector's public names stable.
 export { DEFAULT_EXCLUDED_SEGMENTS, isRepresentablePosixRelative };
 
-/** Options controlling the collector's exclusion policy (Fix 16 — Gap 19). */
+/** Options controlling the collector's exclusion policy (Fix 16 - Gap 19). */
 export interface CollectOptions {
   /**
    * Directory-name segments to exclude, matched segment-exact and
@@ -94,7 +94,7 @@ export interface CollectOptions {
   onExcludedDirectory?: (relativePath: string) => void;
   /**
    * Notified with a recoverable {@link ParseError} for each `.java` file whose
-   * path cannot be represented as a portable node identifier (Fix 2 — Gap 3).
+   * path cannot be represented as a portable node identifier (Fix 2 - Gap 3).
    * The file is skipped and the walk continues, so one oddly-named file names
    * itself instead of crashing the run.
    */
@@ -159,7 +159,7 @@ export function createSourceFileCollector(
     async collect(root, options) {
       const rootAbsolute = root.absolutePath;
       const files: CollectedFile[] = [];
-      // Exclusion policy (Fix 16 — Gap 19): default-on, overridable. An empty
+      // Exclusion policy (Fix 16 - Gap 19): default-on, overridable. An empty
       // set means "exclude nothing" (the --include-generated override).
       const excludedSegments = resolveExcludedSegments(options?.excludedSegments);
       const onExcludedDirectory = options?.onExcludedDirectory;
@@ -197,8 +197,8 @@ export function createSourceFileCollector(
           const entryAbsolute = path.join(absoluteDir, entry.name);
 
           if (entry.isDirectory()) {
-            // Exclusion policy (Fix 16 — Gap 19): skip build / VCS / dependency
-            // directories entirely — the subtree is not descended, which is both
+            // Exclusion policy (Fix 16 - Gap 19): skip build / VCS / dependency
+            // directories entirely - the subtree is not descended, which is both
             // the correctness fix and a cost saving. Segment-exact,
             // case-sensitive (R2.2), so `Build/` is not excluded.
             if (excludedSegments.has(entry.name)) {

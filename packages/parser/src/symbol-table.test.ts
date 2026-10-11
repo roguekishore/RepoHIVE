@@ -62,7 +62,7 @@ const functionNodeArb: fc.Arbitrary<GraphNode> = fc
     definedInFile: `file:src/${name}.java`,
   }));
 
-/** A `file` node — never keyed by the symbol table. */
+/** A `file` node - never keyed by the symbol table. */
 const fileNodeArb: fc.Arbitrary<GraphNode> = fc
   .constantFrom("src/A.java", "src/B.java", "src/pkg/C.java")
   .map((rel) => ({

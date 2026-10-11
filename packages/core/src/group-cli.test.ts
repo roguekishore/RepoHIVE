@@ -2,7 +2,7 @@
  * Tests for the group CLI's argument surface (Gap 20).
  *
  * `group-cli` accepted exactly two positionals and passed no config, so every
- * run used DEFAULT_GROUPING_CONFIG — and Req 4.4 requires the boundary to be
+ * run used DEFAULT_GROUPING_CONFIG - and Req 4.4 requires the boundary to be
  * varied across runs *without code changes* so a sensitivity analysis can be
  * run. Extra positionals were silently ignored, which would turn a typo in a
  * sweep into a default-parameter run that looks successful.
@@ -156,7 +156,7 @@ test("conflicting overrides for one region are rejected", () => {
 
 // --- End-to-end behaviour --------------------------------------------------
 
-test("the boundary flag actually changes the decisions — Req 4.4 without code changes", () => {
+test("the boundary flag actually changes the decisions - Req 4.4 without code changes", () => {
   const project = tempProject();
   try {
     const runAt = (boundary: string): string[] => {
@@ -182,7 +182,7 @@ test("an invalid parameter is rejected through validateConfig and writes nothing
   try {
     const outDir = join(project.dir, "index");
     const { io, errs } = captureIo();
-    // Legal as a number, illegal as a config value — the CLI must not become a
+    // Legal as a number, illegal as a config value - the CLI must not become a
     // second injection route for what Gap 9's gate rejects.
     assert.equal(main([project.graphPath, outDir, "--squash-k", "0"], io), 1);
     assert.ok(errs.some((line) => line.includes("cohesionSquashConstant")));

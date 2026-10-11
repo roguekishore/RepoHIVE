@@ -373,7 +373,7 @@ test("zero-node / zero-edge boundary emits well-formed, reproducible JSON", asyn
 });
 
 // ---------------------------------------------------------------------------
-// Gap 5 (Fix 7): global node-id uniqueness gate — duplicate ids return
+// Gap 5 (Fix 7): global node-id uniqueness gate - duplicate ids return
 // duplicate-node-id error and write nothing.
 // ---------------------------------------------------------------------------
 
