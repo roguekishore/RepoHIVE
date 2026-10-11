@@ -3,7 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { LinkButton } from "../../components/button";
 import { Text } from "../../components/feedback";
+import { Icon } from "../../icons/icons";
 import { Brand } from "../../icons/mark";
+import { useLink } from "../../provider/design-provider";
 import { routes } from "../../routes";
 import { BigMark } from "./big-mark";
 import { BoundaryWhatIf } from "./boundary";
@@ -29,6 +31,17 @@ function SectionHead({ label, title, children }: { readonly label: string; reado
       </Text>
       <p className="rh-t-lead">{children}</p>
     </div>
+  );
+}
+
+/** A text link to the public repository list, which anyone can read without an account. */
+function ExploreLink({ children, arrow = true }: { readonly children: ReactNode; readonly arrow?: boolean }) {
+  const Link = useLink();
+  return (
+    <Link className="rh-ld-explore" href={routes.repos}>
+      {children}
+      {arrow ? <span aria-hidden="true"> →</span> : null}
+    </Link>
   );
 }
 
@@ -61,6 +74,10 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
           <div className="rh-ld-nav-right">
             <LinkButton variant="ghost" href={routes.signIn}>
               Sign in
+            </LinkButton>
+            <LinkButton href={routes.repos}>
+              <Icon name="repo" size={16} />
+              Explore<span className="rh-ld-explore-long"> repositories</span>
             </LinkButton>
             <LinkButton variant="primary" href="#start">
               Index a repository
@@ -100,6 +117,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
                   See a real result <span aria-hidden="true">→</span>
                 </a>
               </div>
+              <ExploreLink>Explore the indexed repositories, free and with no account</ExploreLink>
             </div>
           </div>
         </section>
@@ -139,6 +157,13 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
               Each view answers one question about the same recorded result. The previews below are illustrations of each view.
             </SectionHead>
             <ViewsBento figures={figures} />
+            <div className="rh-ld-views-cta">
+              <p>Every indexed repository opens in all seven views. Reading them needs no account.</p>
+              <LinkButton href={routes.repos}>
+                Explore repositories
+                <Icon name="arrow" size={16} className="rh-ld-arrow" />
+              </LinkButton>
+            </div>
           </div>
         </section>
 
@@ -156,6 +181,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
               </Text>
               <p className="rh-t-lead">Paste a public GitHub repository. RepoHIVE checks it, indexes it, and opens the map when it is done.</p>
               <IndexForm idPrefix="end" arrow />
+              <ExploreLink>Or explore the repositories already indexed</ExploreLink>
             </div>
           </div>
         </section>
@@ -170,6 +196,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
           <a href="#boundary">Decisions</a>
           <a href="#views">Views</a>
           <a href="#same">Determinism</a>
+          <ExploreLink arrow={false}>Repositories</ExploreLink>
           <span className="rh-ld-foot-year">© {new Date().getFullYear()} RepoHIVE</span>
         </div>
       </footer>

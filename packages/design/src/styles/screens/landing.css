@@ -197,6 +197,47 @@
   }
 }
 
+/* The nav's explore button keeps one word on a phone, so it fits beside "Index a repository". */
+@media (max-width: 520px) {
+  .rh-ld-explore-long {
+    display: none;
+  }
+}
+
+/* The text links to the public repository list: in the hero, the closing section and the footer. */
+.rh-ld-explore {
+  justify-self: start;
+  color: var(--rh-fg-2);
+  text-decoration: none;
+}
+
+.rh-ld-explore:hover {
+  color: var(--rh-fg);
+}
+
+.rh-ld-hero-body .rh-ld-explore,
+.rh-ld-end-copy .rh-ld-explore {
+  font-weight: var(--rh-weight-medium);
+  color: var(--rh-accent);
+}
+
+.rh-ld-hero-body .rh-ld-explore:hover,
+.rh-ld-end-copy .rh-ld-explore:hover {
+  color: var(--rh-fg);
+}
+
+.rh-ld-views-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rh-space-4) var(--rh-space-8);
+  margin-top: var(--rh-space-8);
+  padding-top: var(--rh-space-6);
+  border-top: var(--rh-border) solid var(--rh-line);
+  color: var(--rh-fg-2);
+}
+
 @keyframes rh-tile-in {
   from {
     transform: scale(0);

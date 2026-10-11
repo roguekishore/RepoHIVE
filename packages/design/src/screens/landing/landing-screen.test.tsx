@@ -32,6 +32,18 @@ afterEach(() => {
 });
 
 describe("LandingScreen", () => {
+  it("offers the public repository list from the nav, the hero, the views, the close and the footer", () => {
+    renderWithDesign(<LandingScreen figures={F} />);
+    const links = screen.getAllByRole("link").filter((link) => link.getAttribute("href") === "/repos");
+    expect(links.map((link) => link.textContent?.replace(/\s+/g, " ").trim())).toEqual([
+      "Explore repositories",
+      "Explore the indexed repositories, free and with no account →",
+      "Explore repositories",
+      "Or explore the repositories already indexed →",
+      "Repositories",
+    ]);
+  });
+
   it("leads with the headline, the film and the way to sign in", () => {
     renderWithDesign(<LandingScreen figures={F} />);
     expect(screen.getByRole("heading", { level: 1, name: "Read a codebase by the way it is actually built." })).toBeInTheDocument();
