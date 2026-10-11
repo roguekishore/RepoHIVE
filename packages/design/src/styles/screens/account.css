@@ -35,3 +35,8 @@
 .rh-auth-submit {
   height: var(--rh-input-height);
 }
+
+/* Links are underlined text here, whatever the host's reset says about anchors. */
+.rh-auth-card a {
+  text-decoration: underline;
+}
