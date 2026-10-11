@@ -16,6 +16,15 @@ import { needsLowercase, parseRepoParams } from "@/features/repository/repo-name
  *
  * This replaces the old `/api/*` proxy middleware.
  */
+/**
+ * A redirect with a relative `Location`. `NextResponse.redirect` needs an absolute URL, and behind the proxy the
+ * standalone server builds `request.nextUrl` from its own bind address, so a cloned URL sent visitors to
+ * `https://localhost:3000/...`. A relative `Location` is resolved by the browser against the host it used.
+ */
+function redirectTo(request: NextRequest, pathname: string, status: 307 | 308) {
+  return new NextResponse(null, { status, headers: { Location: `${pathname}${request.nextUrl.search}` } });
+}
+
 export function middleware(request: NextRequest) {
   const segments = request.nextUrl.pathname.split("/");
   // ["", "repos", owner, repo, ...surface]
@@ -27,17 +36,13 @@ export function middleware(request: NextRequest) {
   }
 
   if (needsLowercase(owner, repo)) {
-    const target = request.nextUrl.clone();
     segments[2] = owner.toLowerCase();
     segments[3] = repo.toLowerCase();
-    target.pathname = segments.join("/");
-    return NextResponse.redirect(target, 308);
+    return redirectTo(request, segments.join("/"), 308);
   }
 
   if (segments.length === 4 || (segments.length === 5 && segments[4] === "")) {
-    const target = request.nextUrl.clone();
-    target.pathname = `/repos/${owner}/${repo}/${DEFAULT_REPO_VIEW}`;
-    return NextResponse.redirect(target, 307);
+    return redirectTo(request, `/repos/${owner}/${repo}/${DEFAULT_REPO_VIEW}`, 307);
   }
 
   return NextResponse.next();
