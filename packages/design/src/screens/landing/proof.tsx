@@ -42,7 +42,7 @@ interface Square {
   readonly score?: number;
 }
 
-const COLUMNS = 38;
+const COLUMNS = 84;
 const CELL = 16;
 const SIZE = 12;
 

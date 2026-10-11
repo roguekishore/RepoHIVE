@@ -7,6 +7,9 @@ import type { LandingFigures } from "./figures-types";
 import { CHAPTERS, FilmCanvas, LOOP, STILL, type FilmHandle } from "./film";
 import { usePrefersReducedMotion } from "./use-reduced-motion";
 
+/** The part of the 1600 by 1000 stage the hero frame shows: tighter than the full stage, so the picture fills a near-square frame. */
+const HERO_CORE = { cx: 1060, cy: 500, w: 780, h: 820 } as const;
+
 /** The chapter that holds time `t`. */
 export function chapterAt(t: number): number {
   const index = CHAPTERS.findIndex((chapter) => t >= chapter.range[0] && t < chapter.range[1]);
@@ -72,7 +75,7 @@ export function FilmPlayer({ figures }: { readonly figures: LandingFigures }) {
         role="img"
         aria-label={`A film of RepoHIVE indexing ${figures.repository}: a flat file graph sorts into packages, each is scored, three are kept and one is rebuilt, then the result opens as a map, a hierarchy, a decisions strip and an architecture matrix.`}
       >
-        <FilmCanvas ref={film} figures={figures} initialTime={clock.current} />
+        <FilmCanvas ref={film} figures={figures} initialTime={clock.current} core={HERO_CORE} />
       </div>
       <div className="rh-ld-rail" role="group" aria-label="Film chapters">
         {reduced ? null : (

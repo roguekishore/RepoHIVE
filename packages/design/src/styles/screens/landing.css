@@ -77,6 +77,31 @@
   max-width: 900px;
 }
 
+@media (min-width: 1000px) {
+  .rh-ld-hero-grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-areas:
+      "head film"
+      "body film";
+    column-gap: var(--rh-space-12);
+    align-content: center;
+  }
+
+  .rh-ld-hero-head {
+    grid-area: head;
+    align-self: end;
+  }
+
+  .rh-ld-film {
+    grid-area: film;
+    align-self: center;
+  }
+
+  .rh-ld-hero-body {
+    grid-area: body;
+    align-self: start;
+  }
+}
 .rh-ld-hero-body {
   display: grid;
   gap: var(--rh-space-4);
@@ -492,4 +517,9 @@
   align-items: center;
   gap: var(--rh-space-2) var(--rh-space-6);
   padding-block: var(--rh-space-6);
+}
+
+/* The hero frame is near-square: it shows a tighter part of the stage than the story's frame does. */
+.rh-ld-film .rh-ld-film-frame {
+  aspect-ratio: 780 / 820;
 }
