@@ -1,12 +1,13 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "../../components/button";
 import { Input } from "../../components/field";
 import { useClient, useLink, useNavigate } from "../../provider/design-provider";
 import { useToast } from "../../provider/toast";
 import { Mark } from "../../icons/mark";
 import { routes } from "../../routes";
+import { readNextPath, withNext } from "./next-path";
 
 /**
  * The shortest password both hosts accept (the TS and the Java account services each check it on the server). The page
@@ -59,8 +60,9 @@ function validate(mode: AuthMode, email: string, password: string): Problem | un
 }
 
 /**
- * Sign in and sign up: one card on an empty page (the bare layout, no app frame). Success goes to the repository list;
- * a signed-in visitor belongs on the dashboard, not on the landing. The account actions come from the injected client.
+ * Sign in and sign up: one card on an empty page (the bare layout, no app frame). Success goes to the page named by
+ * `?next=` when it is a path on this site, otherwise to the repository list. A visitor who is already signed in is sent
+ * the same way without seeing the form. The account actions come from the injected client.
  */
 export function AuthScreen({ mode }: { readonly mode: AuthMode }) {
   const copy = COPY[mode];
@@ -75,7 +77,27 @@ export function AuthScreen({ mode }: { readonly mode: AuthMode }) {
   const [password, setPassword] = useState("");
   const [problem, setProblem] = useState<Problem | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  // Read after mount: the page is exported statically, so the server render has no address to read.
+  const [next, setNext] = useState<string | undefined>(undefined);
   const errorId = `${id}-error`;
+
+  useEffect(() => {
+    setNext(readNextPath());
+    let cancelled = false;
+    client
+      .session()
+      .then((session) => {
+        if (!cancelled && session.signedIn) navigate(readNextPath() ?? routes.repos);
+      })
+      .catch(() => {
+        // A probe that fails leaves the form in place, which is the safe answer.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Once, on arrival: a later sign-in on this page navigates by itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(event: FormEvent): Promise<void> {
     event.preventDefault();
@@ -95,7 +117,7 @@ export function AuthScreen({ mode }: { readonly mode: AuthMode }) {
         return;
       }
       toast(copy.toast);
-      navigate(routes.repos);
+      navigate(readNextPath() ?? routes.repos);
     } catch {
       setProblem({ field: undefined, message: "The request failed. Check your connection and try again." });
     } finally {
@@ -149,7 +171,7 @@ export function AuthScreen({ mode }: { readonly mode: AuthMode }) {
           </Button>
         </form>
         <p className="rh-fg2">
-          {copy.switchPrompt} <Link href={copy.switchHref}>{copy.switchLabel}</Link>
+          {copy.switchPrompt} <Link href={withNext(copy.switchHref, next)}>{copy.switchLabel}</Link>
         </p>
         <Link href={routes.landing} className="rh-t-caption rh-tone-subtle">
           Back to the home page

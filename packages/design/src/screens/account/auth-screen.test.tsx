@@ -1,7 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "../../contracts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ActionResult, Session } from "../../contracts";
 import { renderWithDesign, stubClient } from "../../test-utils";
 import { AuthScreen } from "./auth-screen";
 
@@ -103,5 +103,59 @@ describe("AuthScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("The request failed.");
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe("AuthScreen, arriving and returning", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  function setupWithSession(session: Session | Error, address = "/auth/sign-in") {
+    window.history.replaceState(null, "", address);
+    const signIn = vi.fn(() => Promise.resolve(OK));
+    const navigate = vi.fn();
+    const probe = (): Promise<Session> => (session instanceof Error ? Promise.reject(session) : Promise.resolve(session));
+    renderWithDesign(<AuthScreen mode="sign-in" />, { client: stubClient({ signIn, session: probe }), navigate });
+    return { signIn, navigate };
+  }
+
+  it("sends a visitor who is already signed in to the repository list without a form submit", async () => {
+    const { navigate } = setupWithSession({ signedIn: true, email: "me@example.com" });
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/repos"));
+  });
+
+  it("sends a signed-in visitor to the page named by next", async () => {
+    const { navigate } = setupWithSession({ signedIn: true }, "/auth/sign-in?next=%2F%23start");
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/#start"));
+  });
+
+  it("leaves the form alone for a signed-out visitor and when the probe fails", async () => {
+    const out = setupWithSession({ signedIn: false });
+    await Promise.resolve();
+    expect(out.navigate).not.toHaveBeenCalled();
+    cleanup();
+    const failed = setupWithSession(new Error("offline"));
+    await Promise.resolve();
+    expect(failed.navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("returns to next after a sign-in, and carries it to the other form", async () => {
+    const { navigate } = setupWithSession({ signedIn: false }, "/auth/sign-in?next=%2F%3Frepo%3Dapache%252Fkafka%23start");
+    expect(await screen.findByRole("link", { name: "Create one" })).toHaveAttribute("href", "/auth/sign-up?next=%2F%3Frepo%3Dapache%252Fkafka%23start");
+    await userEvent.type(email(), "me@example.com");
+    await userEvent.type(password(), "hunter2");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/?repo=apache%2Fkafka#start"));
+  });
+
+  it("refuses a next that leaves the site", async () => {
+    for (const bad of ["https://evil.example", "//evil.example", "/\t/evil.example", "/\\evil.example"]) {
+      cleanup();
+      const { navigate } = setupWithSession({ signedIn: false }, `/auth/sign-in?next=${encodeURIComponent(bad)}`);
+      await userEvent.type(email(), "me@example.com");
+      await userEvent.type(password(), "hunter2");
+      await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith("/repos"));
+    }
   });
 });
