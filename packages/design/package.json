@@ -17,7 +17,8 @@
     "test": "tsc --noEmit && vitest run"
   },
   "dependencies": {
-    "@repohive/views": "*"
+    "@repohive/views": "*",
+    "three": "0.128.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -31,6 +32,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "0.128.0",
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^25.0.0",
     "react": "^19.0.0",

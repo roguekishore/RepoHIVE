@@ -62,6 +62,7 @@ export * from "./contracts";
 
 // Screens: one line per screen group. Each group lives in its own folder under ./screens/<slug>.
 export * from "./screens/landing";
+export * from "./screens/hive";
 export * from "./screens/dashboard";
 export * from "./screens/views";
 export * from "./screens/map";

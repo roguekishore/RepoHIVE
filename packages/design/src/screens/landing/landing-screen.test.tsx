@@ -4,9 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithDesign as render, stubClient } from "../../test-utils";
 import { BROADLEAF_FIGURES as F } from "./broadleaf-figures";
 import { LandingScreen } from "./landing-screen";
-import { waffleLayout, waffleOrder } from "./proof";
-
-const number = new Intl.NumberFormat("en-US");
 
 vi.mock("../../canvas/use-canvas-palette", async () => {
   const { readPalette } = await import("../../canvas/colors");
@@ -52,36 +49,6 @@ describe("LandingScreen", () => {
     expect(screen.getByRole("group", { name: "Film chapters" })).toBeInTheDocument();
   });
 
-  it("shows only figures the committed index recorded", () => {
-    renderWithDesign(<LandingScreen figures={F} />);
-    for (const value of [F.counts.files, F.counts.nodes, F.counts.regions, F.counts.assessed, F.counts.preserved, F.counts.reconstructed]) {
-      expect(screen.getAllByText(number.format(value), { selector: "b" }).length).toBeGreaterThan(0);
-    }
-    expect(screen.getByRole("img", { name: new RegExp(`${F.counts.preserved} kept, ${F.counts.reconstructed} rebuilt, ${F.counts.degenerate} too small to measure`) })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(F.signal.level))).toBeInTheDocument();
-  });
-
-  it("orders the waffle kept first, then rebuilt, then the regions too small to measure", () => {
-    const cells = waffleOrder(F.regions, F.counts.degenerate);
-    expect(cells).toHaveLength(F.counts.regions);
-    expect(cells.filter((cell) => cell !== null && cell[5] === 1)).toHaveLength(F.counts.preserved);
-    expect(cells.filter((cell) => cell !== null && cell[5] === 2)).toHaveLength(F.counts.reconstructed);
-    expect(cells.filter((cell) => cell === null)).toHaveLength(F.counts.degenerate);
-    const firstSmall = cells.indexOf(null);
-    expect(cells.slice(firstSmall).every((cell) => cell === null)).toBe(true);
-    const keptScores = cells.slice(0, F.counts.preserved).map((cell) => cell![4]);
-    expect([...keptScores].sort((a, b) => b - a)).toEqual(keptScores);
-  });
-
-  it("lays the waffle out on a canvas with as many columns as fit", () => {
-    const wide = waffleLayout(1200, 502);
-    expect(wide.gap).toBe(4);
-    expect(wide.cols).toBe(Math.floor((1200 + 4) / (17 + 4)));
-    expect(wide.cell * wide.cols + wide.gap * (wide.cols - 1)).toBeCloseTo(1200, 5);
-    expect(waffleLayout(400, 502).gap).toBe(3);
-    expect(waffleLayout(100, 10).cols).toBe(8);
-  });
-
   it("labels the boundary as a what-if and counts the decisions that would change", () => {
     renderWithDesign(<LandingScreen figures={F} />);
     expect(screen.getByText("As recorded")).toBeInTheDocument();
@@ -109,12 +76,5 @@ describe("LandingScreen", () => {
     await user.click(submit);
     expect(screen.getAllByText("Use owner/repo or a github.com link, for example apache/kafka.").length).toBeGreaterThan(0);
     expect(form).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("lists the five index files with their recorded hashes", () => {
-    renderWithDesign(<LandingScreen figures={F} />);
-    const table = screen.getByRole("table", { name: "The index files and their hashes" });
-    expect(within(table).getAllByRole("row")).toHaveLength(F.determinism.files.length + 1);
-    expect(within(table).getByText(`${F.determinism.files[0]!.sha256.slice(0, 12)}…`)).toBeInTheDocument();
   });
 });

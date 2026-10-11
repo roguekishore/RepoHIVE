@@ -18,6 +18,8 @@ export interface TokenBlocks {
   readonly darkSystem: Declarations;
   /** `:root[data-theme="dark"]`: the explicit override. */
   readonly darkOverride: Declarations;
+  /** `.rh-hv`: the Hive landing's own `--rh-hv-*` rows (type scale, layout, mixed grounds). It holds no palette. */
+  readonly hive: Declarations;
 }
 
 function stripComments(css: string): string {
@@ -50,6 +52,7 @@ export function readTokenBlocks(css: string = readFileSync(TOKENS_CSS_PATH, "utf
     light: declarationsOf(blockAfter(text, ":root")),
     darkSystem: declarationsOf(blockAfter(text, ':root:not([data-theme="light"])')),
     darkOverride: declarationsOf(blockAfter(text, ':root[data-theme="dark"]')),
+    hive: declarationsOf(blockAfter(text, ".rh-hv")),
   };
 }
 

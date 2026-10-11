@@ -9,15 +9,11 @@ import { useLink } from "../../provider/design-provider";
 import { routes } from "../../routes";
 import { BigMark } from "./big-mark";
 import { BoundaryWhatIf } from "./boundary";
-import { Determinism } from "./determinism";
 import type { LandingFigures } from "./figures-types";
 import { FilmPlayer } from "./film-player";
 import { IndexForm } from "./index-form";
-import { ProofFigures, RegionWaffle } from "./proof";
 import { Story } from "./story";
 import { ViewsBento } from "./views-bento";
-
-const number = new Intl.NumberFormat("en-US");
 
 const HEADLINE = "Read a codebase by the way it is actually built.";
 
@@ -46,7 +42,7 @@ function ExploreLink({ children, arrow = true }: { readonly children: ReactNode;
 }
 
 /**
- * The landing page: the film, then the proof, how it works, the decisions, the views, determinism and the way in.
+ * The landing page: the film, then how it works, the decisions, the views and the way in.
  * Everything it shows about a repository comes from `figures`, which a script writes from a real index.
  */
 export function LandingScreen({ figures }: { readonly figures: LandingFigures }) {
@@ -69,7 +65,6 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
             <a href="#how">How it works</a>
             <a href="#boundary">Decisions</a>
             <a href="#views">Views</a>
-            <a href="#same">Determinism</a>
           </nav>
           <div className="rh-ld-nav-right">
             <LinkButton variant="ghost" href={routes.signIn}>
@@ -113,22 +108,12 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
               <IndexForm idPrefix="hero" />
               <div className="rh-ld-meta">
                 <span>Public repositories, with a daily allowance per account</span>
-                <a href="#proof">
-                  See a real result <span aria-hidden="true">→</span>
+                <a href="#how">
+                  See how it works <span aria-hidden="true">→</span>
                 </a>
               </div>
               <ExploreLink>Explore the indexed repositories, free and with no account</ExploreLink>
             </div>
-          </div>
-        </section>
-
-        <section className="rh-ld-sec" id="proof">
-          <div className="rh-ld-wrap">
-            <SectionHead label="One repository, every figure real" title={`${figures.repository}, start to finish.`}>
-              An open-source commerce framework on Spring. Every number on this page comes from its index, read at {figures.signal.level}.
-            </SectionHead>
-            <ProofFigures figures={figures} />
-            <RegionWaffle figures={figures} />
           </div>
         </section>
 
@@ -144,7 +129,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
         <section className="rh-ld-sec" id="boundary">
           <div className="rh-ld-wrap">
             <SectionHead label="Decisions" title="Every boundary comes with its reason.">
-              These are {figures.repository}’s {number.format(figures.counts.assessed)} measured regions on one axis. Drag the line to see which decisions would change, or pick a region to see its
+              Every measured region sits on one axis. Drag the line to see which decisions would change, or pick a region to see its
               values.
             </SectionHead>
             <BoundaryWhatIf figures={figures} />
@@ -165,10 +150,6 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
               </LinkButton>
             </div>
           </div>
-        </section>
-
-        <section className="rh-ld-sec" id="same">
-          <Determinism figures={figures} />
         </section>
 
         <section className="rh-ld-end" id="start">
@@ -195,7 +176,6 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
           <a href="#how">How it works</a>
           <a href="#boundary">Decisions</a>
           <a href="#views">Views</a>
-          <a href="#same">Determinism</a>
           <ExploreLink arrow={false}>Repositories</ExploreLink>
           <span className="rh-ld-foot-year">© {new Date().getFullYear()} RepoHIVE</span>
         </div>

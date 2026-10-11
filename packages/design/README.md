@@ -1,7 +1,7 @@
 # @repohive/design
 
 The design package for RepoHIVE: tokens, components, the mark, the app frame, and the contract every screen receives.
-Identity: **Kernel · Moss** (Host Grotesk, Geist Mono, the Moss palette). Plan and decisions:
+Identity: **Kernel · Ultraviolet** (Host Grotesk, Geist Mono, the Ultraviolet palette). Plan and decisions:
 `context/specs/own-identity/plan.md` (private mount); the rules below are the ones the code enforces.
 
 It is TypeScript source and CSS, with no build step. A host compiles it (Next.js: `transpilePackages`).

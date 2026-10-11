@@ -135,7 +135,7 @@ Published objects have URL-shaped keys under `s/<snapshotId>/` (public, immutabl
 
 ## Design package (`packages/design`)
 
-`@repohive/design` draws everything the user sees: the Kernel · Moss tokens, the components, the mark, the app
+`@repohive/design` draws everything the user sees: the Kernel · Ultraviolet tokens, the components, the mark, the app
 frame, every screen, and every canvas (the Map, Hierarchy, Architecture, Baseline, Circles and the landing film). It
 is TypeScript source and CSS with no build step; a host compiles it (`transpilePackages` in Next.js). It imports
 nothing from Next.js and fetches nothing itself.

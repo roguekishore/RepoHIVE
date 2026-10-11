@@ -28,8 +28,13 @@ const FILTERS: readonly { readonly value: RegionFilter; readonly label: string }
   { value: "close", label: "Close calls" },
 ];
 
-const STRIP = { height: 156, pad: 16, base: 120, step: 6, mark: 2.5 } as const;
-const PLOT = { pad: 40 } as const;
+// The boundary handle sits in its own row above the plot, so it never covers a tick label. Ticks and the two captions
+// each get a row below the axis.
+const STRIP = { height: 182, pad: 16, top: 24, base: 142, step: 6, mark: 2.5, handleWidth: 36, handleHeight: 18 } as const;
+// The left margin holds the tick labels and, left of them, the rotated axis title.
+const PLOT = { pad: 52 } as const;
+// A tick label is about 22px wide; below this spacing the labels touch, so every other one is dropped.
+const TICK_LABEL_SPACE = 34;
 
 /** One mark on the strip: kept is a circle, rebuilt a square, so the two differ by shape and not by colour alone. */
 function Mark({ region, x, y, selected, onSelect }: { readonly region: Region; readonly x: number; readonly y: number; readonly selected: boolean; readonly onSelect: (regionId: string) => void }) {
@@ -49,9 +54,10 @@ function Mark({ region, x, y, selected, onSelect }: { readonly region: Region; r
 
 /** Regions on the score axis with the recorded boundary. Positions come from the recorded score and a fixed stacking rule. */
 function ScoreStrip({ regions, boundary, selectedId, onSelect, measured }: { readonly regions: readonly Region[]; readonly boundary: number; readonly selectedId?: string; readonly onSelect: (regionId: string) => void; readonly measured: number }) {
-  const { height, pad, base, step } = STRIP;
+  const { height, pad, top, base, step, handleWidth, handleHeight } = STRIP;
   const width = Math.max(280, measured);
   const x = (score: number) => pad + score * (width - 2 * pad);
+  const labelEvery = x(0.1) - x(0) < TICK_LABEL_SPACE ? 2 : 1;
   const columns = new Map<number, number>();
   const dots = [...regions]
     .sort((a, b) => a.score - b.score || (a.regionId < b.regionId ? -1 : 1))
@@ -66,19 +72,21 @@ function ScoreStrip({ regions, boundary, selectedId, onSelect, measured }: { rea
     <svg className="rh-dec-svg" viewBox={`0 0 ${width} ${height}`} height={height} role="img" aria-label={`Regions on the score axis, with the recorded boundary at ${formatBoundary(boundary)}`}>
       {Array.from({ length: 11 }, (_, tick) => (
         <g key={tick}>
-          <line className="rh-dec-grid" x1={x(tick / 10)} x2={x(tick / 10)} y1={8} y2={base} />
-          <text className="rh-dec-mono" x={x(tick / 10)} y={base + 20} textAnchor="middle">
-            {(tick / 10).toFixed(1)}
-          </text>
+          <line className="rh-dec-grid" x1={x(tick / 10)} x2={x(tick / 10)} y1={top} y2={base} />
+          {tick % labelEvery === 0 ? (
+            <text className="rh-dec-mono" x={x(tick / 10)} y={base + 20} textAnchor="middle">
+              {(tick / 10).toFixed(1)}
+            </text>
+          ) : null}
         </g>
       ))}
       <line className="rh-dec-axis" x1={pad} x2={width - pad} y1={base} y2={base} />
       {dots.map((dot) => (
         <Mark key={dot.region.regionId} region={dot.region} x={dot.cx} y={dot.cy} selected={dot.region.regionId === selectedId} onSelect={onSelect} />
       ))}
-      <line className="rh-dec-boundary" x1={bx} x2={bx} y1={4} y2={base} />
-      <rect className="rh-dec-handle" x={bx - 18} y={base - 2} width={36} height={18} rx={3} />
-      <text className="rh-dec-handle-label" x={bx} y={base + 11} textAnchor="middle">
+      <line className="rh-dec-boundary" x1={bx} x2={bx} y1={handleHeight} y2={base} />
+      <rect className="rh-dec-handle" x={bx - handleWidth / 2} y={0} width={handleWidth} height={handleHeight} rx={3} />
+      <text className="rh-dec-handle-label" x={bx} y={13} textAnchor="middle">
         {boundary.toFixed(2)}
       </text>
       <text x={pad} y={height - 2}>
@@ -152,7 +160,7 @@ function DecisionSpace({ regions, decisions, selectedId, onSelect, measured }: {
       <text x={X(0.5)} y={height + 14} textAnchor="middle">
         Cohesion, squashed
       </text>
-      <text transform={`translate(12 ${Y(0.5)}) rotate(-90)`} textAnchor="middle">
+      <text transform={`translate(11 ${Y(0.5)}) rotate(-90)`} textAnchor="middle">
         Independence, 1 − coupling
       </text>
     </svg>

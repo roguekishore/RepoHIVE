@@ -4,14 +4,15 @@
  * in canvases. Changing the design system later means editing this file and the shell's font loading
  * (`packages/design/README.md`). A test (`src/gates/tokens-only.test.ts`) fails on a literal anywhere else.
  *
- * Identity: Kernel · Moss. Colours are OKLCH. The neutral hue and chroma are variables so a palette swap is two
- * numbers plus the accent and rebuilt rows.
+ * Identity: Kernel · Ultraviolet. Colours are OKLCH. The neutral hue and the two chromas (light and dark) are variables
+ * so a palette swap is three numbers plus the accent and rebuilt rows.
  */
 
 :root {
   /* ---- Neutral ramp: hue and chroma ---- */
-  --rh-neutral-hue: 125;
-  --rh-neutral-chroma: 0.008;
+  --rh-neutral-hue: 290;
+  --rh-neutral-chroma: 0.016;
+  --rh-neutral-chroma-dark: 0.026;
 
   /* ---- Type ----
      The shell loads the faces and sets --font-host-grotesk and --font-geist-mono (next/font does this); a shell
@@ -69,7 +70,7 @@
   --rh-landing-pad: 32px;
   --rh-landing-pad-sm: 16px;
   --rh-landing-nav: 64px;
-  /* The landing never uses plum: ink is authored, accent is computed. */
+  /* The older landing marks kept as ink and rebuilt as the accent, not as the rebuilt colour. */
   --rh-landing-kept: var(--rh-fg);
   --rh-landing-rebuilt: var(--rh-accent);
   --rh-landing-small: var(--rh-line-strong);
@@ -115,14 +116,14 @@
   --rh-fg: oklch(0.21 var(--rh-neutral-chroma) var(--rh-neutral-hue));
   --rh-fg-2: oklch(0.44 var(--rh-neutral-chroma) var(--rh-neutral-hue));
   --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-accent: oklch(0.5 0.1 132);
-  --rh-accent-soft: oklch(0.955 0.025 130);
+  --rh-accent: oklch(0.52 0.26 293);
+  --rh-accent-soft: oklch(0.955 0.035 293);
   --rh-on-accent: oklch(0.99 0 0);
-  --rh-rebuilt: oklch(0.52 0.13 300);
+  --rh-rebuilt: oklch(0.6 0.15 150);
   --rh-ok: oklch(0.55 0.12 150);
   --rh-warn: oklch(0.62 0.13 75);
   --rh-err: oklch(0.55 0.17 27);
-  --rh-scrim: oklch(0.21 0.008 125 / 0.32);
+  --rh-scrim: oklch(0.21 var(--rh-neutral-chroma) var(--rh-neutral-hue) / 0.32);
   color-scheme: light;
 }
 
@@ -130,42 +131,87 @@
    the explicit dark override. The tokens test checks the two blocks are identical. ---- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --rh-bg: oklch(0.165 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-surface: oklch(0.195 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-sunken: oklch(0.145 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-line: oklch(0.275 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-line-strong: oklch(0.37 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-fg: oklch(0.955 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-    --rh-accent: oklch(0.8 0.12 128);
-    --rh-accent-soft: oklch(0.3 0.045 130);
-    --rh-on-accent: oklch(0.17 0.02 130);
-    --rh-rebuilt: oklch(0.74 0.11 305);
+    --rh-bg: oklch(0.13 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-surface: oklch(0.167 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-sunken: oklch(0.11 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-line: oklch(0.254 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-line-strong: oklch(0.356 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-fg: oklch(0.955 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+    --rh-accent: oklch(0.7 0.22 295);
+    --rh-accent-soft: oklch(0.283 0.07 295);
+    --rh-on-accent: oklch(0.17 0.02 295);
+    --rh-rebuilt: oklch(0.8 0.16 150);
     --rh-ok: oklch(0.74 0.13 150);
     --rh-warn: oklch(0.8 0.13 80);
     --rh-err: oklch(0.7 0.15 27);
-    --rh-scrim: oklch(0.08 0.005 125 / 0.6);
+    --rh-scrim: oklch(0.08 0.005 var(--rh-neutral-hue) / 0.6);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --rh-bg: oklch(0.165 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-surface: oklch(0.195 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-sunken: oklch(0.145 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-line: oklch(0.275 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-line-strong: oklch(0.37 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-fg: oklch(0.955 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma) var(--rh-neutral-hue));
-  --rh-accent: oklch(0.8 0.12 128);
-  --rh-accent-soft: oklch(0.3 0.045 130);
-  --rh-on-accent: oklch(0.17 0.02 130);
-  --rh-rebuilt: oklch(0.74 0.11 305);
+  --rh-bg: oklch(0.13 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-surface: oklch(0.167 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-sunken: oklch(0.11 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-line: oklch(0.254 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-line-strong: oklch(0.356 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-fg: oklch(0.955 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-fg-2: oklch(0.76 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-fg-3: oklch(0.6 var(--rh-neutral-chroma-dark) var(--rh-neutral-hue));
+  --rh-accent: oklch(0.7 0.22 295);
+  --rh-accent-soft: oklch(0.283 0.07 295);
+  --rh-on-accent: oklch(0.17 0.02 295);
+  --rh-rebuilt: oklch(0.8 0.16 150);
   --rh-ok: oklch(0.74 0.13 150);
   --rh-warn: oklch(0.8 0.13 80);
   --rh-err: oklch(0.7 0.15 27);
-  --rh-scrim: oklch(0.08 0.005 125 / 0.6);
+  --rh-scrim: oklch(0.08 0.005 var(--rh-neutral-hue) / 0.6);
   color-scheme: dark;
+}
+
+/* ---- The Hive landing (`screens/hive`) ----
+   The landing reads the same colour tokens as the rest of the product; it redefines none of them. The `--rh-hv-*` rows
+   below are the landing's own type scale, layout and mixed grounds. The scale sits beside the eight roles on purpose,
+   because the landing's headings are fluid and the eight are fixed. */
+.rh-hv {
+  /* Mixed grounds. Declared once: each reads the colour tokens of the element it sits on, so they follow the theme. */
+  --rh-hv-glass: color-mix(in oklab, var(--rh-bg) 94%, transparent);
+  --rh-hv-glass-card: color-mix(in oklab, var(--rh-bg) 90%, transparent);
+  --rh-hv-accent-hover: color-mix(in oklab, var(--rh-accent) 88%, var(--rh-fg));
+  --rh-hv-group: color-mix(in oklab, var(--rh-line-strong) 92%, var(--rh-fg));
+
+  /* Layout. Every row runs the full width of the window, inset by `--rh-hv-pad`; the nav, the sections and the pinned
+     overlays share that one edge. Copy sets its own measure (`--rh-hv-copy`, or `ch`), never the row. */
+  --rh-hv-nav: 64px;
+  --rh-hv-pad: clamp(20px, 3.2vw, 56px);
+  --rh-hv-copy: 520px;
+  --rh-hv-phase: 720px;
+  --rh-hv-sec: clamp(96px, 11vw, 160px);
+  --rh-hv-head: clamp(40px, 4.5vw, 64px);
+  --rh-hv-gap: clamp(32px, 4vw, 64px);
+
+  /* Type. One scale, each step about 1.3 times the last: four fixed text sizes and five fluid display sizes.
+     Labels and data are mono; everything else is the sans. */
+  --rh-hv-fs-label: 11px;
+  --rh-hv-fs-caption: 12px;
+  --rh-hv-fs-small: 14px;
+  --rh-hv-fs-body: 16px;
+  --rh-hv-fs-lead: clamp(17px, 1.3vw, 19px);
+  --rh-hv-fs-title: clamp(20px, 1.7vw, 24px);
+  --rh-hv-fs-figure: clamp(28px, 2.6vw, 40px);
+  --rh-hv-fs-display: clamp(34px, 3.8vw, 52px);
+  --rh-hv-fs-hero: clamp(44px, 5.6vw, 80px);
+  --rh-hv-lh-label: 16px;
+  --rh-hv-lh-text: 1.6;
+  --rh-hv-lh-title: 1.25;
+  --rh-hv-lh-display: 1.06;
+  --rh-hv-lh-hero: 1;
+  --rh-hv-lh-unit: 1;
+  --rh-hv-track-label: 0.08em;
+  --rh-hv-track-title: -0.02em;
+  --rh-hv-track-display: -0.035em;
+  --rh-hv-track-hero: -0.045em;
+  --rh-hv-weight-heading: 600;
 }

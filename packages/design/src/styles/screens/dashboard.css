@@ -22,6 +22,18 @@
   margin-left: auto;
 }
 
+/* The tools wrap on a narrow screen, which strands a divider at the end of a line. */
+@media (max-width: 760px) {
+  .rh-root .rh-dash-tools .rh-vr {
+    display: none;
+  }
+
+  .rh-root .rh-dash-tools .rh-dash-search {
+    max-width: none;
+    flex-basis: 100%;
+  }
+}
+
 .rh-root .rh-dash-index-form {
   display: grid;
   gap: var(--rh-space-3);
@@ -153,6 +165,13 @@
 .rh-root .rh-rcard.rh-is-failed .rh-rc-name,
 .rh-root .rh-rcard.rh-is-failed .rh-fg3 {
   color: var(--rh-fg-3);
+}
+
+/* On the narrowest phones the name needs the room the thumbnail takes. */
+@media (max-width: 360px) {
+  .rh-root .rh-rc-print {
+    display: none;
+  }
 }
 
 /* ---------- Activity ---------- */

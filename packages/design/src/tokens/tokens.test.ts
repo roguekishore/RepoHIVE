@@ -75,7 +75,7 @@ describe("tokens.css", () => {
     expect(blocks.light.get("--rh-radius")).toBe("4px");
   });
 
-  it("sets the frame sizes of the Kernel · Moss spec", () => {
+  it("sets the frame sizes of the Kernel spec", () => {
     expect(blocks.light.get("--rh-sidebar-width")).toBe("216px");
     expect(blocks.light.get("--rh-header-height")).toBe("48px");
     expect(blocks.light.get("--rh-status-height")).toBe("28px");
@@ -83,18 +83,36 @@ describe("tokens.css", () => {
     expect(blocks.light.get("--rh-ease")).toBe("cubic-bezier(0.16, 1, 0.3, 1)");
   });
 
-  it("holds the seed colours from the plan", () => {
-    expect(blocks.light.get("--rh-accent")).toBe("oklch(0.5 0.1 132)");
-    expect(blocks.darkOverride.get("--rh-accent")).toBe("oklch(0.8 0.12 128)");
-    expect(blocks.light.get("--rh-rebuilt")).toBe("oklch(0.52 0.13 300)");
-    expect(blocks.darkOverride.get("--rh-rebuilt")).toBe("oklch(0.74 0.11 305)");
-    expect(blocks.light.get("--rh-neutral-hue")).toBe("125");
-    expect(blocks.light.get("--rh-neutral-chroma")).toBe("0.008");
+  it("holds Ultraviolet: violet accent, green for rebuilt, a violet-tinted neutral ramp", () => {
+    expect(blocks.light.get("--rh-accent")).toBe("oklch(0.52 0.26 293)");
+    expect(blocks.darkOverride.get("--rh-accent")).toBe("oklch(0.7 0.22 295)");
+    expect(blocks.light.get("--rh-rebuilt")).toBe("oklch(0.6 0.15 150)");
+    expect(blocks.darkOverride.get("--rh-rebuilt")).toBe("oklch(0.8 0.16 150)");
+    expect(blocks.light.get("--rh-neutral-hue")).toBe("290");
+    expect(blocks.light.get("--rh-neutral-chroma")).toBe("0.016");
+    expect(blocks.light.get("--rh-neutral-chroma-dark")).toBe("0.026");
+  });
+});
+
+describe("the Hive landing scope", () => {
+  it("redefines no colour: the landing reads the same tokens as the rest of the product", () => {
+    const colours = new Set(COLOR_TOKENS.map(tokenVar));
+    expect([...blocks.hive.keys()].filter((name) => colours.has(name) || name === "color-scheme")).toEqual([]);
+  });
+
+  it("holds only its own --rh-hv-* rows", () => {
+    expect([...blocks.hive.keys()].filter((name) => !name.startsWith("--rh-hv-"))).toEqual([]);
+  });
+
+  it("has no palette block of its own in the dark themes either", () => {
+    const css = readFileSync(join(STYLES, "tokens.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(css).not.toMatch(/\.rh-hv\s*\{[^}]*--rh-(?:bg|accent|fg)\s*:/);
+    expect(css).not.toContain('[data-theme="dark"] .rh-hv');
   });
 });
 
 describe("every token the styles read is defined", () => {
-  const defined = new Set(blocks.light.keys());
+  const defined = new Set([...blocks.light.keys(), ...blocks.hive.keys()]);
   const sheets = readdirSync(STYLES).filter((name) => name.endsWith(".css") && name !== "index.css");
 
   for (const sheet of sheets) {
