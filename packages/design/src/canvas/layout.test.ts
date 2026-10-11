@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forceLayout, packCircles, squarify } from "./layout";
+import { forceLayout, packCards, packCircles, squarify } from "./layout";
 
 const area = (r: { w: number; h: number }): number => r.w * r.h;
 
@@ -156,5 +156,32 @@ describe("packCircles", () => {
 
   it("copes with nothing", () => {
     expect(packCircles([])).toEqual({ circles: [], radius: 0 });
+  });
+});
+
+describe("packCards", () => {
+  const kids = ["a", "b", "c", "d", "e"].map((key, i) => ({ key, rank: i, importance: 5 - i }));
+
+  it("leaves space between cards and keeps them inside the unit square", () => {
+    const placed = [...packCards(kids, 1.5).values()];
+    expect(placed).toHaveLength(5);
+    for (const r of placed) {
+      expect(r.x).toBeGreaterThanOrEqual(-1e-9);
+      expect(r.y).toBeGreaterThanOrEqual(-1e-9);
+      expect(r.x + r.w).toBeLessThanOrEqual(1 + 1e-9);
+      expect(r.y + r.h).toBeLessThanOrEqual(1 + 1e-9);
+    }
+    for (const [i, p] of placed.entries()) {
+      for (const q of placed.slice(i + 1)) {
+        const apart = p.x + p.w < q.x || q.x + q.w < p.x || p.y + p.h < q.y || q.y + q.h < p.y;
+        expect(apart).toBe(true);
+      }
+    }
+  });
+
+  it("sizes by importance and is the same on every call", () => {
+    const first = packCards(kids, 1.5);
+    expect(first.get("a")!.h).toBeGreaterThan(first.get("e")!.h);
+    expect(packCards([...kids].reverse(), 1.5)).toEqual(first);
   });
 });

@@ -1,7 +1,7 @@
 // The shared canvas base. One import point for the screens that draw on a canvas; the main barrel re-exports it.
 export * from "./camera";
 export { createRng, hashSeed } from "./seeded";
-export { forceLayout, packCircles, squarify } from "./layout";
+export { forceLayout, packCards, packCircles, squarify } from "./layout";
 export type {
   CircleItem,
   CirclePacking,
