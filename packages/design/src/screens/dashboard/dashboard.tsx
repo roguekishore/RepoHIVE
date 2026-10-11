@@ -14,6 +14,7 @@ import {
   NO_FILTER,
   buildCards,
   filterCards,
+  paginate,
   sortCards,
   type CardFilter,
   type CardSort,
@@ -45,6 +46,9 @@ const SORT_OPTIONS: readonly { readonly value: CardSort; readonly label: string 
   { value: "files", label: "Most files" },
   { value: "rebuilt", label: "Most rebuilt" },
 ];
+
+/** Nothing recorded yet: which cards a list shows must not depend on figures that have not been read. */
+const NO_FIGURES = (): undefined => undefined;
 
 const TONE: Readonly<Record<RepoCardModel["status"], StatusTone>> = { ok: "ok", run: "run", err: "err" };
 
@@ -161,11 +165,27 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   const now = useMemo(() => nowProp ?? new Date(), [nowProp]);
   const [filter, setFilter] = useState<CardFilter>(NO_FILTER);
   const [sort, setSort] = useState<CardSort>("recent");
+  const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState(false);
   const search = useRef<HTMLInputElement>(null);
+  const listTop = useRef<HTMLDivElement>(null);
+
+  // A new filter or sort starts again from the first page.
+  const changeFilter = (update: (previous: CardFilter) => CardFilter): void => {
+    setFilter(update);
+    setPage(1);
+  };
 
   const cards = useMemo(() => buildCards(repositories ?? [], jobs), [repositories, jobs]);
-  const figuresById = useRepoFigures(useMemo(() => cards.flatMap((card) => (card.indexed === undefined ? [] : [card.indexed.snapshotId])), [cards]));
+  // Sorting by files or rebuilt share, and the size chips, need every card's figures. Otherwise which cards show does
+  // not depend on them, so only the visible page's snapshots are read.
+  const needsAllFigures = sort === "files" || sort === "rebuilt" || filter.sizes.length > 0;
+  const preview = useMemo(() => sortCards(filterCards(cards, filter, NO_FIGURES), sort, NO_FIGURES), [cards, filter, sort]);
+  const snapshotIds = useMemo(
+    () => (needsAllFigures ? cards : paginate(preview, page).items).flatMap((card) => (card.indexed === undefined ? [] : [card.indexed.snapshotId])),
+    [needsAllFigures, cards, preview, page],
+  );
+  const figuresById = useRepoFigures(snapshotIds);
   const figuresOf = useMemo(
     () =>
       (card: RepoCardModel): RepoFigures | undefined =>
@@ -174,6 +194,11 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   );
 
   const shown = useMemo(() => sortCards(filterCards(cards, filter, figuresOf), sort, figuresOf), [cards, filter, sort, figuresOf]);
+  const paged = useMemo(() => paginate(shown, page), [shown, page]);
+  const goToPage = (next: number): void => {
+    setPage(next);
+    listTop.current?.scrollIntoView?.({ block: "start" });
+  };
   const filtering = filter.query.trim() !== "" || filter.sizes.length > 0 || filter.attention;
 
   // "/" jumps to the filter unless a field already has the keyboard.
@@ -190,7 +215,7 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   }, []);
 
   const toggleSize = (size: SizeTier): void =>
-    setFilter((previous) => ({
+    changeFilter((previous) => ({
       ...previous,
       sizes: previous.sizes.includes(size) ? previous.sizes.filter((entry) => entry !== size) : [...previous.sizes, size],
     }));
@@ -233,7 +258,7 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
   } else {
     body = (
       <>
-        <div className="rh-dash-tools">
+        <div className="rh-dash-tools" ref={listTop}>
           <Field
             ref={search}
             className="rh-dash-search"
@@ -243,7 +268,7 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
             aria-label="Filter by owner or name"
             autoComplete="off"
             value={filter.query}
-            onChange={(event) => setFilter((previous) => ({ ...previous, query: event.target.value }))}
+            onChange={(event) => changeFilter((previous) => ({ ...previous, query: event.target.value }))}
           />
           <span className="rh-vr" aria-hidden="true" />
           <div className="rh-dash-tools" role="group" aria-label="Size">
@@ -254,11 +279,14 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
             ))}
           </div>
           <span className="rh-vr" aria-hidden="true" />
-          <Chip pressed={filter.attention} onClick={() => setFilter((previous) => ({ ...previous, attention: !previous.attention }))}>
+          <Chip pressed={filter.attention} onClick={() => changeFilter((previous) => ({ ...previous, attention: !previous.attention }))}>
             <StatusDot tone="warn" />
             Needs attention
           </Chip>
-          <Select className="rh-dash-sort" aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value as CardSort)}>
+          <Select className="rh-dash-sort" aria-label="Sort" value={sort} onChange={(event) => {
+              setSort(event.target.value as CardSort);
+              setPage(1);
+            }}>
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -270,14 +298,27 @@ export function Dashboard({ Frame, repositories, jobs, error, now: nowProp }: Da
           {shown.length === 0 ? (
             <li className="rh-empty">
               <span>No repositories match.</span>
-              <Button size="sm" onClick={() => setFilter(NO_FILTER)} disabled={!filtering}>
+              <Button size="sm" onClick={() => changeFilter(() => NO_FILTER)} disabled={!filtering}>
                 Clear filters
               </Button>
             </li>
           ) : (
-            shown.map((card) => <RepoCard key={card.repoId} card={card} figures={figuresOf(card)} now={now} />)
+            paged.items.map((card) => <RepoCard key={card.repoId} card={card} figures={figuresOf(card)} now={now} />)
           )}
         </ul>
+        {paged.pageCount > 1 ? (
+          <nav className="rh-pager" aria-label="Repository pages">
+            <Button size="sm" onClick={() => goToPage(paged.page - 1)} disabled={paged.page <= 1}>
+              Previous
+            </Button>
+            <span className="rh-t-caption rh-fg3" aria-live="polite">
+              Page {paged.page} of {paged.pageCount}
+            </span>
+            <Button size="sm" onClick={() => goToPage(paged.page + 1)} disabled={paged.page >= paged.pageCount}>
+              Next
+            </Button>
+          </nav>
+        ) : null}
       </>
     );
   }

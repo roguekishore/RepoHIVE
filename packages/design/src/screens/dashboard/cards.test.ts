@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { JobListItem, RepositoryListItem } from "../../contracts";
-import { NO_FILTER, buildCards, cardSize, filterCards, sortCards } from "./cards";
+import { NO_FILTER, buildCards, cardSize, filterCards, paginate, sortCards } from "./cards";
 import type { RepoFigures } from "./figures";
 
 const repo = (repoId: string, indexedAt: string, snapshot = "a"): RepositoryListItem => ({
@@ -118,5 +118,25 @@ describe("filter and sort", () => {
     const once = sortCards(cards, "files", figuresOf);
     expect(ids(cards)).toEqual(before);
     expect(sortCards(cards, "files", figuresOf)).toEqual(once);
+  });
+});
+
+describe("paginate", () => {
+  const items = Array.from({ length: 50 }, (_, index) => index);
+
+  it("cuts a list into pages of the given size", () => {
+    expect(paginate(items, 1, 24)).toEqual({ page: 1, pageCount: 3, items: items.slice(0, 24) });
+    expect(paginate(items, 3, 24)).toEqual({ page: 3, pageCount: 3, items: [48, 49] });
+  });
+
+  it("clamps a page that does not exist, and treats an empty list as one empty page", () => {
+    expect(paginate(items, 99, 24).page).toBe(3);
+    expect(paginate(items, 0, 24).page).toBe(1);
+    expect(paginate(items, Number.NaN, 24).page).toBe(1);
+    expect(paginate([], 4, 24)).toEqual({ page: 1, pageCount: 1, items: [] });
+  });
+
+  it("does not move an item between pages for the same input", () => {
+    expect(paginate(items, 2, 10).items).toEqual(paginate(items, 2, 10).items);
   });
 });
