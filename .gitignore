@@ -57,6 +57,7 @@ fixtures/sample-java-project
 fixtures/broadleaf
 fixtures/jsoup
 fixtures/jsoup-src
+fixtures/BroadleafCommerce/
 
 # Editor and tooling
 .tooling/
