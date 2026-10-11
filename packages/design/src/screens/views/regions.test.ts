@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatBoundary, formatCount, formatDate, formatScore, formatShare, shortId } from "./format";
 import { REGIONS, region } from "./fixtures";
-import { assessedRegions, closestToBoundary, decisionOf, isCloseCall, isUnassessed, largestRegions, scoreBins, tallyAssessed } from "./regions";
+import { assessedRegions, closestToBoundary, decisionOf, isCloseCall, isUnassessed, largestRegions, scoreBins, tallyAssessed, tallyByModule } from "./regions";
 
 describe("what the engine recorded for a region", () => {
   it("calls a region unassessed when it scored 0 by rule", () => {
@@ -78,5 +78,17 @@ describe("how recorded numbers are written", () => {
   it("writes a date in UTC", () => {
     expect(formatDate("2026-10-01T23:59:59.000Z")).toBe("1 Oct 2026");
     expect(formatDate("not a date")).toBe("not a date");
+  });
+});
+
+describe("tallyByModule", () => {
+  it("tallies recorded actions of assessed regions by the first segment after the prefix", () => {
+    const tally = tallyByModule(REGIONS, "app.", 6);
+    expect(tally.find((module) => module.name === "core")).toEqual({ name: "core", kept: 1, rebuilt: 0 });
+    expect(tally.some((module) => module.name === "tiny")).toBe(false);
+  });
+
+  it("orders the largest module first and honours the limit", () => {
+    expect(tallyByModule(REGIONS, "", 1)).toEqual([{ name: "app", kept: 3, rebuilt: 2 }]);
   });
 });

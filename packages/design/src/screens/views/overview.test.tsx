@@ -44,22 +44,22 @@ describe("OverviewView", () => {
     renderWithDesign(<OverviewView owner="acme" name="widgets" snapshotId={SNAPSHOT} views={views} />);
     const table = screen.getByRole("table", { name: "Largest regions" });
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual(["app.core", "app.web", "app.data", "app.util", "app.edge"]);
+    expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual(["core", "web", "data", "util", "edge"]);
     expect(within(rows[0]!).getByText("0.620")).toBeInTheDocument(); // the recorded score
-    expect(within(table).queryByText("app.tiny")).toBeNull();
+    expect(within(table).queryByText("tiny")).toBeNull();
   });
 
   it("links each close call to the Decisions page with that region picked", () => {
     renderWithDesign(<OverviewView owner="acme" name="widgets" snapshotId={SNAPSHOT} views={views} />);
-    const link = screen.getByRole("link", { name: /app\.data/ });
+    const link = screen.getByRole("link", { name: /data/ });
     expect(link).toHaveAttribute("href", "/repos/acme/widgets/decision-audit?region=pkg%3Aapp.data");
-    expect(screen.getByText("Nearest the 0.50 boundary")).toBeInTheDocument();
+    expect(screen.getByText("Smallest margin from the 0.5 boundary")).toBeInTheDocument();
   });
 
   it("opens Decisions from a table row", async () => {
     const navigate = vi.fn();
     renderWithDesign(<OverviewView owner="acme" name="widgets" snapshotId={SNAPSHOT} views={views} />, { navigate });
-    await userEvent.click(within(screen.getByRole("table", { name: "Largest regions" })).getByText("app.web"));
+    await userEvent.click(within(screen.getByRole("table", { name: "Largest regions" })).getByText("web"));
     expect(navigate).toHaveBeenCalledWith("/repos/acme/widgets/decision-audit?region=pkg%3Aapp.web");
   });
 
@@ -123,7 +123,7 @@ describe("OverviewScreen", () => {
     expect(await screen.findByText("1,234")).toBeInTheDocument();
     expect(view.mock.calls.map((call) => call[1]).sort()).toEqual(["adaptivity", "hierarchyScale", "regionDecisions"]);
     await waitFor(() => expect(screen.getByText(/Indexed 1 Oct 2026/)).toBeInTheDocument());
-    expect(screen.getByText("Version 1")).toBeInTheDocument();
+    expect(screen.getByText("Version 1, five files")).toBeInTheDocument();
   });
 
   it("shows a failed view read, and still draws when only the facts fail", async () => {
