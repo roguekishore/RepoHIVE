@@ -107,7 +107,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
         <section className="rh-ld-sec" id="proof">
           <div className="rh-ld-wrap">
             <SectionHead label="One repository, every figure real" title={`${figures.repository}, start to finish.`}>
-              An open-source commerce framework on Spring. Every number on this page, and every view behind it, comes from its index, read at {figures.signal.level}.
+              An open-source commerce framework on Spring. Every number on this page comes from its index, read at {figures.signal.level}.
             </SectionHead>
             <ProofFigures figures={figures} />
             <RegionWaffle figures={figures} />
@@ -136,7 +136,7 @@ export function LandingScreen({ figures }: { readonly figures: LandingFigures })
         <section className="rh-ld-sec" id="views">
           <div className="rh-ld-wrap">
             <SectionHead label="Views" title="Seven views of one index.">
-              Each view answers one question about the same recorded result. Every preview below is drawn from {figures.repository}’s index.
+              Each view answers one question about the same recorded result. The previews below are illustrations of each view.
             </SectionHead>
             <ViewsBento figures={figures} />
           </div>

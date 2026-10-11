@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LandingFigures } from "./figures-types";
 import { DsmThumb, FlatThumb, HistThumb, MapThumb, SunburstThumb, StripThumb } from "./view-thumbs";
 import { usePrefersReducedMotion } from "./use-reduced-motion";
+import { previewFigures } from "./view-placeholders";
 
 const number = new Intl.NumberFormat("en-US");
 const COUNT_MS = 1100;
@@ -87,8 +88,11 @@ function ViewCard({ size, name, text, children }: { readonly size: "" | "big" | 
   );
 }
 
-/** The seven views, each with a preview drawn from the repository's index. The cards are not links: they describe. */
-export function ViewsBento({ figures }: { readonly figures: LandingFigures }) {
+/** The seven views, each with a light placeholder preview. The cards are not links: they describe. */
+export function ViewsBento({ figures: recorded }: { readonly figures: LandingFigures }) {
+  // The marks are fixed placeholders (see view-placeholders.ts); the Overview card still reads the real counts.
+  const preview = useMemo(() => previewFigures(recorded), [recorded]);
+  const figures = preview;
   return (
     <div className="rh-ld-bento">
       <ViewCard size="big" name="Map" text="Zoom from the whole repository into regions, groups and files. Hover a file to trace what it depends on.">
@@ -107,7 +111,7 @@ export function ViewsBento({ figures }: { readonly figures: LandingFigures }) {
         {() => <FlatThumb figures={figures} />}
       </ViewCard>
       <ViewCard size="wide" name="Overview" text="The repository in figures: its size, its largest regions and the snapshot it came from.">
-        {(play) => <OverviewThumb figures={figures} play={play} />}
+        {(play) => <OverviewThumb figures={recorded} play={play} />}
       </ViewCard>
       <ViewCard size="wide" name="Adaptivity" text="How many regions were kept, and how their scores spread around the line.">
         {() => <HistThumb figures={figures} />}
