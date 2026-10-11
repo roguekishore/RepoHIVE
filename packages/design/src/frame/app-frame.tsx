@@ -19,6 +19,8 @@ export interface Crumb {
   readonly label: string;
   /** Absent on the last crumb, which is the current page. */
   readonly href?: string;
+  /** A count or note after the label, in the quiet mono style. */
+  readonly aside?: string;
 }
 
 export interface AppFrameProps {
@@ -193,6 +195,7 @@ export function AppFrame({
                   ) : (
                     <Link href={crumb.href}>{crumb.label}</Link>
                   )}
+                  {crumb.aside === undefined ? null : <span className="rh-fg3 rh-mono rh-num">{crumb.aside}</span>}
                 </span>
               );
             })}

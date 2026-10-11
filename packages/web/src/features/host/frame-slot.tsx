@@ -30,10 +30,10 @@ const GLOBAL_LABELS: Readonly<Record<string, string>> = {
 export function defaultCrumbs(pathname: string): readonly Crumb[] {
   const repo = parseRepoPath(pathname);
   if (repo !== undefined) {
-    const name = `${repo.owner}/${repo.name}`;
     return [
-      { label: "Repositories", href: routes.repos },
-      repo.view === undefined ? { label: name } : { label: name, href: routes.repo(repo.owner, repo.name) },
+      repo.view === undefined
+        ? { label: repo.name }
+        : { label: repo.name, href: routes.repoView(repo.owner, repo.name, "overview") },
       ...(repo.view === undefined ? [] : [{ label: repoViewLabel(repo.view) }]),
     ];
   }
