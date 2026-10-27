@@ -12,3 +12,5 @@ export { latestPointerPath, needsLowercase, parseRepoParams, parseSnapshotParam,
 export type { RepoParams } from "./repo-name";
 export { repoIdToKnowledgeGraphPath, repoKeyToRepoId, shortCommitSha } from "./repo-display";
 export { DEFAULT_REPO_VIEW } from "./default-view";
+export { REPO_VIEWS } from "../routes";
+export type { RepoView } from "../routes";

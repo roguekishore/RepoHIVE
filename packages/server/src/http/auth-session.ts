@@ -1,0 +1,19 @@
+import { resolveSession } from "../auth/accounts";
+import { authContext, jsonResponse } from "../auth/http";
+
+
+/** Lightweight session probe for client screens. */
+export async function GET(request: Request) {
+  const { db, sessionToken } = authContext(request);
+  const session = resolveSession(db, sessionToken);
+  if (session === null) {
+    return jsonResponse({ signedIn: false }, { status: 200 });
+  }
+  const row = db.prepare("SELECT email FROM accounts WHERE id = ?").get(session.accountId) as
+    | { email: string }
+    | undefined;
+  if (row === undefined) {
+    return jsonResponse({ signedIn: false }, { status: 200 });
+  }
+  return jsonResponse({ signedIn: true, email: row.email }, { status: 200 });
+}

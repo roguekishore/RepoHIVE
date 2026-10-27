@@ -1,0 +1,24 @@
+import { resolveSession } from "../auth/accounts";
+import { authContext, jsonResponse } from "../auth/http";
+import { remainingQuota } from "../quota/quota";
+
+
+/** Remaining accepted requests for the signed-in account and IP. */
+export async function GET(request: Request) {
+  const { config, db, ip, sessionToken } = authContext(request);
+  const session = resolveSession(db, sessionToken);
+  if (session === null) {
+    return jsonResponse({ code: "UNAUTHENTICATED", message: "Sign in to view quota." }, { status: 401 });
+  }
+
+  const remaining = remainingQuota(db, session.accountId, ip, config.quota);
+  return jsonResponse(
+    {
+      remainingAccount: remaining.accountRemaining,
+      remainingIp: remaining.ipRemaining,
+      limitAccount: remaining.accountLimit,
+      limitIp: remaining.ipLimit,
+    },
+    { status: 200 },
+  );
+}

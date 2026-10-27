@@ -1,0 +1,36 @@
+{
+  "name": "@repohive/server",
+  "version": "0.3.0",
+  "private": true,
+  "description": "RepoHIVE server: the HTTP API (accounts, quota, intake, job progress) and the background worker, as one plain Node process.",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local --import ./scripts/register-aliases.mjs src/main.ts",
+    "type-check": "tsc --noEmit",
+    "seed": "node --env-file-if-exists=config/local.env --env-file-if-exists=.env.local --import ./scripts/register-aliases.mjs scripts/seed-local.mjs",
+    "start-local": "node scripts/start-local.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1144.0",
+    "@aws-sdk/client-s3": "3.1144.0",
+    "@aws-sdk/client-sfn": "3.1144.0",
+    "@repohive/core": "*",
+    "@repohive/design": "*",
+    "@repohive/indexer": "*",
+    "@repohive/views": "*"
+  },
+  "devDependencies": {
+    "@repohive/engine": "*",
+    "@types/node": "^22",
+    "typescript": "^5.7",
+    "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

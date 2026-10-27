@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  // The `@/*` path alias from tsconfig.json, so tests can import route handlers.
+  // The `@/*` path alias from tsconfig.json.
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },
@@ -12,8 +12,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "server",
-          include: ["src/server/**/*.test.ts", "src/middleware.test.ts"],
+          name: "node",
+          include: ["src/middleware.test.ts", "src/features/host/translation-contract.test.ts"],
         },
       },
       {
@@ -25,6 +25,7 @@ export default defineConfig({
           globals: true,
           setupFiles: ["./src/test-setup.ts"],
           include: ["src/{components,features,lib,styles}/**/*.test.{ts,tsx}"],
+          exclude: ["src/features/host/translation-contract.test.ts"],
         },
       },
     ],
