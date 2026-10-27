@@ -17,17 +17,17 @@ write_files:
       RATE_LIMIT_PER_MINUTE=${rate_limit_per_minute}
       RATE_LIMIT_API_POST_PER_MINUTE=${rate_limit_api_post_per_minute}
       WEB_NODE_HEAP_MB=${web_node_heap_mb}
-      WORKER_NODE_HEAP_MB=${worker_node_heap_mb}
+      SERVER_NODE_HEAP_MB=${server_node_heap_mb}
   - path: /etc/systemd/system/repohive-web.service.d/10-limits.conf
     permissions: "0644"
     content: |
       [Service]
       MemoryMax=${web_memory_max_mb}M
-  - path: /etc/systemd/system/repohive-worker.service.d/10-limits.conf
+  - path: /etc/systemd/system/repohive-server.service.d/10-limits.conf
     permissions: "0644"
     content: |
       [Service]
-      MemoryMax=${worker_memory_max_mb}M
+      MemoryMax=${server_memory_max_mb}M
   - path: /usr/local/sbin/repohive-env
     permissions: "0755"
     encoding: gz+b64

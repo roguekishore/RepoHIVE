@@ -23,7 +23,7 @@ need() {
   }
 }
 for key in AWS_REGION SITE_DOMAIN ORIGIN_DOMAIN ARTIFACT_BUCKET LEDGER_TABLE STATE_MACHINE_ARN \
-  RATE_LIMIT_PER_MINUTE RATE_LIMIT_API_POST_PER_MINUTE WEB_NODE_HEAP_MB WORKER_NODE_HEAP_MB; do
+  RATE_LIMIT_PER_MINUTE RATE_LIMIT_API_POST_PER_MINUTE WEB_NODE_HEAP_MB SERVER_NODE_HEAP_MB; do
   need "${key}"
 done
 
@@ -37,7 +37,7 @@ origin_secret="$(read_parameter /repohive/origin-secret)"
 
 mkdir -p "${OUT_DIR}"
 
-# The settings the web configuration validates (packages/web/src/server/hosting/config.ts).
+# The settings the server configuration validates (packages/server/src/hosting/config.ts).
 app_settings() {
   printf '%s\n' \
     "REPOHIVE_MODE=hosted" \
@@ -60,15 +60,14 @@ write_file() {
   mv -f "${tmp}" "${OUT_DIR}/${name}"
 }
 
-{
-  app_settings
-  printf '%s\n' "PORT=3000" "HOSTNAME=127.0.0.1" "NODE_OPTIONS=--max-old-space-size=${box[WEB_NODE_HEAP_MB]}"
-} | write_file web.env
+# The web app serves pages only and holds no secret: the API, the GitHub token and the AWS settings are the server's.
+printf '%s\n' "PORT=3000" "HOSTNAME=127.0.0.1" "NODE_ENV=production" \
+  "NODE_OPTIONS=--max-old-space-size=${box[WEB_NODE_HEAP_MB]}" | write_file web.env
 
 {
   app_settings
-  printf '%s\n' "NODE_OPTIONS=--max-old-space-size=${box[WORKER_NODE_HEAP_MB]}"
-} | write_file worker.env
+  printf '%s\n' "PORT=3001" "HOST=127.0.0.1" "NODE_OPTIONS=--max-old-space-size=${box[SERVER_NODE_HEAP_MB]}"
+} | write_file server.env
 
 printf '%s\n' \
   "ORIGIN_DOMAIN=${box[ORIGIN_DOMAIN]}" \
@@ -77,4 +76,4 @@ printf '%s\n' \
   "RATE_LIMIT_API_POST_PER_MINUTE=${box[RATE_LIMIT_API_POST_PER_MINUTE]}" \
   "ORIGIN_SECRET=${origin_secret}" | write_file caddy.env
 
-printf 'repohive-env: wrote web.env, worker.env and caddy.env\n'
+printf 'repohive-env: wrote web.env, server.env and caddy.env\n'

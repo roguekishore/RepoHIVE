@@ -47,7 +47,7 @@ locals {
   log_group_task          = "/repohive/fargate/indexer"
   log_group_state_machine = "/aws/vendedlogs/states/${local.state_machine}"
   log_group_box_web       = "/repohive/box/web"
-  log_group_box_worker    = "/repohive/box/worker"
+  log_group_box_server    = "/repohive/box/server"
   log_group_box_caddy     = "/repohive/box/caddy"
   log_group_box_heartbeat = "/repohive/box/heartbeat"
 }

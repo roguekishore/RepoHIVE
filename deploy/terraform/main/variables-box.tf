@@ -39,20 +39,20 @@ variable "web_node_heap_mb" {
   }
 }
 
-variable "worker_memory_max_mb" {
+variable "server_memory_max_mb" {
   type        = number
-  description = "systemd MemoryMax of repohive-worker, in MB."
-  default     = 256
+  description = "systemd MemoryMax of repohive-server (API and worker), in MB."
+  default     = 384
 }
 
-variable "worker_node_heap_mb" {
+variable "server_node_heap_mb" {
   type        = number
-  description = "Node --max-old-space-size of repohive-worker, in MB. Keep it below worker_memory_max_mb."
-  default     = 192
+  description = "Node --max-old-space-size of repohive-server, in MB. Keep it below server_memory_max_mb."
+  default     = 256
 
   validation {
-    condition     = var.worker_node_heap_mb < var.worker_memory_max_mb
-    error_message = "worker_node_heap_mb must be below worker_memory_max_mb."
+    condition     = var.server_node_heap_mb < var.server_memory_max_mb
+    error_message = "server_node_heap_mb must be below server_memory_max_mb."
   }
 }
 

@@ -1,0 +1,28 @@
+[Unit]
+Description=RepoHIVE: API server and background worker
+Requires=repohive-env.service
+After=repohive-env.service network-online.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/repohive
+
+[Service]
+Type=simple
+User=repohive
+Group=repohive
+EnvironmentFile=/run/repohive/server.env
+# Same start as `npm run start` in packages/server, without the local env files: the loader resolves extensionless
+# imports, and Node strips the types from the .ts files it imports. Listens on 127.0.0.1:3001 (PORT in server.env).
+WorkingDirectory=/opt/repohive/current/app/packages/server
+ExecStart=/opt/repohive/current/bin/node --import ./scripts/register-aliases.mjs src/main.ts
+StandardOutput=append:/var/log/repohive/server.log
+StandardError=append:/var/log/repohive/server.log
+# Default limit; the drop-in 10-limits.conf overrides it from Terraform (unmeasured default).
+MemoryMax=384M
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateTmp=yes
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

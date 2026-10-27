@@ -1,4 +1,4 @@
-# The app box: one t4g.small that runs Caddy, the Next.js server and the background worker.
+# The app box: one t4g.small that runs Caddy, the Next.js web app and the API server with its background worker.
 # No key pair and no SSH: shell access is SSM Session Manager. SQLite data lives on its own volume, which
 # survives the instance. What runs on it is shipped as a release bundle, not by Terraform.
 
@@ -18,8 +18,8 @@ locals {
     rate_limit_api_post_per_minute = var.caddy_rate_limit_api_post_per_minute
     web_memory_max_mb              = var.web_memory_max_mb
     web_node_heap_mb               = var.web_node_heap_mb
-    worker_memory_max_mb           = var.worker_memory_max_mb
-    worker_node_heap_mb            = var.worker_node_heap_mb
+    server_memory_max_mb           = var.server_memory_max_mb
+    server_node_heap_mb            = var.server_node_heap_mb
     script_env                     = base64gzip(file("${local.box_files}/bin/repohive-env"))
     script_first_boot              = base64gzip(file("${local.box_files}/bin/repohive-first-boot"))
     script_activate                = base64gzip(file("${local.box_files}/bin/repohive-activate"))
@@ -40,8 +40,8 @@ resource "aws_cloudwatch_log_group" "box_web" {
   retention_in_days = var.log_retention_days
 }
 
-resource "aws_cloudwatch_log_group" "box_worker" {
-  name              = local.log_group_box_worker
+resource "aws_cloudwatch_log_group" "box_server" {
+  name              = local.log_group_box_server
   retention_in_days = var.log_retention_days
 }
 
@@ -69,7 +69,7 @@ data "aws_iam_policy_document" "ec2_assume" {
 }
 
 data "aws_iam_policy_document" "box" {
-  # Repository pointers (the intake pre-check) and snapshot objects (the worker reads each finished job's
+  # Repository pointers (the intake pre-check) and snapshot objects (the server's worker reads each finished job's
   # manifest and hierarchy scale view under s/<snapshot id>/). Read only.
   statement {
     sid       = "ReadPointersAndSnapshots"

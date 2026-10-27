@@ -13,8 +13,8 @@
             "retention_in_days": -1
           },
           {
-            "file_path": "/var/log/repohive/worker.log",
-            "log_group_name": "/repohive/box/worker",
+            "file_path": "/var/log/repohive/server.log",
+            "log_group_name": "/repohive/box/server",
             "log_stream_name": "{instance_id}",
             "retention_in_days": -1
           },

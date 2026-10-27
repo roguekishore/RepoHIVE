@@ -158,7 +158,7 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh <token-file     # or 
 ## 7. The build (GitHub Actions)
 
 `.github/workflows/build.yml` builds the indexer image and the app release **natively on arm64** from one commit, tests the
-bundle against the image (`verify-release.sh`: the snapshot inputs match, the web server answers `/healthz`, the worker
+bundle against the image (`verify-release.sh`: the snapshot inputs match, the API server answers `/healthz`, the web app serves `/`, the server and its worker
 runs, Caddy validates its file and has both modules), and pushes the image to the account's ECR and the bundle to its ops
 bucket. It runs only when a tag is pushed: `build-<account>-<sha>` (build, test, publish) or `verify-<sha>` (build and test,
 no AWS). Nothing else starts it, and nothing goes to `main`.
@@ -234,7 +234,7 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh app
 
 **Success:** the activation output ends `activate: <version> is live`. The box checks `http://127.0.0.1:3000/healthz` for 60 s
 and switches back to the previous release if it never reports `ok`.
-**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-worker -n 80` and
+**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-server -n 80` and
 `/var/log/repohive/web.log`.
 
 **Smoke test:**
@@ -270,7 +270,7 @@ execution `FAILED` with an error named after a code (`slot-wait-timeout`, `runti
 ## 11. Operating
 
 **Logs and metrics.** Log groups (14 days by default): `/aws/lambda/repohive-indexer`, `/aws/lambda/repohive-control`,
-`/repohive/fargate/indexer`, `/aws/vendedlogs/states/repohive-index`, `/repohive/box/web`, `/repohive/box/worker`,
+`/repohive/fargate/indexer`, `/aws/vendedlogs/states/repohive-index`, `/repohive/box/web`, `/repohive/box/server`,
 `/repohive/box/caddy` (visitor IPs), `/repohive/box/heartbeat`. Metrics: namespace `RepoHIVE/Hosted`.
 
 **A shell on the box** (no SSH): `aws ssm start-session --target <box_instance_id>`.
@@ -282,7 +282,7 @@ when the indexer image or the Terraform changed; the plan says so), `deploy.sh a
 rolling back twice returns to the release you left.
 
 **Restore SQLite from `backup/`:** `packages/web/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
-`repohive-worker`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
+`repohive-server`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
 both.
 
 **Rotate the origin secret:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only

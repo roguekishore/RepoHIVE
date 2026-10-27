@@ -8,8 +8,9 @@
 # repohive-indexer:<version>. Checks, in order:
 #   1. the bundle and the image compute the same snapshot inputs (engineVersion, viewsVersion, configDigest): if they
 #      differ, every hosted job is refused with "snapshot id does not match this build";
-#   2. the web server starts from the bundle with the bundle's own Node and /healthz answers ok;
-#   3. the worker starts (TypeScript sources through Node's type stripping) and is still running after 20 s;
+#   2. the API server starts from the bundle (TypeScript sources through Node's type stripping) and /healthz answers
+#      ok, and the web app starts and serves GET /;
+#   3. the server, with its worker, is still running after 20 s and has logged no error;
 #   4. Caddy, from the bundle, adapts and validates the Caddyfile with placeholder settings.
 set -euo pipefail
 # shellcheck source=deploy/scripts/lib.sh
@@ -29,11 +30,14 @@ esac
 
 work="$(mktemp -d)"
 web_pid=""
+server_pid=""
 cleanup() {
-  if [[ -n "${web_pid}" ]]; then
-    kill "${web_pid}" 2>/dev/null || true
-    wait "${web_pid}" 2>/dev/null || true
-  fi
+  for pid in "${web_pid}" "${server_pid}"; do
+    if [[ -n "${pid}" ]]; then
+      kill "${pid}" 2>/dev/null || true
+      wait "${pid}" 2>/dev/null || true
+    fi
+  done
   rm -rf -- "${work}"
 }
 trap cleanup EXIT
@@ -66,37 +70,45 @@ app_env=(
   "NODE_ENV=production"
 )
 
-printf '== 2. web server and /healthz\n'
-(cd "${web_dir}" && exec env "${app_env[@]}" PORT=3100 HOSTNAME=127.0.0.1 "${node}" server.js) >"${work}/web.log" 2>&1 &
+printf '== 2. API server, /healthz and the web app\n'
+server_dir="${tree}/app/packages/server"
+(cd "${server_dir}" && exec env "${app_env[@]}" PORT=3101 HOST=127.0.0.1 "${node}" --import ./scripts/register-aliases.mjs \
+  src/main.ts) >"${work}/server.log" 2>&1 &
+server_pid=$!
+(cd "${web_dir}" && exec env NODE_ENV=production PORT=3100 HOSTNAME=127.0.0.1 "${node}" server.js) >"${work}/web.log" 2>&1 &
 web_pid=$!
 body=""
 for _ in $(seq 1 60); do
-  body="$(curl -fsS --max-time 2 http://127.0.0.1:3100/healthz 2>/dev/null || true)"
+  body="$(curl -fsS --max-time 2 http://127.0.0.1:3101/healthz 2>/dev/null || true)"
   [[ "${body}" == *'"status":"ok"'* ]] && break
-  kill -0 "${web_pid}" 2>/dev/null || break
+  kill -0 "${server_pid}" 2>/dev/null || break
   sleep 1
 done
 if [[ "${body}" != *'"status":"ok"'* ]]; then
-  tail -n 40 "${work}/web.log" >&2
-  die "the web server did not answer /healthz with ok (last answer: ${body:-none})"
+  tail -n 40 "${work}/server.log" >&2
+  die "the API server did not answer /healthz with ok (last answer: ${body:-none})"
 fi
 printf 'healthz: %s\n' "${body}"
-status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:3100/)"
+status=""
+for _ in $(seq 1 30); do
+  status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:3100/ || true)"
+  [[ "${status}" == "200" ]] && break
+  kill -0 "${web_pid}" 2>/dev/null || break
+  sleep 1
+done
 [[ "${status}" == "200" ]] || {
   tail -n 40 "${work}/web.log" >&2
   die "GET / answered ${status}, not 200"
 }
 printf 'GET /: %s\n' "${status}"
 
-printf '== 3. worker\n'
-worker_status=0
-(cd "${web_dir}" && exec env "${app_env[@]}" timeout 20 "${node}" --import ./scripts/register-aliases.mjs \
-  scripts/run-worker.mjs) >"${work}/worker.log" 2>&1 || worker_status=$?
-if [[ "${worker_status}" -ne 124 ]] || grep -q '"level":"error"' "${work}/worker.log"; then
-  cat "${work}/worker.log" >&2
-  die "the worker stopped with status ${worker_status} or logged an error (124 means it was still running)"
+printf '== 3. server and worker stay up\n'
+sleep 20
+if ! kill -0 "${server_pid}" 2>/dev/null || grep -q '"level":"error"' "${work}/server.log"; then
+  cat "${work}/server.log" >&2
+  die "the server stopped or logged an error within 20 s"
 fi
-printf 'worker: still running after 20 s, no error logged\n'
+printf 'server: still running after 20 s, no error logged\n'
 
 printf '== 4. Caddyfile\n'
 # The real log path is /var/log/repohive; validate a copy that logs to the scratch directory instead.

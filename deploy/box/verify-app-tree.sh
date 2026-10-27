@@ -17,11 +17,13 @@ fail() {
 
 [ -f "${tree}/app/packages/web/server.js" ] || fail "app/packages/web/server.js is missing (the standalone output)"
 [ -d "${tree}/app/packages/web/.next/static" ] || fail "app/packages/web/.next/static is missing"
-[ -f "${tree}/app/packages/web/scripts/run-worker.mjs" ] || fail "the worker script is missing"
-[ -f "${tree}/app/packages/web/scripts/register-aliases.mjs" ] || fail "the alias loader is missing"
-[ -f "${tree}/app/packages/web/src/server/hosting/config.ts" ] || fail "packages/web/src is missing"
+[ -f "${tree}/app/packages/server/src/main.ts" ] || fail "the server entry (packages/server/src/main.ts) is missing"
+[ -f "${tree}/app/packages/server/scripts/register-aliases.mjs" ] || fail "the alias loader is missing"
+[ -f "${tree}/app/packages/server/src/hosting/config.ts" ] || fail "packages/server/src is missing"
+[ -f "${tree}/app/packages/design/src/contracts/index.ts" ] || fail "packages/design/src/contracts is missing"
+[ -L "${tree}/app/node_modules/@repohive/design" ] || fail "@repohive/design must be a link to packages/design (Node does not strip types in node_modules)"
 
-# The two packages next.config.ts loads at run time, plus what they import: shared, parser, core, views.
+# The packages the server loads at run time, plus what they import: shared, parser, core, views.
 for p in indexer engine shared parser core views; do
   dir="${tree}/app/node_modules/@repohive/${p}"
   if [ -L "${dir}" ]; then
@@ -40,7 +42,7 @@ for f in bin/node bin/caddy box/Caddyfile box/amazon-cloudwatch-agent.json box/l
   box/systemd/repohive-heartbeat.timer VERSION; do
   [ -f "${tree}/${f}" ] || fail "${f} is missing"
 done
-for u in repohive-env caddy repohive-web repohive-worker repohive-heartbeat; do
+for u in repohive-env caddy repohive-web repohive-server repohive-heartbeat; do
   [ -f "${tree}/box/systemd/${u}.service" ] || fail "box/systemd/${u}.service is missing"
 done
 

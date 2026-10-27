@@ -56,7 +56,16 @@
 			max_size 64KB
 		}
 
-		# No encode directive: CloudFront compresses (14.6).
+		# The API and the health check go to the server on 3001; every other path is a page, served by the web app
+		# on 3000. No encode directive: CloudFront compresses (14.6).
+		@api path /api/* /healthz
+		reverse_proxy @api 127.0.0.1:3001 {
+			header_up X-RepoHIVE-Client-IP {client_ip}
+			header_up Host {$SITE_DOMAIN}
+			# Server-sent events must not be buffered (14.6).
+			flush_interval -1
+		}
+
 		reverse_proxy 127.0.0.1:3000 {
 			# Setting a header replaces any value the visitor sent, so the app sees one trusted value (14.5).
 			# No separate delete: Caddy applies deletes after sets, which would remove the new value.

@@ -26,12 +26,12 @@ RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
       --with github.com/xcaddyplugins/caddy-trusted-cloudfront@${CLOUDFRONT_VERSION} \
       --output /out/caddy
 
-# --- production dependencies: the web app and the indexer packages it loads at run time ----------------
+# --- production dependencies: the web app, the API server and the indexer packages the server loads ---------
 FROM --platform=linux/arm64 ${NODE_IMAGE} AS prod-modules
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages ./packages
-RUN npm ci --omit=dev --ignore-scripts --workspace @repohive/web --include-workspace-root
+RUN npm ci --omit=dev --ignore-scripts --workspace @repohive/web --workspace @repohive/server --include-workspace-root
 
 # --- the app: compile the engine packages, then the Next.js standalone build -----------------------------
 FROM --platform=linux/arm64 ${NODE_IMAGE} AS app
@@ -62,7 +62,9 @@ RUN set -eux; \
     mkdir -p /out/app/packages/web/.next; \
     cp -a packages/web/.next/static /out/app/packages/web/.next/static; \
     if [ -d packages/web/public ]; then cp -a packages/web/public /out/app/packages/web/public; fi; \
-    cp -a packages/web/src packages/web/scripts packages/web/package.json /out/app/packages/web/; \
+    mkdir -p /out/app/packages/server /out/app/packages/design; \
+    cp -a packages/server/src packages/server/scripts packages/server/package.json /out/app/packages/server/; \
+    cp -a packages/design/src packages/design/package.json /out/app/packages/design/; \
     mkdir -p /out/app/node_modules; \
     cp -a -n /prod-modules/. /out/app/node_modules/; \
     for p in shared parser core engine views indexer; do \
@@ -70,6 +72,10 @@ RUN set -eux; \
       mkdir -p "/out/app/node_modules/@repohive/$p"; \
       cp -r "packages/$p/package.json" "packages/$p/dist" "/out/app/node_modules/@repohive/$p/"; \
     done; \
+    # The server imports @repohive/design/contracts as TypeScript source. Node does not strip types inside
+    # node_modules, so the package is a link to the copy under packages/ (Node resolves a link to its real path).
+    rm -rf /out/app/node_modules/@repohive/design; \
+    ln -s ../../packages/design /out/app/node_modules/@repohive/design; \
     printf '%s\n' "${GIT_SHA}" > /out/VERSION; \
     sh /verify-app-tree.sh /out
 

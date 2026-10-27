@@ -1,5 +1,5 @@
 [Unit]
-Description=RepoHIVE: Next.js server
+Description=RepoHIVE: Next.js web app (pages only; the API is repohive-server)
 Requires=repohive-env.service
 After=repohive-env.service network-online.target
 Wants=network-online.target
