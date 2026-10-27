@@ -12,7 +12,9 @@ Pinned facts. If something here disagrees with a `package.json`, the `package.js
   additionally declares its own `engines` (`>=20.0.0`). The engine test script no longer depends on
   the Node version or the shell; see below.
 - ESM. `"type": "module"` is set in `shared`, `parser` and `core`. It is
-  **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there).
+  **not** set in the root manifest, and **not** in `packages/web` (Next.js handles module format there). It is set
+  in `packages/server`, which runs under plain Node's type stripping (Node 24, `engines` `>=24`). It is set
+  in `packages/server`, which runs under plain Node's type stripping (Node 24, `engines` `>=24`).
 - **npm workspaces** monorepo, workspace glob `packages/*`.
 - Licence: **AGPL-3.0-or-later**, declared at the root and in the engine packages. Any new
   dependency must be licence-compatible.
@@ -56,8 +58,8 @@ Exact pins in `packages/indexer/package.json`.
 
 ## Viewer dependencies
 
-In `packages/web`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
-(hosted store, ledger and Step Functions orchestrator); `@repohive/design`, `next ~15.5.21`, `react ^19.0.0`,
+In `packages/server`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
+(hosted store, ledger and Step Functions orchestrator). In `packages/web`: `@repohive/design`, `next ~15.5.21`, `react ^19.0.0`,
 `react-dom ^19.0.0` and `geist ^1.3.0` (Geist Mono). Host Grotesk is loaded through `next/font/google`, so a build needs
 network. That is the whole runtime list: the UI rewrite removed Tailwind, the Radix primitives, `swr`, `nuqs`,
 `lucide-react`, `next-themes`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@tanstack/react-virtual`, `sigma`,

@@ -47,7 +47,8 @@ Applies to `packages/design`.
 - **Kept versus rebuilt is never colour alone.** Kept is a solid outline, rebuilt a dashed outline in plum, and
   unassessed a third neutral state.
 - **Dependency direction.** `packages/web` imports `@repohive/design`, never the reverse, and `design` imports nothing
-  from Next.js.
+  from Next.js. `packages/web` and `packages/server` do not import each other (the one exception is web's
+  translation-contract test, which imports the server's route handlers); they share `@repohive/design/contracts`.
 
 ## Package boundaries
 

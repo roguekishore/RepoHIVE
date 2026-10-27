@@ -281,7 +281,7 @@ when the indexer image or the Terraform changed; the plan says so), `deploy.sh a
 **Roll back the app:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/rollback-app.sh`. It switches to the newest other release;
 rolling back twice returns to the release you left.
 
-**Restore SQLite from `backup/`:** `packages/web/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
+**Restore SQLite from `backup/`:** `packages/server/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
 `repohive-server`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
 both.
 

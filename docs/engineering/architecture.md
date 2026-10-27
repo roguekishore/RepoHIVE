@@ -107,7 +107,8 @@ packages/
   views/        the viewer's response bodies as pure functions of a parsed index (ecosystem)
   indexer/      the hosted indexing job: pre-check, tarball fetch, run, views, publish (ecosystem)
   design/       tokens, components, screens, canvases and the contract every screen receives (ecosystem)
-  web/          Next.js 15 app: the host for the design package, the server code and the worker (ecosystem)
+  web/          Next.js 15 app: the host for the design package; pages only (ecosystem)
+  server/       plain Node process: the HTTP API (accounts, quota, intake, jobs) and the background worker (ecosystem)
 ```
 
 `shared` is the leaf dependency. `parser` and `core` depend only on `shared`; `engine` depends on
@@ -154,20 +155,22 @@ The package must be byte-identical on the TS branch (`server-ts-own-id`) and on 
 translation layer and route shells differ between them. How to change the design system is in
 `packages/design/README.md`.
 
-## Web app (`packages/web`)
+## Web app (`packages/web`) and server (`packages/server`)
 
-One Next.js 15 package is the TS host: it mounts the design package's screens, translates this server's responses onto
-the design contract, and holds the server code (accounts, quota, intake, jobs, the worker).
+`packages/web` is the Next.js 15 host: it mounts the design package's screens and translates the server's responses onto
+the design contract. It holds no API route and no server code. `packages/server` is a plain Node package (no Next.js)
+that holds the API (accounts, quota, intake, jobs) and the worker; see `packages/server/README.md`. The two meet only
+over HTTP, plus `@repohive/design/contracts` for shared types and the repository-name rules. In production Caddy
+sends `/api/*` and `/healthz` to the server (127.0.0.1:3001) and every other path to the web app (127.0.0.1:3000);
+in development the web dev server forwards those paths when `REPOHIVE_API_ORIGIN` is set.
 
 ```
 src/
   app/          routes only. (own)/ is the app frame; (bare)/ is the landing and the sign-in and sign-up pages;
-                api/, r/, s/ and healthz/ are route handlers
+                page routes only
   features/     host/ (the translation layer and shells), canvas-views/ (the route components for the five
-                canvas views), repository/ (URL parsing, the default view, snapshot-store helpers)
+                canvas views), repository/ (snapshot-store helpers)
   lib/          site origin
-  server/       app-db (SQLite), auth, quota, intake, jobs, orchestrator, worker, hosting (config, clients),
-                telemetry, health, repositories, host (the translation-contract test), views (adapter tests)
 ```
 
 **The translation layer** is `features/host`. `browser-client.ts` is one `ContractClient` over this server's real
@@ -175,7 +178,7 @@ endpoints (session and account actions, quota, index request, a job and its even
 resources, the snapshot pointer, the manifest and every view). `snapshot-state.ts` resolves a page's `SnapshotState`
 through it. `design-host.tsx` wires Next's link and router into `DesignProvider`, and `own-shell.tsx` loads the session,
 the allowance and the palette's repositories around the app frame.
-`server/host/translation-contract.test.ts` runs the client against the real route handlers in process.
+`features/host/translation-contract.test.ts` runs the client against the server's real route handlers in process.
 
 Pages: `/` (the landing with the film), `/repos` (the dashboard), `/activity`, `/method`, `/account`,
 `/auth/sign-in`, `/auth/sign-up`, `/jobs/[jobId]`, and under `/repos/[owner]/[repo]/`: `overview` (the default),
@@ -271,8 +274,8 @@ The ledger table is described twice and a test keeps the two equal: `deploy/terr
 
 The same image also holds the control handler (`packages/indexer/src/control.ts`, `dist/control.handler`), which the state machine calls for ledger operations (`acquireSlot`, `releaseSlot`, `inspect`, `failIfOpen`) so the definition never duplicates the table layout. It reads only `REPOHIVE_LEDGER`. Taking the large slot is re-entrant for the job that already holds it and renews its lease in every ledger implementation (shared contract test).
 
-The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) routes S and M to the Lambda function and L and XL to Fargate, takes the large slot through the control function, and decides every outcome from the ledger rather than from the runtime's exit status: after each run it calls `inspect`, re-routes a `retier` (twice at most), runs a job the runtime never started once more, and calls `failIfOpen` for anything not terminal. The app starts executions named after the job id (`packages/web/src/server/orchestrator/sfn.ts`), and an EventBridge rule on executions ending FAILED, TIMED_OUT or ABORTED calls `failIfOpen` with that name. `packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
+The state machine `repohive-index` (`deploy/terraform/main/state-machine.asl.json`, Standard, JSONata) routes S and M to the Lambda function and L and XL to Fargate, takes the large slot through the control function, and decides every outcome from the ledger rather than from the runtime's exit status: after each run it calls `inspect`, re-routes a `retier` (twice at most), runs a job the runtime never started once more, and calls `failIfOpen` for anything not terminal. The app starts executions named after the job id (`packages/server/src/orchestrator/sfn.ts`), and an EventBridge rule on executions ending FAILED, TIMED_OUT or ABORTED calls `failIfOpen` with that name. `packages/indexer/src/state-machine.test.ts` reads the ASL file and keeps its structure, retries and timeouts honest.
 
-The app box (`deploy/terraform/main/box.tf`, `deploy/box/`) is a t4g.small running three systemd services behind CloudFront: Caddy (TLS for the origin domain by HTTP-01, 403 without the origin secret header, the right-most `X-Forwarded-For` address as `X-RepoHIVE-Client-IP`), the Next.js standalone server on `127.0.0.1:3000`, and the background worker. SQLite lives on a separate encrypted volume at `/var/lib/repohive`. Secrets never enter user data: `repohive-env` renders `/run/repohive/*.env` from `/etc/repohive/box.env` and the SSM parameters at start. A release is one tarball built in a linux/arm64 container (`Dockerfile.release`): the standalone server, the worker's `scripts/` and `src/`, production `node_modules` with the workspace packages the server loads at run time copied in as real directories (`next.config.ts` leaves them out of the bundle; `deploy/box/verify-app-tree.sh` checks this), the Node binary, Caddy built by `xcaddy`, and the units, agent configuration and scripts. `repohive-activate` unpacks it, switches `/opt/repohive/current`, restarts the units, polls `/healthz` and switches back if it does not answer. Cloud-init runs once; everything else ships with the next release.
+The app box (`deploy/terraform/main/box.tf`, `deploy/box/`) is a t4g.small running three systemd services behind CloudFront: Caddy (TLS for the origin domain by HTTP-01, 403 without the origin secret header, the right-most `X-Forwarded-For` address as `X-RepoHIVE-Client-IP`; it sends `/api/*` and `/healthz` to the server and everything else to the web app), the Next.js standalone web app on `127.0.0.1:3000`, and `repohive-server` (the API and the background worker in one process) on `127.0.0.1:3001`. SQLite lives on a separate encrypted volume at `/var/lib/repohive`. Secrets never enter user data: `repohive-env` renders `/run/repohive/*.env` from `/etc/repohive/box.env` and the SSM parameters at start. A release is one tarball built in a linux/arm64 container (`Dockerfile.release`): the standalone server, the worker's `scripts/` and `src/`, production `node_modules` with the workspace packages the server loads at run time copied in as real directories (`next.config.ts` leaves them out of the bundle; `deploy/box/verify-app-tree.sh` checks this), the Node binary, Caddy built by `xcaddy`, and the units, agent configuration and scripts. `repohive-activate` unpacks it, switches `/opt/repohive/current`, restarts the units, polls `/healthz` and switches back if it does not answer. Cloud-init runs once; everything else ships with the next release.
 
 One CloudFront distribution serves the site domain (`cloudfront.tf`). `/s/*` and `/r/*` go to the artifact bucket through an Origin Access Control with a path-only cache key, so the stored `Cache-Control` decides lifetime; `/_next/static/*`, `/api/jobs/*` (uncached, uncompressed, for server-sent events) and everything else go to the box through `origin.<site domain>`, with the origin secret in `X-RepoHIVE-Origin-Secret`. The bucket policy lets only that distribution read `s/` and `r/`; `idx/`, `meta/` and `backup/` have no behaviour. Eight alarms (`alarms.tf`) email one SNS topic, a budget emails the owner, and a systemd timer on the box writes a `SiteUp` metric line every minute that backs the heartbeat alarm.
