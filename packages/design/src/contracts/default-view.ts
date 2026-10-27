@@ -1,4 +1,4 @@
-import type { RepoView } from "@repohive/design";
+import type { RepoView } from "../routes";
 
 /**
  * The view a repository's root URL opens, and where a finished job sends the user. One constant, so the middleware's

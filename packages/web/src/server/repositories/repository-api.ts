@@ -4,7 +4,7 @@
  * hosts. Only recorded values are returned.
  */
 import type { RepositoryPage, RepositorySummary } from "@repohive/design/contracts";
-import { parseRepoParams } from "@/features/repository/repo-name";
+import { parseRepoParams } from "@repohive/design/contracts";
 import {
   paginateRepositories,
   type ListedRepository,

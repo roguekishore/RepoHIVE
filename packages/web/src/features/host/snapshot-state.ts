@@ -1,5 +1,5 @@
 import type { ContractClient, SnapshotState } from "@repohive/design/contracts";
-import { parseSnapshotParam } from "@/features/repository/repo-name";
+import { parseSnapshotParam } from "@repohive/design/contracts";
 
 /**
  * Resolves a repository page's snapshot once, from `?snapshot=<id>` when that is a valid id and otherwise from the

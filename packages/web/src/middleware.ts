@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { DEFAULT_REPO_VIEW } from "@/features/repository/default-view";
-import { needsLowercase, parseRepoParams } from "@/features/repository/repo-name";
+import { DEFAULT_REPO_VIEW, needsLowercase, parseRepoParams } from "@repohive/design/contracts";
 
 /**
  * Repository URL rules that must be answered before any page renders, so the

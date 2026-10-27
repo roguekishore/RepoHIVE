@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { RepositoryState } from "@/features/host/repository-state";
-import { parseRepoParams } from "@/features/repository/repo-name";
+import { parseRepoParams } from "@repohive/design/contracts";
 
 interface RepoLayoutProps {
   children: React.ReactNode;

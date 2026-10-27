@@ -13,7 +13,7 @@ import {
 } from "@repohive/indexer";
 import type { AppDatabase } from "@/server/app-db/database";
 import type { AppConfig } from "@/server/hosting/config";
-import { repoKeyToRepoId } from "@/features/repository/repo-display";
+import { repoKeyToRepoId } from "@repohive/design/contracts";
 
 export const LOCAL_FIXTURE_NAMES = ["sample-java-project", "jsoup", "vantage", "BroadleafCommerce"] as const;
 

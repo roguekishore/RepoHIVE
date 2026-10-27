@@ -1,4 +1,4 @@
-import { DEFAULT_REPO_VIEW } from "@/features/repository/default-view";
+import { DEFAULT_REPO_VIEW } from "@repohive/design/contracts";
 import type { AppDatabase } from "@/server/app-db/database";
 import { nowIso } from "@/server/auth/time";
 

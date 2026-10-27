@@ -9,7 +9,7 @@ import {
   parseRepoParams,
   parseSnapshotParam,
   repoIdFromPathname,
-} from "./repo-name";
+} from "@repohive/design/contracts";
 
 const ID = "0123456789abcdef0123456789abcdef";
 

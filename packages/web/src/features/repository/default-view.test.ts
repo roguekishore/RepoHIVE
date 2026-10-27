@@ -2,7 +2,7 @@
 import { REPO_VIEWS } from "@repohive/design";
 import { describe, expect, it } from "vitest";
 import { repoKeyToViewerPath } from "@/server/worker/repositories";
-import { DEFAULT_REPO_VIEW } from "./default-view";
+import { DEFAULT_REPO_VIEW } from "@repohive/design/contracts";
 
 describe("the default repository view", () => {
   it("is the Overview, not the Map", () => {

@@ -8,3 +8,7 @@ export type { IndexRequestResult } from "./index-request";
 export { VIEW_NAMES } from "./views";
 export type { ArchitectureLevelView, RegionDetailIndex, RegionDetailView, ViewBodies, ViewName } from "./views";
 export type { ContractClient } from "./client";
+export { latestPointerPath, needsLowercase, parseRepoParams, parseSnapshotParam, repoIdFromPathname } from "./repo-name";
+export type { RepoParams } from "./repo-name";
+export { repoIdToKnowledgeGraphPath, repoKeyToRepoId, shortCommitSha } from "./repo-display";
+export { DEFAULT_REPO_VIEW } from "./default-view";

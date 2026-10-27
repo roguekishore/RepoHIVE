@@ -36,7 +36,7 @@ import {
   type ViewName,
 } from "@repohive/design/contracts";
 import { clientSiteOrigin } from "@/lib/site-origin";
-import { latestPointerPath, parseSnapshotParam } from "@/features/repository/repo-name";
+import { latestPointerPath, parseSnapshotParam } from "@repohive/design/contracts";
 
 /** Where a snapshot publishes each view, relative to `/s/<snapshotId>/`. Pinned to the indexer's layout by a test. */
 export const VIEW_PATHS: Readonly<Record<ViewName, string>> = {
