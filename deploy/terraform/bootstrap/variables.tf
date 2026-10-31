@@ -36,7 +36,7 @@ variable "protect" {
 
 variable "account_name" {
   type        = string
-  description = "The deploy/accounts/<name> folder of this account, which is also the GitHub environment the build workflow runs in for it."
+  description = "The deploy/accounts/<name> folder of this account (apply.sh passes it)."
   validation {
     condition     = can(regex("^[a-z][a-z0-9]{0,19}$", var.account_name))
     error_message = "account_name must be lower-case letters and digits, starting with a letter, at most 20 characters."
@@ -45,7 +45,7 @@ variable "account_name" {
 
 variable "github_repository" {
   type        = string
-  description = "owner/repo of the GitHub repository whose build workflow may push the image and the release (apply.sh reads it from the origin remote)."
+  description = "owner/repo of the GitHub repository whose deploy workflow may push the image and the release (apply.sh reads it from the origin remote)."
   validation {
     condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.github_repository))
     error_message = "github_repository must be owner/repo."
@@ -64,6 +64,6 @@ variable "github_subject_prefix" {
   default     = ""
   validation {
     condition     = var.github_subject_prefix == "" || can(regex("^repo:[^:]+$", var.github_subject_prefix))
-    error_message = "github_subject_prefix must be empty or repo:<owner>/<repo> in either GitHub form, with no environment part."
+    error_message = "github_subject_prefix must be empty or repo:<owner>/<repo> in either GitHub form, with no ref part."
   }
 }

@@ -38,7 +38,7 @@ done
 
 [ -f "${tree}/app/node_modules/next/package.json" ] || fail "next is missing from app/node_modules"
 for f in bin/node bin/caddy box/Caddyfile box/amazon-cloudwatch-agent.json box/logrotate-repohive \
-  box/bin/repohive-env box/bin/repohive-first-boot box/bin/repohive-activate box/bin/repohive-heartbeat \
+  box/bin/repohive-env box/bin/repohive-first-boot box/bin/repohive-heartbeat \
   box/systemd/repohive-heartbeat.timer VERSION; do
   [ -f "${tree}/${f}" ] || fail "${f} is missing"
 done

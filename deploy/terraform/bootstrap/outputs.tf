@@ -4,8 +4,13 @@ output "state_bucket" {
 }
 
 output "ops_bucket" {
-  description = "Bucket for release bundles."
+  description = "Bucket of the release bundles from before ./ops ship."
   value       = aws_s3_bucket.ops.id
+}
+
+output "deploy_bucket" {
+  description = "Bucket of the releases ./ops ship builds (releases/<sha12>.tar.gz)."
+  value       = aws_s3_bucket.deploy.id
 }
 
 output "ecr_repository_url" {
@@ -29,7 +34,7 @@ output "certificate_validation_records" {
   ]
 }
 
-output "github_build_role_arn" {
-  description = "The role the build workflow assumes in this account (its name is fixed: repohive-github-build)."
-  value       = aws_iam_role.github_build.arn
+output "github_deploy_role_arn" {
+  description = "The role the deploy workflow assumes in this account (its name is fixed: repohive-github-deploy)."
+  value       = aws_iam_role.github_deploy.arn
 }

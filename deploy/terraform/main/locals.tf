@@ -17,6 +17,7 @@ locals {
   # Buckets
   artifact_bucket = "repohive-artifacts-${local.account_id}"
   ops_bucket      = "repohive-ops-${local.account_id}"
+  deploy_bucket   = "repohive-deploy-${local.account_id}"
   state_bucket    = "repohive-tfstate-${local.account_id}"
 
   # Data and compute
@@ -37,6 +38,7 @@ locals {
   # ARNs, built from names so no role needs the resource it names to exist first
   artifact_bucket_arn = "arn:aws:s3:::${local.artifact_bucket}"
   ops_bucket_arn      = "arn:aws:s3:::${local.ops_bucket}"
+  deploy_bucket_arn   = "arn:aws:s3:::${local.deploy_bucket}"
   ledger_table_arn    = "arn:aws:dynamodb:${local.region}:${local.account_id}:table/${local.ledger_table}"
   state_machine_arn   = "arn:aws:states:${local.region}:${local.account_id}:stateMachine:${local.state_machine}"
   parameter_arn_base  = "arn:aws:ssm:${local.region}:${local.account_id}:parameter"

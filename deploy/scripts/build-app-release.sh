@@ -49,4 +49,4 @@ rm -rf -- "${tree}"
 
 printf 'bundle:   %s\n' "${bundle}"
 printf 'sha256:   %s\n' "$(cut -d' ' -f1 "${bundle}.sha256")"
-printf 'next:     deploy/scripts/deploy-app.sh %s\n' "${version}"
+printf 'next:     deploy/scripts/verify-release.sh %s\n' "${version}"

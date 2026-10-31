@@ -22,7 +22,6 @@ locals {
     server_node_heap_mb            = var.server_node_heap_mb
     script_env                     = base64gzip(file("${local.box_files}/bin/repohive-env"))
     script_first_boot              = base64gzip(file("${local.box_files}/bin/repohive-first-boot"))
-    script_activate                = base64gzip(file("${local.box_files}/bin/repohive-activate"))
     script_heartbeat               = base64gzip(file("${local.box_files}/bin/repohive-heartbeat"))
     logrotate                      = base64gzip(file("${local.box_files}/logrotate-repohive"))
     agent_config                   = base64gzip(file("${local.box_files}/amazon-cloudwatch-agent.json"))
@@ -93,10 +92,12 @@ data "aws_iam_policy_document" "box" {
     resources = [local.artifact_bucket_arn]
   }
 
+  # The releases of `./ops ship` (deploy/activate.sh and its boot catch-up); the ops bucket holds the older ones.
+  # /repohive/release, the live sha12, is under ReadParameters below.
   statement {
     sid       = "ReadReleases"
     actions   = ["s3:GetObject"]
-    resources = ["${local.ops_bucket_arn}/releases/*"]
+    resources = ["${local.deploy_bucket_arn}/releases/*", "${local.ops_bucket_arn}/releases/*"]
   }
 
   # The app also scans the table for "jobs ended since".
@@ -193,7 +194,8 @@ resource "aws_instance" "box" {
     encrypted   = true
   }
 
-  tags = { Name = "repohive-box" }
+  # deploy-repohive: the instance `./ops ship` activates (the deploy workflow finds it by this tag).
+  tags = { Name = "repohive-box", deploy-repohive = "true" }
 
   lifecycle {
     # A newer AMI must not replace the box. user_data runs on first boot only, so a later edit would only

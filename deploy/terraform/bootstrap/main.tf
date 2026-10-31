@@ -1,15 +1,17 @@
 # The bootstrap root: applied once, with local state. It creates what the
 # main root needs before it can run: the state bucket, the ops bucket, the registry and the
-# CloudFront certificate.
+# CloudFront certificate; and the deploy bucket and role of `./ops ship` (github.tf).
 
 locals {
-  state_bucket = "repohive-tfstate-${var.aws_account_id}"
-  ops_bucket   = "repohive-ops-${var.aws_account_id}"
+  state_bucket  = "repohive-tfstate-${var.aws_account_id}"
+  ops_bucket    = "repohive-ops-${var.aws_account_id}"
+  deploy_bucket = "repohive-deploy-${var.aws_account_id}"
 
-  # Both buckets get the same protections; the keys are static so for_each is known at plan time.
+  # Every bucket gets the same protections; the keys are static so for_each is known at plan time.
   protected_buckets = {
-    state = aws_s3_bucket.state.id
-    ops   = aws_s3_bucket.ops.id
+    state  = aws_s3_bucket.state.id
+    ops    = aws_s3_bucket.ops.id
+    deploy = aws_s3_bucket.deploy.id
   }
 }
 
@@ -106,7 +108,17 @@ resource "aws_s3_bucket_versioning" "state" {
   }
 }
 
-# The ops bucket holds release bundles only; versioning stays off.
+# The deploy bucket holds the releases of `./ops ship` (releases/<sha12>.tar.gz). No versioning and no age rule:
+# the deploy workflow keeps the newest 3 plus the live one and deletes the rest.
+resource "aws_s3_bucket" "deploy" {
+  bucket = local.deploy_bucket
+
+  # Only an unprotected (test) account lets a destroy delete it with releases in it.
+  force_destroy = !var.protect
+}
+
+# The ops bucket held the release bundles before `./ops ship` (its releases/ objects are left to expire); versioning
+# stays off.
 resource "aws_s3_bucket_lifecycle_configuration" "ops" {
   bucket = aws_s3_bucket.ops.id
 

@@ -136,27 +136,27 @@ loads its `deploy.env` and stops unless `aws sts get-caller-identity` matches it
 | Script | Effect |
 |--------|--------|
 | `put-github-token.sh` | stores `/repohive/github-token` (token from a hidden prompt or a piped file) |
-| `build-in-github.sh [--verify-only]` | pushes the tag `build-<account>-<sha>` (or `verify-<sha>`) and follows the `build.yml` run; creates the account's GitHub environment first |
-| `github-environment.sh` | creates or updates the GitHub environment `<account>`: tags `build-<account>-*` only, variables `AWS_ACCOUNT_ID`, `SITE_DOMAIN` |
 | `build-indexer-image.sh` | `docker buildx build --platform linux/arm64 --provenance=false`, tagged with the 12-character git SHA; refuses uncommitted changes under `packages/` |
 | `push-indexer-image.sh [tag]` | logs in to ECR, pushes (or keeps an existing tag), prints the digest |
 | `run-indexer-image-locally.sh [cli\|lambda\|fargate\|all]` | runs the built image locally; no AWS |
 | `build-app-release.sh` | builds the release bundle in a linux/arm64 container; writes `deploy/out/repohive-<sha>.tar.gz` and its SHA-256; no AWS |
 | `verify-release.sh [version]` | on Linux arm64: the bundle and the image compute the same snapshot inputs, the web server answers `/healthz`, the worker runs, Caddy validates; no AWS |
-| `upload-app-release.sh [version]` | uploads the bundle and its SHA-256 to the ops bucket |
-| `deploy-app.sh [version]` | activates a release on the box through SSM Run Command (uploads it first if it was built here) |
-| `rollback-app.sh` | switches the box to the previous release |
 | `apply.sh <bootstrap\|main> [--plan-only\|--apply-saved\|--destroy-plan] [plan args]` | `init` and `plan -out` with every `-var` from `deploy.env`; prints and stops, applies the saved plan, or (no mode) asks for `apply` |
-| `deploy.sh <build\|image\|infra [mode]\|app\|smoke\|all>` | the one deploy command; each stage runs alone; `infra` reads the image digest from ECR |
+| `deploy.sh <image\|infra [mode]\|smoke>` | each stage runs alone; `infra` reads the image digest from ECR (the app ships with `./ops ship`) |
 | `tf-output.sh <root> [name]` | prints a root's outputs from the account's state |
 | `smoke.sh [repo]` | checks the live site through the site domain (healthz, view headers, closed prefixes, origin refusal); no AWS calls |
 | `teardown.sh --confirm <account id>` | removes everything from an account whose `deploy.env` says `PROTECT=false` |
 | `check.sh` | the offline checks: `terraform fmt -check`, `validate` and the offline plan test per root, `shellcheck`, `bash -n` |
 
-The build runs in GitHub Actions (`.github/workflows/build.yml`) on `ubuntu-24.04-arm`, started only by those tags.
-Actions are pinned by commit: `actions/checkout` v7.0.1 (`3d3c42e5…`), `aws-actions/configure-aws-credentials` v6.3.0
-(`e1253824…`). It assumes `repohive-github-build` (bootstrap root) through GitHub's OIDC provider; the role trusts only
-`repo:<owner>/<repo>:environment:<account>` and can only push to `repohive/indexer` and put under `releases/`.
+Shipping is `./ops ship` (`ops` at the repository root, the same in every unit of the workspace): it pushes the commit
+to the `deploy` branch, and `.github/workflows/deploy.yml` runs on `vars.DEPLOY_RUNNER` (`ubuntu-24.04-arm` here):
+`deploy/build.sh` (the four scripts above, then the release tarball), `deploy/precheck.sh` (the release's snapshot inputs
+against the image the live Lambda runs), then `deploy/activate.sh` on the box over SSM. Actions are pinned by commit:
+`actions/checkout` v7.0.1 (`3d3c42e5…`), `actions/setup-node` v7.1.0 (`949feb24…`, unused here: `NODE_VERSION` is empty),
+`aws-actions/configure-aws-credentials` v6.3.0 (`e1253824…`). It assumes `repohive-github-deploy` (bootstrap root)
+through GitHub's OIDC provider; the role trusts only `repo:<owner>/<repo>:ref:refs/heads/deploy`, pushes to
+`repohive/indexer`, reads `lambda:GetFunction` on the indexer, and writes only the deploy bucket's `releases/` and
+`/repohive/release`. `./ops` itself runs as the IAM user `repohive-ops` (main root), key in `~/.ops/repohive.csv`.
 
 Offline checks (never reach AWS; clear AWS credentials first): `terraform fmt -check -recursive deploy/terraform`;
 per root `terraform -chdir=<root> init -backend=false`, then `validate`, then `test`; `shellcheck` on every script under

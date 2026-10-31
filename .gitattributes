@@ -1,0 +1,3 @@
+# ./ops runs under Git Bash: a CRLF checkout would break it. The workflow is shared byte for byte (./ops doctor).
+/ops text eol=lf
+/.github/workflows/deploy.yml text eol=lf

@@ -19,7 +19,7 @@ stop and read the message; do not re-run an apply to "see if it works".
 4. The domain
 5. Bootstrap and the certificate
 6. The GitHub token
-7. The build (GitHub Actions)
+7. The build and ship (`./ops ship`)
 8. The main apply, DNS and the first alarms
 9. The app release and the smoke test
 10. First indexes
@@ -108,8 +108,9 @@ the test account and production need different names while both exist (for examp
 
 ## 5. Bootstrap and the certificate
 
-The bootstrap root creates the state bucket, the ops bucket, the ECR repository, the CloudFront certificate (us-east-1),
-the GitHub OIDC provider and the build role `repohive-github-build`. Its state is local:
+The bootstrap root creates the state bucket, the ops bucket, the deploy bucket (`repohive-deploy-<account>`), the ECR
+repository, the CloudFront certificate (us-east-1), the GitHub OIDC provider and the deploy role `repohive-github-deploy`
+(trusts only this repository's `deploy` branch). Its state is local:
 `deploy/accounts/<name>/bootstrap.tfstate`.
 
 **Command:**
@@ -153,41 +154,47 @@ REPOHIVE_ACCOUNT=<name> deploy/scripts/put-github-token.sh <token-file     # or 
 ```
 
 **Success:** `Stored /repohive/github-token`. **Rotate it:** run the same command, then restart the box's units
-(`deploy.sh app` re-activates the current release, which restarts them). New Lambda and Fargate runs pick it up.
+(`./ops ship` of the live commit re-activates it, which restarts them). New Lambda and Fargate runs pick it up.
 
-## 7. The build (GitHub Actions)
+## 7. The build and ship (`./ops ship`)
 
-`.github/workflows/build.yml` builds the indexer image and the app release **natively on arm64** from one commit, tests the
-bundle against the image (`verify-release.sh`: the snapshot inputs match, the API server answers `/healthz`, the web app serves `/`, the server and its worker
-runs, Caddy validates its file and has both modules), and pushes the image to the account's ECR and the bundle to its ops
-bucket. It runs only when a tag is pushed: `build-<account>-<sha>` (build, test, publish) or `verify-<sha>` (build and test,
-no AWS). Nothing else starts it, and nothing goes to `main`.
+The app ships the way every unit in the workspace ships (`DEPLOY-SPEC.md` beside this repository): `./ops ship` pushes the
+commit to the `deploy` branch, and `.github/workflows/deploy.yml` runs on it. `deploy/build.sh` builds the indexer image and
+the app release **natively on arm64** from that commit, tests the bundle against the image (`verify-release.sh`: the
+snapshot inputs match, the API server answers `/healthz`, the web app serves `/`, the server and its worker run, Caddy
+validates its file and has both modules), pushes the image to ECR as `<sha12>`, and puts the release in the deploy bucket
+(`releases/<sha12>.tar.gz`; a commit already built is reused). `deploy/precheck.sh` then compares the release's snapshot
+inputs with the image the live Lambda runs; `deploy/activate.sh` switches the box (Section 9).
 
-It reaches AWS through the role `repohive-github-build` (Section 5), which trusts only this repository's GitHub environment
-`<account>`. That environment admits only `build-<account>-*` tags and holds the variables `AWS_ACCOUNT_ID` and
-`SITE_DOMAIN`; `build-in-github.sh` creates or updates it each time. No AWS key is stored in GitHub; the workflow masks the
-account id in its logs (the repository is public).
+It reaches AWS through the role `repohive-github-deploy` (Section 5), which trusts only this repository's `deploy` branch.
+No AWS key is stored in GitHub; the workflow masks the account id in its logs (the repository is public).
+
+**Once per repository** (owner): repository variables `AWS_ACCOUNT_ID`, `SITE_DOMAIN` and `DEPLOY_RUNNER=ubuntu-24.04-arm`
+(the image and the bundle's binaries are arm64). The access key of the IAM user `repohive-ops` (main root), made by hand in
+the console, goes to `~/.ops/repohive.csv`; `./ops doctor` checks the machine.
 
 **Command** (from the commit you want to deploy, committed and pushed):
 
 ```
-REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh build
+./ops ship
 ```
 
-**Success:** `build build-<name>-<sha>: ok`, and the run's summary names the image digest and `releases/repohive-<sha>.tar.gz`.
-The version is the 12-character commit SHA; every later stage uses HEAD's unless `REPOHIVE_VERSION` names another.
-**If it fails:** `gh run view <id> --log-failed`. A failure in "Test the bundle against the image" is a real defect: the
-bundle would not have worked on the box. "Not authorized to perform sts:AssumeRoleWithWebIdentity" means the bootstrap
-was not applied, or the environment name and the role's trusted subject differ.
+**Before the main apply** (Section 8) the run builds and pushes the image, then stops at "no online instance tagged
+deploy-repohive=true": that is expected, and `deploy.sh infra` needs exactly that image. After Section 8, `./ops ship`
+again reuses the release and activates it.
 
-`deploy/scripts/build-in-github.sh --verify-only` runs the same build and test with no account.
+**Success:** `./ops ship` ends `<sha12> is live`; the run's summary says built or reused and the outcome.
+**If it fails:** `gh run view <id> --log-failed`. A failure in `verify-release.sh` is a real defect: the bundle would not
+have worked on the box. A precheck failure ("disagree on the snapshot inputs") means the live Lambda runs an older image:
+`REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only` / `--apply-saved`, then `./ops ship` again. "Not
+authorized to perform sts:AssumeRoleWithWebIdentity" means the bootstrap was not applied, or the run is not on `deploy`.
 
 ## 8. The main apply, DNS and the first alarms
 
 **8.1 Apply.**
 
 ```
-REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only     # digest read from ECR for the version
+REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only     # digest read from ECR for HEAD's sha12
 REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --apply-saved   # after the owner has read it and said go
 ```
 
@@ -226,16 +233,19 @@ Section 9: `aws ssm start-session --target <box_instance_id>`, then `sudo journa
 
 ## 9. The app release and the smoke test
 
-The bundle was uploaded by the build (Section 7) and tested there. Activate it:
+The release was built and tested by the deploy workflow (Section 7). Activate it:
 
 ```
-REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh app
+./ops ship
 ```
 
-**Success:** the activation output ends `activate: <version> is live`. The box checks `http://127.0.0.1:3000/healthz` for 60 s
-and switches back to the previous release if it never reports `ok`.
-**If it fails:** read the activation output, then on the box `sudo journalctl -u repohive-web -u repohive-server -n 80` and
-`/var/log/repohive/web.log`.
+**Success:** the activation output ends `activate: repohive <sha12> live on box`. `activate.sh` runs `deploy/install.sh`,
+switches `/opt/repohive/current`, runs `deploy/after-switch.sh` (units, agent configuration, scripts), restarts
+`repohive-env`, `caddy`, `repohive-web` and `repohive-server`, checks `http://127.0.0.1:3001/healthz` for 60 s and switches
+back to the previous release if it never reports `ok`. It keeps 3 releases and installs `repohive-catchup.service`, which
+moves the box to the live release (`/repohive/release`) at boot.
+**If it fails:** read the activation output (`./ops ship` prints it), then `./ops logs -n 80` and
+`/var/log/repohive/web.log` (`./ops shell`).
 
 **Smoke test:**
 
@@ -253,7 +263,7 @@ Sign up and sign in at `https://<site domain>`, then request each index and watc
 
 1. **A small public Java repository** (S tier): the Lambda path, the ledger, the state machine and the viewer. A failure
    `snapshot id does not match this build` means the web release and the indexer image came from different commits: the
-   build makes both from one commit and checks them, so redeploy both from one build.
+   build makes both from one commit and the precheck compares them, so `deploy.sh infra` and `./ops ship` the same commit.
 2. **`BroadleafCommerce/BroadleafCommerce`** (M tier): a realistic size on Lambda.
 3. **One L or XL repository**: the Fargate path, the large slot and the retier loop.
 
@@ -273,26 +283,27 @@ execution `FAILED` with an error named after a code (`slot-wait-timeout`, `runti
 `/repohive/fargate/indexer`, `/aws/vendedlogs/states/repohive-index`, `/repohive/box/web`, `/repohive/box/server`,
 `/repohive/box/caddy` (visitor IPs), `/repohive/box/heartbeat`. Metrics: namespace `RepoHIVE/Hosted`.
 
-**A shell on the box** (no SSH): `aws ssm start-session --target <box_instance_id>`.
+**A shell on the box** (no SSH): `./ops shell`. **Status and logs:** `./ops status`, `./ops logs [-f] [-n N]`.
 
-**Deploy a new version:** commit, push, then `deploy.sh build`, `deploy.sh infra --plan-only` / `--apply-saved` (only needed
-when the indexer image or the Terraform changed; the plan says so), `deploy.sh app`.
+**Deploy a new version:** commit, push, `./ops ship`. When the precheck says the indexer image is behind (or the Terraform
+changed), `deploy.sh infra --plan-only` / `--apply-saved` in between, then `./ops ship` again.
 
-**Roll back the app:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/rollback-app.sh`. It switches to the newest other release;
-rolling back twice returns to the release you left.
+**Roll back the app:** `./ops rollback [sha12]` ships a kept release again (default: the newest one that is not live);
+`./ops releases` lists them. The precheck still applies: rolling back across an indexer change needs `deploy.sh infra`
+for that commit too.
 
 **Restore SQLite from `backup/`:** `packages/server/README.md`, "Restore": in a Session Manager shell stop `repohive-web` and
 `repohive-server`, copy the chosen object from `s3://<artifact bucket>/backup/` over `/var/lib/repohive/data/app.sqlite`, start
 both.
 
 **Rotate the origin secret:** `REPOHIVE_ACCOUNT=<name> deploy/scripts/deploy.sh infra --plan-only
--replace=random_password.origin_secret`, apply it, then `deploy.sh app` so Caddy reads the new value. Expect brief 403s while
+-replace=random_password.origin_secret`, apply it, then `./ops ship` the live commit so Caddy reads the new value. Expect brief 403s while
 CloudFront rolls the header out.
 
 **Replace the box without losing the data volume:** the volume has `prevent_destroy`. In a protected account, first apply
 once with termination protection off (`deploy.sh infra --plan-only -var=protect=false`, which also lifts the table's deletion
 protection for that apply), then `deploy.sh infra --plan-only -replace=aws_instance.box`, then a normal apply to turn
-protection back on. Re-run Section 9. Caddy's certificate lives on the data volume and survives.
+protection back on. Re-run Section 9 (`./ops ship`). Caddy's certificate lives on the data volume and survives.
 
 ## 12. Post-ship measurement
 

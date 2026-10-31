@@ -36,10 +36,6 @@ write_files:
     permissions: "0755"
     encoding: gz+b64
     content: ${script_first_boot}
-  - path: /usr/local/sbin/repohive-activate
-    permissions: "0755"
-    encoding: gz+b64
-    content: ${script_activate}
   - path: /usr/local/sbin/repohive-heartbeat
     permissions: "0755"
     encoding: gz+b64

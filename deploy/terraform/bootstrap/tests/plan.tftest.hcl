@@ -41,9 +41,9 @@ override_resource {
 run "plan" {
   command = plan
 
-  # The main root's locals derive the same two bucket names; they must agree.
+  # The main root's locals derive the same bucket names; they must agree.
   assert {
-    condition     = aws_s3_bucket.state.bucket == "repohive-tfstate-123456789012" && aws_s3_bucket.ops.bucket == "repohive-ops-123456789012"
+    condition     = aws_s3_bucket.state.bucket == "repohive-tfstate-123456789012" && aws_s3_bucket.ops.bucket == "repohive-ops-123456789012" && aws_s3_bucket.deploy.bucket == "repohive-deploy-123456789012"
     error_message = "The bootstrap bucket names no longer match the main root's locals."
   }
 
@@ -52,12 +52,12 @@ run "plan" {
     error_message = "The ECR repository name no longer matches the main root and push-indexer-image.sh."
   }
 
-  # The build workflow derives this name from the account id; only this repository's environment may assume it.
+  # The deploy workflow derives this name from the account id; only this repository's deploy branch may assume it.
   assert {
-    condition = aws_iam_role.github_build.name == "repohive-github-build" && strcontains(
-      data.aws_iam_policy_document.github_build_assume.json, "repo:example/repohive:environment:prod"
+    condition = aws_iam_role.github_deploy.name == "repohive-github-deploy" && strcontains(
+      data.aws_iam_policy_document.github_deploy_assume.json, "repo:example/repohive:ref:refs/heads/deploy"
     )
-    error_message = "The GitHub build role's name or trusted subject changed."
+    error_message = "The GitHub deploy role's name or trusted subject changed."
   }
 
   assert {
@@ -66,8 +66,8 @@ run "plan" {
   }
 
   assert {
-    condition     = aws_ecr_repository.indexer.force_delete == false && aws_s3_bucket.ops.force_destroy == false
-    error_message = "A protected account must not let a destroy delete the registry or the ops bucket with content."
+    condition     = aws_ecr_repository.indexer.force_delete == false && aws_s3_bucket.ops.force_destroy == false && aws_s3_bucket.deploy.force_destroy == false
+    error_message = "A protected account must not let a destroy delete the registry, the ops bucket or the deploy bucket with content."
   }
 }
 
@@ -85,8 +85,8 @@ run "unprotected_with_existing_provider" {
   }
 
   assert {
-    condition     = aws_ecr_repository.indexer.force_delete == true && aws_s3_bucket.ops.force_destroy == true
-    error_message = "An unprotected account lets a destroy delete the registry and the ops bucket."
+    condition     = aws_ecr_repository.indexer.force_delete == true && aws_s3_bucket.ops.force_destroy == true && aws_s3_bucket.deploy.force_destroy == true
+    error_message = "An unprotected account lets a destroy delete the registry, the ops bucket and the deploy bucket."
   }
 }
 
@@ -99,8 +99,8 @@ run "immutable_subject" {
 
   # A repository with immutable subjects: the role trusts the id form, not the name form.
   assert {
-    condition = strcontains(data.aws_iam_policy_document.github_build_assume.json, "repo:example@1/repohive@2:environment:prod") && !strcontains(
-      data.aws_iam_policy_document.github_build_assume.json, "repo:example/repohive:environment"
+    condition = strcontains(data.aws_iam_policy_document.github_deploy_assume.json, "repo:example@1/repohive@2:ref:refs/heads/deploy") && !strcontains(
+      data.aws_iam_policy_document.github_deploy_assume.json, "repo:example/repohive:ref"
     )
     error_message = "The role must trust the subject prefix GitHub issues for the repository."
   }

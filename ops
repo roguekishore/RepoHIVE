@@ -1,0 +1,258 @@
+#!/bin/bash
+#
+# ./ops — ship and look after a unit (shared, byte-identical in every unit; contract: DEPLOY-SPEC.md section 10).
+#
+#   ./ops ship [ref]          push <ref> (default HEAD) to the deploy branch and watch the deploy run
+#   ./ops rollback [sha12]    ship a kept release again (default: the newest one that is not live)
+#   ./ops releases            the releases kept in the bucket; * marks the live one
+#   ./ops status              live release, the last 3 deploy runs, the box's own status
+#   ./ops logs [-f] [-n N]    the journal of the ship role's services
+#   ./ops shell [name]        Session Manager shell on an instance (default the first)
+#   ./ops doctor              this machine's tools and files; no AWS calls
+#
+# Everything unit-specific comes from deploy/ops.env. AWS credentials come only from
+# ~/.ops/<unit>.csv (the IAM console's access key CSV of the <unit>-ops user).
+set -euo pipefail
+export MSYS_NO_PATHCONV=1 PYTHONUTF8=1 PYTHONIOENCODING=utf-8
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+# shellcheck disable=SC1091
+. deploy/ops.env
+
+say() { echo "[ops] $*" >&2; }
+die() { echo "[ops] ERROR: $*" >&2; exit 1; }
+
+usage() {
+  sed -n '5,11p' "$ROOT/ops" | sed 's/^#  //' >&2
+  exit 2
+}
+
+CSV="$HOME/.ops/$UNIT.csv"
+ACCOUNT=""
+
+# Reads the access key CSV by its header names, so the console's longer export works too.
+# Prints "<key id> <secret>".
+read_csv() {
+  [[ -f "$CSV" ]] || return 1
+  tr -d '\r' < "$CSV" | awk -F, '
+    NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "Access key ID") k = i; if ($i == "Secret access key") s = i } next }
+    NR == 2 && k && s && $k != "" && $s != "" { print $k, $s; found = 1 }
+    END { exit found ? 0 : 1 }'
+}
+
+aws_login() {
+  local pair key secret
+  pair="$(read_csv)" || die "cannot read an access key from $CSV (header: Access key ID,Secret access key)"
+  read -r key secret <<< "$pair"
+  unset AWS_PROFILE AWS_SESSION_TOKEN AWS_DEFAULT_PROFILE
+  export AWS_ACCESS_KEY_ID="$key" AWS_SECRET_ACCESS_KEY="$secret" AWS_REGION="$REGION" AWS_DEFAULT_REGION="$REGION"
+  ACCOUNT="$(aws sts get-caller-identity --query Account --output text)" || die "the key in $CSV was refused"
+  say "aws: $UNIT-ops in account ********${ACCOUNT: -4}"
+}
+
+bucket() { echo "$UNIT-deploy-$ACCOUNT"; }
+
+live_release() {
+  aws ssm get-parameter --name "/$UNIT/release" --query Parameter.Value --output text 2>/dev/null || true
+}
+
+# name=i-… pairs from /<unit>/instances; prints "name id" lines in order.
+instances() {
+  local raw
+  raw="$(aws ssm get-parameter --name "/$UNIT/instances" --query Parameter.Value --output text)" \
+    || die "cannot read /$UNIT/instances"
+  tr ',' '\n' <<< "$raw" | awk -F= 'NF == 2 { print $1, $2 }'
+}
+
+instance_of() { # instance_of <name>
+  local id
+  id="$(instances | awk -v n="$1" '$1 == n { print $2; exit }')"
+  [[ -n "$id" ]] || die "no instance named '$1' in /$UNIT/instances"
+  echo "$id"
+}
+
+interactive() {
+  if [[ -n "${MSYSTEM:-}" ]] && command -v winpty >/dev/null 2>&1; then winpty "$@"; else "$@"; fi
+}
+
+# Runs one of the unit's SSM documents on the ship instance and prints its output.
+run_document() { # run_document <document> [parameters-json]
+  local doc="$1" params="${2:-}" id cmd_id status
+  id="$(instance_of "$SHIP_ROLE")"
+  if [[ -n "$params" ]]; then
+    cmd_id="$(aws ssm send-command --instance-ids "$id" --document-name "$doc" --parameters "$params" \
+      --query Command.CommandId --output text)"
+  else
+    cmd_id="$(aws ssm send-command --instance-ids "$id" --document-name "$doc" \
+      --query Command.CommandId --output text)"
+  fi
+  for _ in $(seq 1 60); do
+    sleep 2
+    status="$(aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$id" \
+      --query Status --output text 2>/dev/null || echo Pending)"
+    case "$status" in Pending|InProgress|Delayed) continue ;; *) break ;; esac
+  done
+  aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$id" \
+    --query StandardOutputContent --output text
+  if [[ "$status" != Success ]]; then
+    aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$id" \
+      --query StandardErrorContent --output text >&2
+    die "$doc on $id: $status"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+cmd_ship() {
+  local ref="${1:-HEAD}" sha remote before id="" _
+  sha="$(git rev-parse --verify "$ref^{commit}")" || die "no commit '$ref'"
+  [[ -z "$(git status --porcelain)" ]] || say "warning: the working tree is dirty; this ships the commit, not your edits"
+
+  # Runs of this sha that exist already, so the new one is told apart without trusting clocks.
+  before="$(gh run list --repo "$REPO" --workflow deploy.yml --limit 50 \
+    --json databaseId,headSha --jq ".[] | select(.headSha == \"$sha\") | .databaseId" 2>/dev/null || true)"
+
+  remote="$(git ls-remote origin refs/heads/deploy | cut -f1)"
+  if [[ "$remote" == "$sha" ]]; then
+    say "deploy is already at ${sha:0:12}; starting the workflow again"
+    gh workflow run deploy.yml --ref deploy --repo "$REPO"
+  else
+    say "pushing ${sha:0:12} to deploy"
+    git push -f origin "$sha:refs/heads/deploy"
+  fi
+
+  for _ in $(seq 1 30); do
+    sleep 2
+    id="$(gh run list --repo "$REPO" --workflow deploy.yml --limit 20 \
+      --json databaseId,headSha --jq ".[] | select(.headSha == \"$sha\") | .databaseId" 2>/dev/null \
+      | grep -vxF -f <(printf '%s\n' "$before" | sed '/^$/d'; echo 0) | head -n 1 || true)"
+    [[ -n "$id" ]] && break
+  done
+  [[ -n "$id" ]] || die "no deploy run for ${sha:0:12} appeared within 60 s (gh run list --repo $REPO --workflow deploy.yml)"
+
+  say "watching run $id"
+  local code=0
+  gh run watch "$id" --repo "$REPO" --exit-status --interval 10 || code=$?
+  gh run view "$id" --repo "$REPO" || true
+  (( code == 0 )) || die "the deploy of ${sha:0:12} did not succeed (run $id)"
+  say "${sha:0:12} is live"
+}
+
+# Prints "sha12 date size" lines of the kept releases, newest first.
+list_releases() {
+  aws s3api list-objects-v2 --bucket "$(bucket)" --prefix releases/ \
+    --query 'Contents[].[LastModified,Key,Size]' --output text \
+  | awk '$2 ~ /^releases\/[0-9a-f]{12}\.tar\.gz$/ { sub(/^releases\//, "", $2); sub(/\.tar\.gz$/, "", $2); print $1, $2, $3 }' \
+  | sort -r | awk '{ print $2, $1, $3 }'
+}
+
+cmd_releases() {
+  local live
+  live="$(live_release)"
+  list_releases | while read -r sha date size; do
+    printf '%s %s  %s  %6.1f MB\n' "$([[ "$sha" == "$live" ]] && echo '*' || echo ' ')" "$sha" "$date" \
+      "$(awk -v s="$size" 'BEGIN { print s / 1048576 }')"
+  done
+}
+
+cmd_rollback() {
+  local target="${1:-}" live full
+  live="$(live_release)"
+  cmd_releases
+  if [[ -z "$target" ]]; then
+    target="$(list_releases | awk -v live="$live" '$1 != live { print $1; exit }')"
+    [[ -n "$target" ]] || die "no kept release other than the live one"
+  fi
+  [[ "$target" =~ ^[0-9a-f]{7,40}$ ]] || die "'$target' is not a sha"
+  full="$(git rev-parse --verify --quiet "$target^{commit}")" \
+    || die "$target is not a commit in this clone (git fetch, then try again)"
+  say "rolling back to ${full:0:12}"
+  cmd_ship "$full"
+}
+
+cmd_status() {
+  local live
+  live="$(live_release)"
+  echo "live: ${live:-none}"
+  echo
+  gh run list --repo "$REPO" --workflow deploy.yml --limit 3 || say "warning: gh run list failed"
+  echo
+  run_document "$UNIT-status"
+}
+
+cmd_logs() {
+  local follow=false lines=200 services_var units="" svc
+  while (( $# )); do
+    case "$1" in
+      -f) follow=true ;;
+      -n) (( $# >= 2 )) || usage; shift; lines="$1" ;;
+      *) usage ;;
+    esac
+    shift
+  done
+  [[ "$lines" =~ ^[0-9]{1,4}$ ]] || die "-n takes a number up to 9999"
+  if [[ "$follow" == true ]]; then
+    services_var="SERVICES_$SHIP_ROLE"
+    for svc in ${!services_var}; do units+=" -u $svc"; done
+    interactive aws ssm start-session --target "$(instance_of "$SHIP_ROLE")" \
+      --document-name AWS-StartInteractiveCommand --parameters "command=journalctl -f$units"
+  else
+    run_document "$UNIT-logs" "{\"lines\":[\"$lines\"]}"
+  fi
+}
+
+cmd_shell() {
+  local name="${1:-}" id
+  if [[ -z "$name" ]]; then
+    id="$(instances | awk 'NR == 1 { print $2 }')"
+    [[ -n "$id" ]] || die "/$UNIT/instances lists no instance"
+  else
+    id="$(instance_of "$name")"
+  fi
+  interactive aws ssm start-session --target "$id"
+}
+
+cmd_doctor() {
+  local failed=0 b key role master f services_var health_var
+  ok()  { printf '  ok    %s\n' "$*"; }
+  bad() { printf '  FAIL  %s\n' "$*"; failed=1; }
+
+  for b in git gh aws session-manager-plugin jq; do
+    if command -v "$b" >/dev/null 2>&1; then ok "$b"; else bad "$b is not on PATH"; fi
+  done
+  if gh auth status >/dev/null 2>&1; then ok "gh is logged in"; else bad "gh is not logged in (gh auth login)"; fi
+  if read_csv >/dev/null; then ok "$CSV"; else bad "$CSV is missing or has no 'Access key ID,Secret access key' row"; fi
+
+  for key in UNIT REGION SHIP_ROLE HEALTH_SECONDS REPO NODE_VERSION; do
+    if grep -q "^$key=" deploy/ops.env; then ok "ops.env $key"; else bad "deploy/ops.env lacks $key"; fi
+  done
+  for role in $(grep -oE '^SERVICES_[a-z0-9_]+' deploy/ops.env | sed 's/^SERVICES_//'); do
+    services_var="SERVICES_$role" health_var="HEALTH_$role"
+    if [[ -n "${!services_var:-}" && -n "${!health_var:-}" ]]; then ok "ops.env role $role"; else bad "deploy/ops.env: role $role needs SERVICES_$role and HEALTH_$role"; fi
+  done
+  services_var="SERVICES_$SHIP_ROLE"
+  [[ -n "${!services_var:-}" ]] || bad "deploy/ops.env: SHIP_ROLE=$SHIP_ROLE has no SERVICES_$SHIP_ROLE"
+
+  master="${OPS_MASTER:-$ROOT/../PROSPECTOR}"
+  for f in ops .github/workflows/deploy.yml deploy/activate.sh; do
+    if [[ ! -f "$master/$f" ]]; then bad "no master copy $master/$f"
+    elif [[ "$(sha256sum < "$f")" == "$(sha256sum < "$master/$f")" ]]; then ok "$f matches $master"
+    else bad "$f differs from $master/$f"; fi
+  done
+
+  (( failed == 0 )) && echo "doctor: all good" || { echo "doctor: fix the FAIL lines"; exit 1; }
+}
+
+# ---------------------------------------------------------------------------
+cmd="${1:-}"
+(( $# )) && shift
+case "$cmd" in
+  ship)     (( $# <= 1 )) || usage; cmd_ship "$@" ;;
+  rollback) (( $# <= 1 )) || usage; aws_login; cmd_rollback "$@" ;;
+  releases) (( $# == 0 )) || usage; aws_login; cmd_releases ;;
+  status)   (( $# == 0 )) || usage; aws_login; cmd_status ;;
+  logs)     aws_login; cmd_logs "$@" ;;
+  shell)    (( $# <= 1 )) || usage; aws_login; cmd_shell "$@" ;;
+  doctor)   (( $# == 0 )) || usage; cmd_doctor ;;
+  *)        usage ;;
+esac
