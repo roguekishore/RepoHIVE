@@ -100,8 +100,8 @@ jobs:
       - name: Find the instance
         run: |
           ids="$(aws ssm describe-instance-information \
-            --filters "Key=tag:deploy-$UNIT,Values=true" "Key=PingStatus,Values=Online" \
-            --query 'InstanceInformationList[].InstanceId' --output text)"
+            --filters "Key=tag:deploy-$UNIT,Values=true" \
+            --query "InstanceInformationList[?PingStatus=='Online'].InstanceId" --output text)"
           read -ra found <<< "$ids"
           if (( ${#found[@]} == 0 )); then echo "::error::no online instance tagged deploy-$UNIT=true"; exit 1; fi
           if (( ${#found[@]} > 1 )); then echo "::error::more than one online instance tagged deploy-$UNIT=true: ${found[*]}"; exit 1; fi
@@ -116,7 +116,7 @@ jobs:
             --arg extract "{ tar -xzOf $tarball deploy/activate.sh 2>/dev/null || tar -xzOf $tarball ./deploy/activate.sh; } > $script" \
             --arg clean "rm -f $tarball" \
             --arg run "bash $script $SHA12 $BUCKET $SHIP_ROLE" \
-            '{commands: ["set -eo pipefail", $get, $extract, $clean, $run], executionTimeout: ["3600"]}')"
+            '{commands: ["set -e", $get, $extract, $clean, $run], executionTimeout: ["3600"]}')"
           cmd_id="$(aws ssm send-command --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript --timeout-seconds 3600 \
             --comment "$UNIT $SHA12" --parameters "$params" \
