@@ -25,3 +25,19 @@ install_from_release() {
 }
 
 install_from_release "${RELEASE_DIR}"
+
+# The box runs exactly the app units this release ships: any other repohive-*.service is stopped, disabled and removed
+# (repohive-worker gave way to repohive-server), and each shipped unit with an [Install] section starts at boot. The
+# same file, seeded into a release from before ./ops, makes a switch back to it restore that release's units.
+for unit in /etc/systemd/system/repohive-*.service; do
+  [[ -e "${unit}" ]] || continue
+  name="$(basename "${unit}")"
+  [[ "${name}" == "${UNIT:-repohive}-catchup.service" || -f "${RELEASE_DIR}/box/systemd/${name}" ]] && continue
+  systemctl disable --now "${name}" >/dev/null 2>&1 || true
+  rm -f -- "${unit}"
+done
+systemctl daemon-reload
+for unit in "${RELEASE_DIR}"/box/systemd/*.service; do
+  grep -q '^WantedBy=' "${unit}" || continue
+  systemctl enable "$(basename "${unit}")" >/dev/null 2>&1
+done
