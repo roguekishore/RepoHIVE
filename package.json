@@ -17,7 +17,7 @@
   },
   "license": "AGPL-3.0-or-later",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "devDependencies": {
     "@types/node": "20.19.9",

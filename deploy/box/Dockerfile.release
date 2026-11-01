@@ -11,7 +11,7 @@
 # been built; the first build is the first Linux check of the standalone output (see verify-app-tree.sh).
 
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
-ARG GO_IMAGE=golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d
+ARG GO_IMAGE=golang:1.27-bookworm@sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9
 
 # --- Caddy: 2.11.6 with its two modules, built by a pinned xcaddy -------------------
 FROM --platform=linux/arm64 ${GO_IMAGE} AS caddy

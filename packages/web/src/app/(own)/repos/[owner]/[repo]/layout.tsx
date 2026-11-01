@@ -12,7 +12,7 @@ interface RepoLayoutProps {
  * The repository layout. The frame, with its repository
  * navigation, comes from the group layout, which reads the repository from the path. This adds the repository's
  * `SnapshotState`, read with `useRepository`. Names GitHub would not allow are a 404, as in the old layout (the
- * middleware answers them first, and redirects uppercase names).
+ * `proxy.ts` answers them first, and redirects uppercase names).
  */
 export default async function RepoLayout({ children, params }: RepoLayoutProps) {
   const { owner, repo } = await params;

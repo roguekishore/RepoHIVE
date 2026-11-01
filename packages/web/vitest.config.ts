@@ -13,7 +13,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "node",
-          include: ["src/middleware.test.ts", "src/features/host/translation-contract.test.ts"],
+          include: ["src/proxy.test.ts", "src/features/host/translation-contract.test.ts"],
         },
       },
       {

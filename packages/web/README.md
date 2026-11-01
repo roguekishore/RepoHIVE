@@ -29,7 +29,7 @@ src/
 scripts/        baseline and fidelity capture
 ```
 
-Tests sit next to the code they cover. `vitest.config.ts` runs two projects: `node` for the middleware and the translation-contract test (the browser
+Tests sit next to the code they cover. `vitest.config.ts` runs two projects: `node` for `proxy.ts` and the translation-contract test (the browser
 client against the server's real handlers), and `client` (jsdom) for everything else.
 
 ## Routes
