@@ -7,10 +7,10 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_REPO_VIEW } from "@repohive/design/contracts";
-import { config, middleware } from "./middleware";
+import { config, proxy } from "./proxy";
 
 function run(url: string, headers: Record<string, string> = {}) {
-  return middleware(new NextRequest(url, { headers }));
+  return proxy(new NextRequest(url, { headers }));
 }
 
 describe("repo URL rules", () => {

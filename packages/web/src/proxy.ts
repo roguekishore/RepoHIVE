@@ -32,12 +32,12 @@ function publicOrigin(request: NextRequest): string {
   }
 }
 
-/** A redirect to another path on the same site, keeping the query. The middleware adapter needs an absolute `Location`. */
+/** A redirect to another path on the same site, keeping the query. The `proxy.ts` adapter needs an absolute `Location`. */
 function redirectTo(request: NextRequest, pathname: string, status: 307 | 308) {
   return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, publicOrigin(request)), status);
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const segments = request.nextUrl.pathname.split("/");
   // ["", "repos", owner, repo, ...surface]
   const owner = segments[2] ?? "";
