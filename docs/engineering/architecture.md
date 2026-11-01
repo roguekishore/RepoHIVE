@@ -183,7 +183,7 @@ the allowance and the palette's repositories around the app frame.
 Pages: `/` (the landing with the film), `/repos` (the dashboard), `/activity`, `/method`, `/account`,
 `/auth/sign-in`, `/auth/sign-up`, `/jobs/[jobId]`, and under `/repos/[owner]/[repo]/`: `overview` (the default),
 `knowledge-graph` (the Map), `hierarchy`, `decision-audit`, `architecture`, `flat-baseline`, `adaptivity`, `circles`.
-The middleware redirects `/repos/[owner]/[repo]` to `DEFAULT_REPO_VIEW` (`overview`, one constant shared with the job
+`proxy.ts` (Next.js middleware) redirects `/repos/[owner]/[repo]` to `DEFAULT_REPO_VIEW` (`overview`, one constant shared with the job
 link) and lowercases the repository in the URL.
 
 Route handlers: `/api/auth/{session,sign-in,sign-up,sign-out}`, `/api/index`, `/api/jobs/[jobId]` and

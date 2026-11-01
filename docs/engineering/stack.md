@@ -59,7 +59,7 @@ Exact pins in `packages/indexer/package.json`.
 ## Viewer dependencies
 
 In `packages/server`: `@aws-sdk/client-dynamodb`, `@aws-sdk/client-s3` and `@aws-sdk/client-sfn` at `3.1144.0`
-(hosted store, ledger and Step Functions orchestrator). In `packages/web`: `@repohive/design`, `next ~15.5.21`, `react ^19.0.0`,
+(hosted store, ledger and Step Functions orchestrator). In `packages/web`: `@repohive/design`, `next ~16.3.8`, `react ^19.0.0`,
 `react-dom ^19.0.0` and `geist ^1.3.0` (Geist Mono). Host Grotesk is loaded through `next/font/google`, so a build needs
 network. That is the whole runtime list: the UI rewrite removed Tailwind, the Radix primitives, `swr`, `nuqs`,
 `lucide-react`, `next-themes`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@tanstack/react-virtual`, `sigma`,
@@ -68,7 +68,7 @@ network. That is the whole runtime list: the UI rewrite removed Tailwind, the Ra
 In `packages/design`: `@repohive/views` (types only) and `react` and `react-dom` as peer dependencies. It has no
 styling, icon, state or canvas library; the icons, components and canvases are its own code.
 Tests: **Vitest** (`^4.1.5`) with Testing Library. In `web` it runs two projects: `server` on Node for `src/server` and
-the middleware, `client` on jsdom for the rest. `design` runs on jsdom after `tsc --noEmit`. `@types/node` is `20.19.9` at the root and `^22` in `web`.
+`proxy.ts`, `client` on jsdom for the rest. `design` runs on jsdom after `tsc --noEmit`. `@types/node` is `20.19.9` at the root and `^22` in `web`.
 
 The root still lists `shadcn ^4.12.0` in `devDependencies`, but its `components.json` is gone and nothing imports it, so
 it is a leftover to drop.
@@ -119,7 +119,7 @@ Run against an AWS account with that account's credentials in the profile `repoh
 | `github.com/mholt/caddy-ratelimit` | v0.1.0 | Apache-2.0 |
 | `github.com/xcaddyplugins/caddy-trusted-cloudfront` | v0.0.0-20240604042247-0a0864e80f1c (commit 0a0864e, no tagged release) | MIT |
 | Node on the box and in the release build | 24.21.0, the binary of `node:24.21.0-bookworm-slim` | MIT |
-| Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.26-bookworm@sha256:a688600c…` (index digests read from Docker Hub) | Node MIT; Go BSD-3-Clause |
+| Release build images (`deploy/box/Dockerfile.release`) | `node:24.21.0-bookworm-slim@sha256:0e0ff40c…`, `golang:1.27-bookworm@sha256:d9b6a1be…` (index digests read from Docker Hub) | Node MIT; Go BSD-3-Clause |
 | Box OS | Amazon Linux 2023 arm64, newest AMI from the public SSM parameter at first apply (`ami` is not tracked afterwards) | |
 
 The indexer image's base images (`public.ecr.aws/...`) are **not** pinned by digest yet.
